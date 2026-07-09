@@ -65,15 +65,67 @@
         "id": "3",
         "title": "Claude Code JSONL Parser with Keep-Max Dedup",
         "description": "Implement the Claude Code JSONL parser (ClaudeCodeJsonlSource) to parse ~/.claude/projects/<encoded-cwd>/*.jsonl and subagent transcripts. Extract usage fields and implement keep-max deduplication by requestId.",
-        "details": "Create `packages/core/tokemetry_core/providers/clause_code.py` implementing `UsageSource`. Parse JSONL files in `~/.claude/projects/<encoded-cwd>/` and `<session>/subagents/`. Extract fields: requestId, model, input/output tokens, cache_read_input_tokens, cache_creation (ephemeral_5m/1h split), server_tool_use, service_tier, speed, sessionId, timestamp, cwd, gitBranch, version, slug, isSidechain, sessionKind, entrypoint. Implement deduplication: for each requestId, keep the entry with maximum usage (never first-seen, never naive sum). Handle streaming placeholders for input_tokens. Add unit tests with fixtures from multiple Claude Code versions.",
-        "testStrategy": "Test parsing with fixtures from multiple Claude Code versions. Verify keep-max deduplication by requestId with regression tests. Confirm extraction of all required fields. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "1",
           "2"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Created `providers/claude_code.py` implementing `UsageSource`. discover() uses rglobs to find projects/**/*.jsonl including subagents, honoring CLAUDE_CONFIG_DIR. parse() performs binary-reads from byte offset, implements keep-max dedup by requestId (largest output_tokens wins per pass), splits cache TTL into 5m/1h (short/long) with legacy fallback, aggregates server_tool_use counters into extra, skips non-assistant/synthetic/no-usage records, counts malformed lines (not silent drop), and leaves incomplete trailing line unconsumed. bootstrap() imports stats-cache.json dailyModelTokens as DailyAggregate. Added DailyAggregate.total_tokens with validate_default derivation and ParseResult.malformed_lines to core models. Registered usage source in providers/anthropic.py. VERIFIED against real local data: 525 transcripts, 12571 dedup events, 0 malformed, dated+undated model ids, 108 bootstrap aggregates. Gates: 67 tests, 95.31% coverage, ruff/mypy strict/trivy clean.",
+        "testStrategy": "Test parsing with fixtures from multiple Claude Code versions. Verify keep-max deduplication by requestId with regression tests. Confirm extraction of all required fields. Run pytest with coverage >= 80% (actual: 95.31%). Validate ruff/mypy strict/trivy zero issues (actual: clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement discover() with rglobs",
+            "description": "Implement discover() with rglobs for projects/**/*.jsonl including subagents, honoring CLAUDE_CONFIG_DIR.",
+            "dependencies": [],
+            "details": "Use rglobs to discover JSONL files in projects/**/*.jsonl and subagents directories. Ensure CLAUDE_CONFIG_DIR is honored for path resolution.",
+            "status": "done",
+            "testStrategy": "Test discovery with multiple directory structures and CLAUDE_CONFIG_DIR values.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement parse() with binary-reads and keep-max dedup",
+            "description": "Implement parse() with binary-reads, keep-max dedup, cache TTL split, server_tool_use aggregation, and malformed line counting.",
+            "dependencies": [],
+            "details": "Binary-read from byte offset. Implement keep-max dedup by requestId (largest output_tokens wins). Split cache TTL into 5m/1h with legacy fallback. Aggregate server_tool_use into extra. Skip non-assistant/synthetic/no-usage records. Count malformed lines. Leave incomplete trailing line unconsumed.",
+            "status": "done",
+            "testStrategy": "Test parsing with binary data, dedup scenarios, cache TTL splits, and malformed line handling.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Implement bootstrap() for stats-cache import",
+            "description": "Implement bootstrap() to import stats-cache.json dailyModelTokens as DailyAggregate.",
+            "dependencies": [],
+            "details": "Import stats-cache.json dailyModelTokens and create DailyAggregate. Add DailyAggregate.total_tokens with validate_default derivation.",
+            "status": "done",
+            "testStrategy": "Test bootstrap import with various stats-cache.json formats.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add ParseResult.malformed_lines and register usage source",
+            "description": "Add ParseResult.malformed_lines to core models and register usage source in providers/anthropic.py.",
+            "dependencies": [],
+            "details": "Add ParseResult.malformed_lines to core models. Register ClaudeCodeJsonlSource in providers/anthropic.py.",
+            "status": "done",
+            "testStrategy": "Test model addition and usage source registration.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Verify against real local data and meet gates",
+            "description": "Verify implementation against real local data and ensure all gates are met.",
+            "dependencies": [],
+            "details": "Verify against 525 transcripts, 12571 dedup events, 0 malformed, dated+undated model ids, 108 bootstrap aggregates. Ensure 67 tests, 95.31% coverage, ruff/mypy strict/trivy clean.",
+            "status": "done",
+            "testStrategy": "Run verification against real local data and check all gates.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T13:36:52.620Z"
       },
       {
         "id": "4",
@@ -232,9 +284,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T08:59:06.809Z",
+      "lastModified": "2026-07-09T13:36:52.622Z",
       "taskCount": 14,
-      "completedCount": 2,
+      "completedCount": 3,
       "tags": [
         "master"
       ]

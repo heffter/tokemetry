@@ -14,7 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 class Provenance(enum.StrEnum):
@@ -110,8 +110,28 @@ class DailyAggregate(_FrozenModel):
     cache_read_tokens: int = Field(ge=0, default=0)
     cache_write_short_tokens: int = Field(ge=0, default=0)
     cache_write_long_tokens: int = Field(ge=0, default=0)
+    total_tokens: int = Field(ge=0, default=0, validate_default=True)
     message_count: int = Field(ge=0, default=0)
     provenance: Provenance = Provenance.STATS_CACHE
+
+    @field_validator("total_tokens")
+    @classmethod
+    def _default_total(cls, value: int, info: ValidationInfo) -> int:
+        """Derive the total from the split fields when not given.
+
+        Some aggregate caches only publish per-day totals without an
+        input/output split; those sources set ``total_tokens`` directly and
+        leave the split fields at zero.
+        """
+        if value:
+            return value
+        return int(
+            info.data.get("input_tokens", 0)
+            + info.data.get("output_tokens", 0)
+            + info.data.get("cache_read_tokens", 0)
+            + info.data.get("cache_write_short_tokens", 0)
+            + info.data.get("cache_write_long_tokens", 0)
+        )
 
 
 class LimitSnapshot(_FrozenModel):
@@ -165,10 +185,13 @@ class ParseResult(_FrozenModel):
     ``new_offset`` is the byte position the next parse should resume from;
     it is returned together with the events so the collector can persist
     both atomically (events queued and offset advanced, or neither).
+    ``malformed_lines`` counts records that could not be parsed -- surfaced
+    as a schema-drift indicator, never silently dropped.
     """
 
     events: tuple[UsageEvent, ...] = ()
     new_offset: int = Field(ge=0, default=0)
+    malformed_lines: int = Field(ge=0, default=0)
 
 
 class PriceRow(_FrozenModel):

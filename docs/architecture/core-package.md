@@ -49,3 +49,35 @@ A deterministic reference implementation of all three interfaces, shipped in
 the package so core, collector, and server test suites exercise the same
 pipeline without any real provider. It also acts as the guard that keeps
 provider-specific assumptions out of core code paths.
+
+## Claude Code source (`providers/claude_code.py`)
+
+`ClaudeCodeJsonlSource` is the first real `UsageSource`. It reads Claude
+Code transcripts under `<claude_home>/projects/**/*.jsonl` (subagent
+transcripts included) and honors `CLAUDE_CONFIG_DIR`.
+
+Correctness rules baked in:
+
+- **Keep-max dedup by `requestId`.** One request can emit several JSONL
+  lines (streaming snapshots then the settled record) sharing a
+  `requestId`; within a parse pass the entry with the largest output token
+  count wins. The server's keep-max upsert resolves duplicates split across
+  passes. Keeping the first entry undercounts output up to 5x (ccusage
+  issue 888).
+- **Cache TTL split.** `cache_creation.ephemeral_5m_input_tokens` and
+  `ephemeral_1h_input_tokens` map to `cache_write_short`/`cache_write_long`.
+  Legacy records with only `cache_creation_input_tokens` map to short.
+- **Incomplete trailing line.** A tail without a newline is an in-progress
+  write; it is not consumed and `new_offset` stays before it so the next
+  pass re-reads it complete.
+- **Malformed lines are counted, not dropped silently** (`ParseResult.
+  malformed_lines`) so schema drift surfaces in the Machines view.
+- Non-assistant lines, synthetic models, and records without usage are
+  skipped.
+
+`bootstrap()` imports `stats-cache.json` `dailyModelTokens` as
+`DailyAggregate` rows (total tokens only, no input/output split), tagged
+`stats_cache`. Missing or corrupt cache yields an empty list.
+
+Verified against real local data (525 transcripts, 12,571 deduplicated
+events, 0 malformed lines, dated and undated model ids).

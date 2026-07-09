@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 from tokemetry_core.models import (
+    DailyAggregate,
     LimitSnapshot,
     ParseResult,
     PriceRow,
@@ -72,6 +73,38 @@ class TestUsageEvent:
         assert event.provenance is Provenance.LOCAL_ESTIMATE
         assert event.total_tokens == 0
         assert event.is_sidechain is False
+
+
+class TestDailyAggregate:
+    """Bootstrap aggregate token totals."""
+
+    def test_total_derived_from_split_fields(self) -> None:
+        aggregate = DailyAggregate(
+            provider="anthropic",
+            day=date(2026, 6, 20),
+            native_model="claude-fable-5",
+            input_tokens=100,
+            output_tokens=50,
+            cache_read_tokens=1000,
+        )
+        assert aggregate.total_tokens == 1150
+
+    def test_explicit_total_kept_when_split_absent(self) -> None:
+        aggregate = DailyAggregate(
+            provider="anthropic",
+            day=date(2026, 6, 20),
+            native_model="claude-fable-5",
+            total_tokens=123456,
+        )
+        assert aggregate.total_tokens == 123456
+
+    def test_provenance_defaults_to_stats_cache(self) -> None:
+        aggregate = DailyAggregate(
+            provider="anthropic",
+            day=date(2026, 6, 20),
+            native_model="m",
+        )
+        assert aggregate.provenance is Provenance.STATS_CACHE
 
 
 class TestLimitSnapshot:

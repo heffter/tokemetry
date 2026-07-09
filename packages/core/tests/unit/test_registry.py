@@ -41,12 +41,13 @@ def test_unknown_provider_raises() -> None:
         registry.pricing("nope")
 
 
-def test_anthropic_registration_provides_pricing() -> None:
+def test_anthropic_registration_provides_pricing_and_usage_source() -> None:
     registry = ProviderRegistry()
     register_anthropic(registry)
 
     assert isinstance(registry.pricing("anthropic"), AnthropicPricingStrategy)
-    assert registry.usage_providers() == []
+    assert registry.usage_providers() == ["anthropic"]
+    assert registry.usage_source("anthropic").provider == "anthropic"
 
 
 def test_provider_listings() -> None:
