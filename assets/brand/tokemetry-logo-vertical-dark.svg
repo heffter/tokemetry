@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="tokemetry logo">
+  <defs>
+    <linearGradient id="tokemetry-accent" x1="0" y1="40" x2="340" y2="180" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#27D8F3"/><stop offset="1" stop-color="#45E08D"/></linearGradient>
+    <linearGradient id="tokemetry-frame" x1="95" y1="10" x2="330" y2="210" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#235F6C"/><stop offset="1" stop-color="#1A4950"/></linearGradient>
+  </defs>
+  <g transform="translate(320,120) scale(1.55)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M202 15 L305 74 L305 156 L202 215 L99 156 L99 74 Z" fill="none" stroke="url(#tokemetry-frame)" stroke-width="13" opacity="0.72"/>
+    <polygon points="70.85,125.50 44.00,141.00 17.15,125.50 17.15,94.50 44.00,79.00 70.85,94.50" fill="url(#tokemetry-accent)"/>
+    <polygon points="122.19,74.50 104.00,85.00 85.81,74.50 85.81,53.50 104.00,43.00 122.19,53.50" fill="url(#tokemetry-accent)" opacity="0.96"/>
+    <polygon points="122.19,162.50 104.00,173.00 85.81,162.50 85.81,141.50 104.00,131.00 122.19,141.50" fill="url(#tokemetry-accent)" opacity="0.96"/>
+    <path d="M76 110 C118 110 151 110 188 110" fill="none" stroke="url(#tokemetry-accent)" stroke-width="10"/>
+    <path d="M126 66 C143 70 145 90 166 91 C176 91 181 100 190 106" fill="none" stroke="url(#tokemetry-accent)" stroke-width="8.5"/>
+    <path d="M126 150 C145 145 148 128 168 127 C179 127 182 118 192 113" fill="none" stroke="url(#tokemetry-accent)" stroke-width="8.5"/>
+    <path d="M187 110 C197 110 204 110 211 110 L221 94 L233 123 L247 73 L265 142 L282 92 L298 110 L319 110" fill="none" stroke="url(#tokemetry-accent)" stroke-width="9.5"/>
+    <path d="M335 74 Q344 74 344 83 L344 157 Q344 166 335 166" fill="none" stroke="url(#tokemetry-accent)" stroke-width="8.5" opacity="0.96"/>
+  </g>
+  <text x="600" y="650" fill="#F5F7FA" text-anchor="middle" font-family="DejaVu Sans, Inter, Avenir Next, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="134" font-weight="600" letter-spacing="-4">tokemetry</text>
+  <polygon points="346.53,607.50 337.00,613.00 327.47,607.50 327.47,596.50 337.00,591.00 346.53,596.50" fill="url(#tokemetry-accent)"/>
+</svg>
