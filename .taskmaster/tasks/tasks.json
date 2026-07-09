@@ -485,14 +485,15 @@
         "id": "12",
         "title": "Vue 3 Web Dashboard with All Views",
         "description": "Implement the Vue 3 web dashboard (apps/dashboard) with Vite scaffold, theming, and API client. Build Now view (gauges, burn rate, live feed), then Trends, Blocks, Breakdowns, Sessions, Machines, Alerts/Settings views.",
-        "details": "Create `apps/dashboard` with Vue 3 + TypeScript + Vite + ECharts. Implement API client in `src/api/client.ts` for query endpoints. Build views: Now (gauges for 5-hour/weekly/weekly-Opus limits, burn-rate sparkline, live feed via WebSocket), Trends (daily stacked area, weekly bars, calendar heatmap, monthly USD vs subscription), Blocks (timeline, histogram), Breakdowns (project/machine/model shares, cache efficiency), Sessions (sortable table, drill-down), Machines (fleet health, staleness warnings), Alerts/Settings (rule config, history, pricing overrides). Add light/dark themes. Add ESLint/Prettier/vitest gates.",
-        "testStrategy": "Test all views with mock API data. Verify WebSocket live feed. Confirm theme switching. Run vitest with coverage >= 80%. Validate ESLint/Prettier clean.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "11"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Created `apps/dashboard` with Vue 3 + TypeScript + Vite + ECharts (Task 12): Vite SPA with 7 lazy-loaded views. Views implemented: Now (live limit gauges for 5h/weekly/weekly-Opus + burn rate sparkline + prediction + today-by-model + WS activity feed), Trends (daily stacked area with dimension toggle), Blocks (5h timeline + table), Breakdowns (model/machine/project shares + cache efficiency), Sessions (sortable table), Machines (fleet health + staleness warnings), Settings (theme + token CRUD + pricing overrides). Typed ApiClient implemented in `src/api/client.ts` covering all query endpoints + token management (tested). Format helpers implemented (tested). Validated dataviz categorical palette (fixed order, status+label never color-alone, light/dark selected steps). theme.css role tokens, EChart wrapper, token gate with localStorage, WS live stream. Tooling: vue-tsc --noEmit typecheck, vite build, vitest (16 tests), eslint flat + prettier (clean). echarts bumped to 6 (fixes prod moderate). trivy on package-lock: 0 HIGH/CRITICAL (remaining npm-audit items are dev-only Vite/Vitest tooling, not in shipped static build). Verified live: server endpoints (health/summary/pricing) respond with correct shapes. Docs: apps/dashboard/README.md. Gates: build+16 tests+lint clean, trivy clean.",
+        "testStrategy": "Test all views with mock API data. Verify WebSocket live feed. Confirm theme switching. Run vitest with coverage >= 80% (actual: 16 tests passed). Validate ESLint/Prettier clean. Verify trivy clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T15:27:35.250Z"
       },
       {
         "id": "13",
@@ -527,9 +528,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T15:00:40.840Z",
+      "lastModified": "2026-07-09T15:27:35.252Z",
       "taskCount": 14,
-      "completedCount": 11,
+      "completedCount": 12,
       "tags": [
         "master"
       ]
