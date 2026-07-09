@@ -116,3 +116,24 @@ def machine_upsert(dialect_name: str, table: Any, row: dict[str, Any]) -> Dialec
             "collector_version": excluded["collector_version"],
         },
     )
+
+
+#: Price columns replaced on a pricing conflict (everything but the grain).
+_PRICING_UPDATE_COLUMNS = (
+    "input_per_mtok",
+    "output_per_mtok",
+    "cache_read_per_mtok",
+    "cache_write_short_per_mtok",
+    "cache_write_long_per_mtok",
+    "source",
+)
+
+
+def pricing_upsert(dialect_name: str, table: Any, rows: list[dict[str, Any]]) -> DialectInsert:
+    """Build an upsert for price rows keyed on (provider, model, date)."""
+    stmt = _insert(dialect_name, table).values(rows)
+    excluded = stmt.excluded
+    return stmt.on_conflict_do_update(
+        index_elements=["provider", "model", "effective_date"],
+        set_={name: excluded[name] for name in _PRICING_UPDATE_COLUMNS},
+    )

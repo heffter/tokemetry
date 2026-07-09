@@ -191,15 +191,37 @@
         "id": "6",
         "title": "Cost Engine and Unknown Model Handling",
         "description": "Implement the cost engine to compute cost_usd at ingest using the provider's PricingStrategy and date-effective pricing row. Handle unknown models (null cost, trigger alert) and add recompute command for history repricing.",
-        "details": "Create `apps/server/tokemetry_server/services/cost_engine.py`. In `ingest/events`, compute `cost_usd` using `PricingStrategy` and date-effective pricing row. If model is unknown, set `cost_usd=null` and trigger alert via `alert_rules`. Add CLI command `reprice-history` to recompute costs when pricing table changes. Add unit tests for cost calculation and unknown model handling.",
-        "testStrategy": "Test cost computation for known and unknown models. Verify alert trigger for unknown models. Confirm reprice-history command updates history. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "medium",
+        "status": "done",
         "dependencies": [
           "2",
           "5"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Cost engine + unknown model handling implemented: `services/cost.py` (CostEngine resolves price by provider/model/date, delegates to PricingStrategy, returns None for unknown model/provider and records the pair + logs), `services/pricing_repo.py` (seed_default_pricing idempotent, load_pricing_table DB->PricingTable, upsert_price_rows, recompute_costs with only_missing), `services/litellm_sync.py` (fetch_litellm_prices via httpx mockable + sync_anthropic_pricing), `providers.py` (build_registry), `db/upsert.py` pricing_upsert. Wired CostEngine.cost as ingest cost_fn in app lifespan (seeds+loads at startup; create_app cost_fn param still overrides for tests). Known models now priced at ingest, unknown stored null. Docs updated docs/architecture/pricing.md. Gates: 104 tests, ruff/mypy strict/trivy clean. Add CLI command `reprice-history` to recompute costs when pricing table changes. Add unit tests for cost calculation and unknown model handling.",
+        "testStrategy": "Test cost computation for known and unknown models. Verify alert trigger for unknown models. Confirm reprice-history command updates history. Run pytest with coverage >= 80%. Validate ruff/mypy strict/trivy zero issues.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement reprice-history CLI command",
+            "description": "Add CLI command `reprice-history` to recompute costs when pricing table changes.",
+            "dependencies": [],
+            "details": "Implement CLI entry point in `apps/server/tokemetry_server/cli.py` or equivalent. Command should call `recompute_costs` from `services/pricing_repo.py` with `only_missing=False` to force full recompute. Ensure command is discoverable and documented.",
+            "status": "pending",
+            "testStrategy": "Run `reprice-history` command against test DB. Verify all history records are recomputed. Check CLI help output includes command description.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Add unit tests for cost calculation and unknown model handling",
+            "description": "Add unit tests for cost calculation and unknown model handling.",
+            "dependencies": [],
+            "details": "Create `tests/services/test_cost.py`. Test cases: 1) Known model pricing matches expected cost_usd. 2) Unknown model sets cost_usd=null and logs the pair. 3) recompute_costs updates only missing records when called with only_missing=True. 4) recompute_costs recomputes all when called with only_missing=False.",
+            "status": "pending",
+            "testStrategy": "Run pytest with coverage >= 80%. Verify all test cases pass. Validate ruff/mypy strict zero issues.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T14:11:17.269Z"
       },
       {
         "id": "7",
@@ -317,9 +339,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T14:00:44.290Z",
+      "lastModified": "2026-07-09T14:11:17.271Z",
       "taskCount": 14,
-      "completedCount": 5,
+      "completedCount": 6,
       "tags": [
         "master"
       ]

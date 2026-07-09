@@ -36,3 +36,23 @@ provider transcripts carry no cost figures.
 before the first LiteLLM sync. Newer models without any row are ingested
 with null cost and trigger the unknown-model alert; costs are backfilled by
 the recompute command after a sync supplies rates.
+
+## Server-side cost engine
+
+The database `pricing` table is the durable, Grafana-visible, overridable
+source of prices; at startup the server seeds it with the defaults, loads it
+into an in-memory `PricingTable`, and builds a `CostEngine`
+(`services/cost.py`). The engine's `cost(event)` is wired in as the ingest
+cost function, so every event is priced as it is stored.
+
+- Unknown model or provider (no price row / no strategy): `cost` returns
+  `None`, the event stores a null cost, and the `(provider, model)` pair is
+  recorded on the engine and logged for the alerting layer to surface.
+- `services/pricing_repo.py` provides `seed_default_pricing`,
+  `load_pricing_table`, `upsert_price_rows`, and `recompute_costs`
+  (reprice all events, or only those with a null cost after new prices
+  arrive).
+- `services/litellm_sync.py` fetches LiteLLM's price database
+  (`fetch_litellm_prices`, mockable) and upserts Anthropic rows with
+  `source='litellm'`; the in-memory table is rebuilt on the next startup or
+  an explicit reload.

@@ -113,9 +113,10 @@ class TestEventIngest:
         assert len(rows) == 1
         assert rows[0][0] == 648
 
-    def test_cost_is_null_without_cost_engine(
+    def test_unknown_model_cost_is_null(
         self, client: TestClient, auth: dict[str, str], read_engine: sa.Engine
     ) -> None:
+        # claude-fable-5 is not in the seeded default pricing table.
         client.post(
             "/api/v1/ingest/events",
             json={"machine": _MACHINE, "events": [_event("req_1")]},
@@ -124,6 +125,22 @@ class TestEventIngest:
         with read_engine.connect() as conn:
             cost = conn.execute(sa.text("SELECT cost_usd FROM usage_events")).scalar_one()
         assert cost is None
+
+    def test_known_model_cost_is_computed(
+        self, client: TestClient, auth: dict[str, str], read_engine: sa.Engine
+    ) -> None:
+        client.post(
+            "/api/v1/ingest/events",
+            json={
+                "machine": _MACHINE,
+                "events": [_event("req_1", native_model="claude-opus-4-5")],
+            },
+            headers=auth,
+        )
+        with read_engine.connect() as conn:
+            cost = conn.execute(sa.text("SELECT cost_usd FROM usage_events")).scalar_one()
+        assert cost is not None
+        assert float(cost) > 0
 
     def test_insane_token_count_rejected(
         self, client: TestClient, auth: dict[str, str]

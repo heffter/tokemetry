@@ -1,13 +1,16 @@
 """Shared server test fixtures: a TestClient over a temporary SQLite DB."""
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from tokemetry_server.app import create_app
 from tokemetry_server.config import Settings
+from tokemetry_server.db.migrate import upgrade_to_head
 
 #: Bootstrap token wired into the test app for authenticated requests.
 BOOTSTRAP_TOKEN = "tkm_test_bootstrap_token_value"
@@ -50,3 +53,16 @@ def read_engine(db_path: Path) -> Iterator[sa.Engine]:
         yield engine
     finally:
         engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def async_session(settings: Settings) -> AsyncIterator[AsyncSession]:
+    """An async session over a migrated temp DB for service-level tests."""
+    upgrade_to_head(settings.sync_database_url)
+    engine = create_async_engine(settings.database_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            yield session
+    finally:
+        await engine.dispose()
