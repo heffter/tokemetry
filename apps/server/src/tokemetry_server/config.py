@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     bind_host: str = Field(default="127.0.0.1")
     bind_port: int = Field(default=8787, ge=1, le=65535)
 
+    #: Optional bootstrap bearer token accepted in addition to database
+    #: tokens, so the first collector can authenticate before any token has
+    #: been minted through the API. Leave unset in steady state.
+    api_bootstrap_token: str | None = Field(default=None)
+
+    #: Run Alembic migrations to head on startup. Convenient for a
+    #: single-node deployment; disable to manage migrations out of band.
+    auto_migrate: bool = Field(default=True)
+
     @property
     def sync_database_url(self) -> str:
         """Return the database URL with a synchronous driver for Alembic."""

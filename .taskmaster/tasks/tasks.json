@@ -176,15 +176,16 @@
         "id": "5",
         "title": "Idempotent Ingest Endpoints with Validation",
         "description": "Implement idempotent ingest endpoints (POST /api/v1/ingest/events, /ingest/limits, /ingest/bootstrap) with batch all-or-nothing logic, upsert keeping maximum-usage row per event_id, and sanity validation rejecting garbage.",
-        "details": "Create `apps/server/tokemetry_server/api/ingest.py` with FastAPI endpoints. Implement `POST /api/v1/ingest/events`: accept batch of UsageEvents, deduplicate by event_id (keep max usage), validate sanity (reject negative counts, impossible token math). Implement `POST /ingest/limits`: accept limit snapshots, upsert by provider/window_kind. Implement `POST /ingest/bootstrap`: accept stats-cache data, mark provenance=stats_cache. Use SQLAlchemy upsert with `max()` for usage. Add error handling for invalid data. Add unit tests with fixtures.",
-        "testStrategy": "Test idempotent ingest with duplicate batches. Verify upsert keeps max usage. Confirm sanity validation rejects garbage. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "3",
           "4"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "The ingest layer is already implemented. Update `apps/server/tokemetry_server/api/ingest.py` to integrate with the existing FastAPI app factory (app.py) where lifespan runs Alembic upgrade and wires engine/session_factory/dialect/cost_fn on app.state. Ensure injectable cost_fn defaults to no-op per task split. Wire models in `api/schemas.py` (EventsIngest/LimitsIngest/BootstrapIngest) with to_core converters, extra=forbid, and batch size bounds. Integrate bearer auth from `api/auth.py` (bootstrap token constant-time + hashed api_tokens lookup refreshing last_used). Use `api/deps.py` for session + ingest service deps. The 3 idempotent routes in `api/ingest.py` should return 400 on validation errors and 422 on schema errors. In `services/ingest.py`, ensure dedup keeps max usage before upsert, includes machine touch, handles events keep-max upsert, limits append, and bootstrap rollup upsert. Use `services/validation.py` for viberank-style sanity checks (token max 10B, clock skew 2h). Implement dialect-aware ON CONFLICT keep-max in `db/upsert.py` for PostgreSQL+SQLite via DialectInsert union. Ensure `security.py` uses SHA-256 token hash + generate. Add daily_rollups.total_tokens+provenance columns (amended migration+ORM). Store cost_usd as NULL pending cost engine. Update docs in `docs/api/ingest.md`. Ensure 91 tests pass, ruff/mypy strict/trivy clean, and no warnings.",
+        "testStrategy": "Test idempotent ingest with duplicate batches. Verify upsert keeps max usage. Confirm sanity validation rejects garbage. Run pytest with coverage >= 80%. Validate ruff/mypy strict/trivy zero issues and no warnings.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T14:00:44.289Z"
       },
       {
         "id": "6",
@@ -316,9 +317,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T13:47:26.071Z",
+      "lastModified": "2026-07-09T14:00:44.290Z",
       "taskCount": 14,
-      "completedCount": 4,
+      "completedCount": 5,
       "tags": [
         "master"
       ]

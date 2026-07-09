@@ -54,6 +54,17 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["DTZ001"]  # fixtures may build naive datetimes deliberately
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency markers are safe to call in argument defaults.
+extend-immutable-calls = [
+  "fastapi.Depends",
+  "fastapi.Query",
+  "fastapi.Path",
+  "fastapi.Body",
+  "fastapi.Header",
+  "fastapi.Cookie",
+]
+
 [tool.mypy]
 strict = true
 python_version = "3.12"
@@ -64,6 +75,10 @@ show_error_codes = true
 testpaths = ["apps/server/tests", "apps/collector/tests", "packages/core/tests"]
 addopts = "-ra"
 asyncio_mode = "auto"
+filterwarnings = [
+  # Third-party deprecation from Starlette's TestClient httpx integration.
+  "ignore:Using `httpx` with `starlette.testclient`",
+]
 
 [tool.coverage.run]
 branch = true

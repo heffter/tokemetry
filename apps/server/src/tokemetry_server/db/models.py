@@ -145,7 +145,9 @@ class DailyRollup(Base):
     cache_read_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     cache_write_short_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     cache_write_long_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     cost_usd: Mapped[Decimal | None] = mapped_column(_MONEY)
+    provenance: Mapped[str] = mapped_column(String(30), default="derived")
 
 
 class Pricing(Base):

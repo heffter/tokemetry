@@ -122,7 +122,9 @@ def upgrade() -> None:
         sa.Column("cache_read_tokens", sa.BigInteger(), nullable=False),
         sa.Column("cache_write_short_tokens", sa.BigInteger(), nullable=False),
         sa.Column("cache_write_long_tokens", sa.BigInteger(), nullable=False),
+        sa.Column("total_tokens", sa.BigInteger(), nullable=False),
         sa.Column("cost_usd", _MONEY, nullable=True),
+        sa.Column("provenance", sa.String(30), nullable=False),
         sa.PrimaryKeyConstraint("id", name="pk_daily_rollups"),
         sa.UniqueConstraint(
             "day", "provider", "machine", "model", "project", name="daily_rollups_grain"
