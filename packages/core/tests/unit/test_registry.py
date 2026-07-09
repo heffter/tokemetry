@@ -1,6 +1,8 @@
 """Unit tests for the provider registry."""
 
 import pytest
+from tokemetry_core.pricing.anthropic import AnthropicPricingStrategy
+from tokemetry_core.providers.anthropic import register as register_anthropic
 from tokemetry_core.providers.fake import (
     FAKE_PROVIDER,
     FakePricingStrategy,
@@ -37,6 +39,14 @@ def test_unknown_provider_raises() -> None:
         registry.limits_source("nope")
     with pytest.raises(UnknownProviderError):
         registry.pricing("nope")
+
+
+def test_anthropic_registration_provides_pricing() -> None:
+    registry = ProviderRegistry()
+    register_anthropic(registry)
+
+    assert isinstance(registry.pricing("anthropic"), AnthropicPricingStrategy)
+    assert registry.usage_providers() == []
 
 
 def test_provider_listings() -> None:
