@@ -108,6 +108,39 @@ export function barOption(
   };
 }
 
+/** A bar chart on a real time axis, so idle gaps render as gaps. */
+export function timeBarOption(
+  points: [number, number][],
+  name: string
+): EChartsCoreOption {
+  const theme = ink();
+  return {
+    grid: { top: 24, right: 16, bottom: 40, left: 64 },
+    tooltip: { trigger: 'axis', valueFormatter: tokenValue },
+    xAxis: {
+      type: 'time',
+      axisLabel: { color: theme.muted },
+      axisLine: { lineStyle: { color: theme.grid } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: theme.muted, formatter: tokenValue },
+      splitLine: { lineStyle: { color: theme.grid } },
+    },
+    series: [
+      {
+        name,
+        type: 'bar',
+        data: points,
+        itemStyle: {
+          color: seriesColor(0, isDark()),
+          borderRadius: [4, 4, 0, 0],
+        },
+      },
+    ],
+  };
+}
+
 /** A stacked bar of the five token components per category (hue-ordered). */
 export function stackedTokenBarOption(
   categories: string[],

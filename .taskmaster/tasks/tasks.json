@@ -1315,9 +1315,7 @@
         "id": "24",
         "title": "Blocks Page: Hero Card + Time Axis Chart",
         "description": "Implement current in-progress 5-hour block hero card and chart improvements.",
-        "details": "Frontend (Blocks page): Pin current block as hero card (percent consumed, tokens vs limit, minutes to reset, burn-to-exhaustion verdict). Switch block chart to time axis (idle gaps as gaps), default to recent window (last 48h) with range picker, paginate/virtualize table, add totals/summary footer, color and sort end_utilization_pct column, and label peak_tokens_per_min as rate. Test with vitest.",
-        "testStrategy": "vitest: Test hero card calculations and chart logic. Frontend: Verify hero card, time axis chart, pagination, and sorting. Ensure quality gates pass.",
-        "priority": "medium",
+        "status": "done",
         "dependencies": [
           "15",
           "16",
@@ -1329,8 +1327,72 @@
           "22",
           "23"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Frontend (Blocks page): Pin current block as hero card (percent consumed from end_utilization_pct, tokens this block, time until reset, peak burn labeled 'tok/min') colored by utilization status. Switch block chart to real time axis via charts.ts timeBarOption() (idle gaps render as gaps, was lying categorical axis). Add range picker (48h/7d/30d) defaulting to 48h. Update table: peak labeled 'Peak (tok/min)', null-aware Cost column, color-coded end-utilization, totals footer (block count, tokens, max peak). Adopt AsyncState. Test with vitest.",
+        "testStrategy": "vitest: Test hero card calculations, chart logic, range picker, table updates, and AsyncState integration. Frontend: Verify hero card, time axis chart, range picker, table, and totals footer. Ensure quality gates pass (47 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Rewrite hero card",
+            "description": "Rewrite hero card: percent consumed from end_utilization_pct, tokens this block, time until reset, peak burn labeled 'tok/min', colored by utilization status.",
+            "dependencies": [],
+            "details": "Implement hero card component with new calculations and styling. Ensure color coding reflects utilization status accurately.",
+            "status": "done",
+            "testStrategy": "vitest: Verify hero card calculations and color coding.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Update charts.ts time axis",
+            "description": "Update charts.ts: timeBarOption() renders blocks on real time axis (idle gaps as gaps).",
+            "dependencies": [],
+            "details": "Modify timeBarOption() to use real time axis instead of categorical. Ensure idle gaps are rendered correctly.",
+            "status": "done",
+            "testStrategy": "vitest: Test time axis rendering and idle gap handling.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add range picker",
+            "description": "Add range picker (48h/7d/30d) defaulting to 48h.",
+            "dependencies": [],
+            "details": "Implement range picker component with options 48h, 7d, 30d. Set default to 48h.",
+            "status": "done",
+            "testStrategy": "vitest: Verify range picker functionality and default value.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Update table and totals footer",
+            "description": "Update table: peak labeled 'Peak (tok/min)', null-aware Cost column, color-coded end-utilization, totals footer.",
+            "dependencies": [],
+            "details": "Modify table component to include new peak label, null-aware Cost column, color-coded end-utilization, and totals footer with block count, tokens, max peak.",
+            "status": "done",
+            "testStrategy": "vitest: Test table updates and totals footer.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Adopt AsyncState",
+            "description": "Adopt AsyncState for state management.",
+            "dependencies": [],
+            "details": "Integrate AsyncState into Blocks page for efficient state management.",
+            "status": "done",
+            "testStrategy": "vitest: Verify AsyncState integration and state handling.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Run dashboard tests and linting",
+            "description": "Run dashboard tests (47 tests) and ensure build + eslint/prettier clean.",
+            "dependencies": [],
+            "details": "Execute 47 dashboard tests. Ensure build passes and code is clean with eslint/prettier.",
+            "status": "done",
+            "testStrategy": "Run dashboard tests and verify build + linting.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T19:15:03.224Z"
       },
       {
         "id": "25",
@@ -1394,9 +1456,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T19:10:30.227Z",
+      "lastModified": "2026-07-09T19:15:03.224Z",
       "taskCount": 27,
-      "completedCount": 24,
+      "completedCount": 25,
       "tags": [
         "master"
       ]
