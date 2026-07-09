@@ -1022,9 +1022,7 @@
         "id": "21",
         "title": "Limits Time-Series + Exhaustion Forecast",
         "description": "Implement Limits time-series with reset markers and projected exhaustion.",
-        "details": "Frontend (Now page): Use GET /limits/history. Draw utilization sparkline/area inside each GaugeCard with dashed slope-projected exhaustion segment (from prediction.slope) and reset marker. Compute most-at-risk window and promote to headline banner ('5-hour limit in ~40m, 92%, climbing 1.4%/min'). Replace one redundant Trends chart with utilization-over-time per window_kind. Test with vitest.",
-        "testStrategy": "vitest: Test utilization calculation and banner logic. Frontend: Verify sparkline rendering, exhaustion segment, reset marker, and banner display. Ensure quality gates pass.",
-        "priority": "medium",
+        "status": "done",
         "dependencies": [
           "15",
           "16",
@@ -1033,8 +1031,82 @@
           "19",
           "20"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Frontend (Now page): Use GET /limits/history. Draw utilization sparkline/area inside each GaugeCard with dashed slope-projected exhaustion segment (from prediction.slope) and reset marker. Compute most-at-risk window and promote to headline banner ('You will hit your 5-hour block in ~40m - 87%, climbing 1.4%/min', or 'X at N% - resets in Yh'). Replace one redundant Trends chart with utilization-over-time per window_kind. Test with vitest. Implementation: lib/sparkline.ts sparkGeometry() pure SVG-polyline geometry (clamps to max, optional dashed projection past last point), unit-tested; components/Sparkline.vue inline-SVG sparkline (history polyline + dashed projection + end marker, no chart lib). GaugeCard renders utilization sparkline colored by status with dashed projected-exhaustion segment. NowView fetches /limits/history (24h) per window in parallel and passes to each gauge; computes most-at-risk window and promotes to headline banner colored by status.",
+        "testStrategy": "vitest: Test utilization calculation and banner logic. Frontend: Verify sparkline rendering, exhaustion segment, reset marker, and banner display. Ensure quality gates pass (42 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Verify sparkGeometry() clamping and dashed projection",
+            "description": "Verify lib/sparkline.ts sparkGeometry() clamps to max and handles optional dashed projection past last point.",
+            "dependencies": [],
+            "details": "Unit tests confirm sparkGeometry() pure SVG-polyline geometry behavior. Ensure clamping logic and dashed projection toggle work correctly.",
+            "status": "done",
+            "testStrategy": "Run unit tests for sparkGeometry(). Verify clamping and dashed projection edge cases.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Confirm Sparkline.vue inline-SVG rendering",
+            "description": "Confirm components/Sparkline.vue renders inline-SVG sparkline with history polyline, dashed projection, and end marker.",
+            "dependencies": [],
+            "details": "Sparkline.vue uses inline-SVG (no chart lib). Ensure history polyline, dashed projection, and end marker render correctly.",
+            "status": "done",
+            "testStrategy": "Frontend test: Render Sparkline.vue with sample history. Verify polyline, dashed projection, and end marker visibility.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Validate GaugeCard sparkline and exhaustion segment",
+            "description": "Validate GaugeCard renders utilization sparkline colored by status with dashed projected-exhaustion segment.",
+            "dependencies": [],
+            "details": "GaugeCard integration: sparkline colored by status, dashed exhaustion segment visible. Ensure status-based coloring and segment rendering.",
+            "status": "done",
+            "testStrategy": "Frontend test: Render GaugeCard with utilization data. Verify status coloring and dashed exhaustion segment.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Ensure NowView parallel fetch and data passing",
+            "description": "Ensure NowView fetches /limits/history (24h) per window in parallel and passes to each gauge.",
+            "dependencies": [],
+            "details": "NowView parallel fetch: /limits/history (24h) per window. Confirm parallel execution and data passing to gauges.",
+            "status": "done",
+            "testStrategy": "Frontend test: Mock /limits/history. Verify parallel fetch per window and data passing to gauges.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Verify most-at-risk window and headline banner",
+            "description": "Verify NowView computes most-at-risk window and promotes to headline banner colored by status.",
+            "dependencies": [],
+            "details": "Banner logic: most-at-risk window computed, promoted to headline banner ('You will hit your 5-hour block in ~40m - 87%, climbing 1.4%/min' or 'X at N% - resets in Yh'). Ensure status-based coloring.",
+            "status": "done",
+            "testStrategy": "Frontend test: Mock /limits/history with varying windows. Verify most-at-risk computation, banner text, and status coloring.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Replace redundant Trends chart with utilization-over-time",
+            "description": "Replace one redundant Trends chart with utilization-over-time per window_kind.",
+            "dependencies": [],
+            "details": "Identify redundant Trends chart. Replace with utilization-over-time chart per window_kind. Ensure data mapping and rendering.",
+            "status": "pending",
+            "testStrategy": "Frontend test: Render utilization-over-time chart per window_kind. Verify data accuracy and chart visibility.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Test utilization calculation and banner logic with vitest",
+            "description": "Test utilization calculation and banner logic with vitest.",
+            "dependencies": [],
+            "details": "vitest: Test utilization calculation and banner logic. Ensure quality gates pass (42 dashboard tests, build + eslint/prettier clean).",
+            "status": "pending",
+            "testStrategy": "Run vitest for utilization calculation and banner logic. Verify 42 dashboard tests pass, build + eslint/prettier clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T18:59:32.349Z"
       },
       {
         "id": "22",
@@ -1158,9 +1230,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T18:52:51.016Z",
+      "lastModified": "2026-07-09T18:59:32.350Z",
       "taskCount": 27,
-      "completedCount": 21,
+      "completedCount": 22,
       "tags": [
         "master"
       ]

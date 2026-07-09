@@ -3,6 +3,7 @@
 // utilization percentage, provenance, and time-to-reset. Status is carried by
 // color plus the visible percentage label (never color alone).
 import { computed } from 'vue';
+import Sparkline from '@/components/Sparkline.vue';
 import {
   formatPct,
   timeUntil,
@@ -11,7 +12,14 @@ import {
 } from '@/lib/format';
 import type { Limit } from '@/api/types';
 
-const props = defineProps<{ limit: Limit }>();
+const props = withDefaults(
+  defineProps<{
+    limit: Limit;
+    history?: number[];
+    projected?: number | null;
+  }>(),
+  { history: () => [], projected: null }
+);
 
 const status = computed(() => utilizationStatus(props.limit.utilization_pct));
 const color = computed(() => `var(--status-${status.value})`);
@@ -29,6 +37,12 @@ const width = computed(() => `${Math.min(100, props.limit.utilization_pct)}%`);
     <div class="track">
       <div class="fill" :style="{ width, background: color }"></div>
     </div>
+    <Sparkline
+      v-if="history.length > 1"
+      :values="history"
+      :projected="projected"
+      :color="color"
+    />
     <div class="foot muted">
       <span>{{ limit.provenance }}</span>
       <span>resets {{ timeUntil(limit.resets_at) }}</span>

@@ -21,6 +21,8 @@ import {
   formatTokens,
   modelLabel,
   timeUntil,
+  utilizationStatus,
+  windowLabel,
 } from '@/lib/format';
 import { costIsTrustworthy, pricedCoverage } from '@/lib/coverage';
 import { throttle } from '@/lib/throttle';
@@ -35,7 +37,35 @@ interface FeedRow {
 const { loading, error, run, retry } = useAsync();
 const summary = ref<SummaryNow | null>(null);
 const cost = ref<CostResponse | null>(null);
+const histories = ref<Record<string, number[]>>({});
 const feed = ref<FeedRow[]>([]);
+
+// The single most-at-risk window, promoted to a headline banner.
+const atRisk = computed(() => {
+  const s = summary.value;
+  if (!s || s.limits.length === 0) return null;
+  const p = s.prediction;
+  if (p && p.predicted_exhaustion_at) {
+    return {
+      level: 'critical',
+      text: `You will hit your ${windowLabel(p.window_kind)} in ${timeUntil(p.predicted_exhaustion_at)} — ${p.utilization_pct.toFixed(0)}%, climbing ${p.slope_pct_per_min.toFixed(1)}%/min`,
+    };
+  }
+  const top = [...s.limits].sort(
+    (a, b) => b.utilization_pct - a.utilization_pct
+  )[0];
+  return {
+    level: utilizationStatus(top.utilization_pct),
+    text: `${windowLabel(top.window_kind)} at ${formatPct(top.utilization_pct)} — resets ${timeUntil(top.resets_at)}`,
+  };
+});
+
+function projectedFor(windowKind: string): number | null {
+  const p = summary.value?.prediction;
+  return p && p.window_kind === windowKind && p.predicted_exhaustion_at
+    ? 100
+    : null;
+}
 const updatedAt = ref<number>(0);
 const tick = ref<number>(Date.now());
 let feedSeq = 0;
@@ -96,6 +126,14 @@ async function load(): Promise<void> {
     const client = useClient();
     summary.value = await client.summaryNow();
     cost.value = await client.cost();
+    const hist: Record<string, number[]> = {};
+    await Promise.all(
+      summary.value.limits.map(async (l) => {
+        const rows = await client.limitsHistory(l.window_kind, 24);
+        hist[l.window_kind] = rows.map((r) => r.utilization_pct);
+      })
+    );
+    histories.value = hist;
     updatedAt.value = Date.now();
   });
 }
@@ -140,11 +178,17 @@ onBeforeUnmount(() => {
 <template>
   <AsyncState :loading="loading && !summary" :error="error" @retry="retry">
     <template v-if="summary">
+      <div v-if="atRisk" class="banner" :class="atRisk.level">
+        {{ atRisk.text }}
+      </div>
+
       <section class="grid gauges">
         <GaugeCard
           v-for="limit in summary.limits"
           :key="limit.window_kind"
           :limit="limit"
+          :history="histories[limit.window_kind] ?? []"
+          :projected="projectedFor(limit.window_kind)"
         />
         <div v-if="summary.limits.length === 0" class="card muted">
           No limit data yet — the collector reports these once it polls.
@@ -211,6 +255,23 @@ onBeforeUnmount(() => {
 <style scoped>
 section {
   margin-bottom: 1.25rem;
+}
+.banner {
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 1.25rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+.banner.good {
+  background: color-mix(in srgb, var(--status-good) 12%, transparent);
+}
+.banner.warning {
+  background: color-mix(in srgb, var(--status-warning) 16%, transparent);
+}
+.banner.critical {
+  background: color-mix(in srgb, var(--status-critical) 16%, transparent);
+  color: var(--status-critical);
 }
 .gauges {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
