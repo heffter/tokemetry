@@ -3,7 +3,9 @@
 // plus a categorical breakdown by a chosen dimension (stacked composition).
 import { computed, onMounted, ref, watch } from 'vue';
 import EChart from '@/components/EChart.vue';
+import AsyncState from '@/components/AsyncState.vue';
 import { useClient } from '@/composables/useApi';
+import { useAsync } from '@/composables/useAsync';
 import {
   stackedAreaOption,
   stackedTokenBarOption,
@@ -12,11 +14,11 @@ import {
 import { modelLabel } from '@/lib/format';
 import type { UsageBucket } from '@/api/types';
 
+const { loading, error, run, retry } = useAsync();
 const dimension = ref<'model' | 'machine' | 'project'>('model');
 const dims = ['model', 'machine', 'project'] as const;
 const dayBuckets = ref<UsageBucket[]>([]);
 const dimBuckets = ref<UsageBucket[]>([]);
-const error = ref('');
 
 // Daily chart: a genuine stack of the five token components over time, so the
 // cache-read share is visible day by day instead of one opaque total line.
@@ -45,56 +47,56 @@ const dimChart = computed(() =>
   )
 );
 
-async function loadDays(): Promise<void> {
-  try {
-    dayBuckets.value = (await useClient().usage({ groupBy: 'day' })).buckets;
-  } catch (e) {
-    error.value = String(e);
-  }
-}
-
 async function loadDimension(): Promise<void> {
-  try {
-    dimBuckets.value = (
-      await useClient().usage({ groupBy: dimension.value })
-    ).buckets;
-  } catch (e) {
-    error.value = String(e);
-  }
+  dimBuckets.value = (
+    await useClient().usage({ groupBy: dimension.value })
+  ).buckets;
 }
 
-onMounted(() => {
-  void loadDays();
-  void loadDimension();
-});
+async function loadAll(): Promise<void> {
+  await run(async () => {
+    const [days] = await Promise.all([
+      useClient().usage({ groupBy: 'day' }),
+      loadDimension(),
+    ]);
+    dayBuckets.value = days.buckets;
+  });
+}
+
+onMounted(loadAll);
 // Only the dimension chart depends on the toggle; the daily chart does not.
-watch(dimension, loadDimension);
+watch(dimension, () => run(loadDimension));
 </script>
 
 <template>
-  <div v-if="error" class="card">{{ error }}</div>
-  <template v-else>
-    <section class="card">
-      <h3>Daily tokens (last 30 days)</h3>
-      <EChart :option="option" height="320px" />
-    </section>
-    <section class="card">
-      <div class="toolbar">
-        <h3>By {{ dimension }}</h3>
-        <div class="toggle">
-          <button
-            v-for="d in dims"
-            :key="d"
-            :class="{ active: dimension === d }"
-            @click="dimension = d"
-          >
-            {{ d }}
-          </button>
+  <AsyncState
+    :loading="loading && dayBuckets.length === 0"
+    :error="error"
+    @retry="retry"
+  >
+    <template>
+      <section class="card">
+        <h3>Daily tokens (last 30 days)</h3>
+        <EChart :option="option" height="320px" />
+      </section>
+      <section class="card">
+        <div class="toolbar">
+          <h3>By {{ dimension }}</h3>
+          <div class="toggle">
+            <button
+              v-for="d in dims"
+              :key="d"
+              :class="{ active: dimension === d }"
+              @click="dimension = d"
+            >
+              {{ d }}
+            </button>
+          </div>
         </div>
-      </div>
-      <EChart :option="dimChart" height="320px" />
-    </section>
-  </template>
+        <EChart :option="dimChart" height="320px" />
+      </section>
+    </template>
+  </AsyncState>
 </template>
 
 <style scoped>

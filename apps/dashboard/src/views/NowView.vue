@@ -6,7 +6,9 @@ import GaugeCard from '@/components/GaugeCard.vue';
 import StatTile from '@/components/StatTile.vue';
 import EChart from '@/components/EChart.vue';
 import ChartTable from '@/components/ChartTable.vue';
+import AsyncState from '@/components/AsyncState.vue';
 import { useClient, useToken } from '@/composables/useApi';
+import { useAsync } from '@/composables/useAsync';
 import {
   stackedTokenBarOption,
   tokenTableRows,
@@ -30,9 +32,9 @@ interface FeedRow {
   text: string;
 }
 
+const { loading, error, run, retry } = useAsync();
 const summary = ref<SummaryNow | null>(null);
 const cost = ref<CostResponse | null>(null);
-const error = ref('');
 const feed = ref<FeedRow[]>([]);
 const updatedAt = ref<number>(0);
 const tick = ref<number>(Date.now());
@@ -90,14 +92,12 @@ const valueTile = computed(() => {
 });
 
 async function load(): Promise<void> {
-  try {
+  await run(async () => {
     const client = useClient();
     summary.value = await client.summaryNow();
     cost.value = await client.cost();
     updatedAt.value = Date.now();
-  } catch (e) {
-    error.value = String(e);
-  }
+  });
 }
 
 // Coalesce a burst of ingest events into at most one summary refetch per 10s,
@@ -138,71 +138,74 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="error" class="card">{{ error }}</div>
-  <template v-else-if="summary">
-    <section class="grid gauges">
-      <GaugeCard
-        v-for="limit in summary.limits"
-        :key="limit.window_kind"
-        :limit="limit"
-      />
-      <div v-if="summary.limits.length === 0" class="card muted">
-        No limit data yet — the collector reports these once it polls.
-      </div>
-    </section>
+  <AsyncState :loading="loading && !summary" :error="error" @retry="retry">
+    <template v-if="summary">
+      <section class="grid gauges">
+        <GaugeCard
+          v-for="limit in summary.limits"
+          :key="limit.window_kind"
+          :limit="limit"
+        />
+        <div v-if="summary.limits.length === 0" class="card muted">
+          No limit data yet — the collector reports these once it polls.
+        </div>
+      </section>
 
-    <section class="grid tiles">
-      <StatTile
-        label="Burn rate"
-        :value="`${formatTokens(Math.round(summary.token_burn_rate_per_min))}/min`"
-        sub="trailing 60 minutes"
-      />
-      <StatTile
-        label="Today"
-        :value="formatTokens(summary.today.total_tokens)"
-        :sub="todayCostSub"
-      />
-      <StatTile
-        label="Plan value"
-        :value="valueTile.value"
-        :sub="valueTile.sub"
-      />
-      <StatTile
-        label="Cache reads"
-        :value="formatPct(cacheShare * 100)"
-        sub="of today's tokens served from cache"
-      />
-      <StatTile
-        v-if="summary.prediction"
-        label="Predicted limit"
-        :value="timeUntil(summary.prediction.predicted_exhaustion_at)"
-        :sub="`resets ${timeUntil(summary.prediction.resets_at)}`"
-      />
-    </section>
+      <section class="grid tiles">
+        <StatTile
+          label="Burn rate"
+          :value="`${formatTokens(Math.round(summary.token_burn_rate_per_min))}/min`"
+          sub="trailing 60 minutes"
+        />
+        <StatTile
+          label="Today"
+          :value="formatTokens(summary.today.total_tokens)"
+          :sub="todayCostSub"
+        />
+        <StatTile
+          label="Plan value"
+          :value="valueTile.value"
+          :sub="valueTile.sub"
+        />
+        <StatTile
+          label="Cache reads"
+          :value="formatPct(cacheShare * 100)"
+          sub="of today's tokens served from cache"
+        />
+        <StatTile
+          v-if="summary.prediction"
+          label="Predicted limit"
+          :value="timeUntil(summary.prediction.predicted_exhaustion_at)"
+          :sub="`resets ${timeUntil(summary.prediction.resets_at)}`"
+        />
+      </section>
 
-    <section class="card">
-      <h3>Today by model (token composition)</h3>
-      <EChart :option="modelChart" height="320px" />
-      <ChartTable
-        caption="Today's tokens by model and token type"
-        :columns="['Model', ...TOKEN_TABLE_HEADERS]"
-        :rows="tokenTableRows(summary.today.by_model, (b) => modelLabel(b.key))"
-      />
-    </section>
+      <section class="card">
+        <h3>Today by model (token composition)</h3>
+        <EChart :option="modelChart" height="320px" />
+        <ChartTable
+          caption="Today's tokens by model and token type"
+          :columns="['Model', ...TOKEN_TABLE_HEADERS]"
+          :rows="
+            tokenTableRows(summary.today.by_model, (b) => modelLabel(b.key))
+          "
+        />
+      </section>
 
-    <section class="card">
-      <div class="head">
-        <h3>Live activity</h3>
-        <span class="muted small">{{ updatedAgo }}</span>
-      </div>
-      <ul class="feed">
-        <li v-for="row in feed" :key="row.id" class="tabular">
-          {{ row.text }}
-        </li>
-        <li v-if="feed.length === 0" class="muted">Waiting for events…</li>
-      </ul>
-    </section>
-  </template>
+      <section class="card">
+        <div class="head">
+          <h3>Live activity</h3>
+          <span class="muted small">{{ updatedAgo }}</span>
+        </div>
+        <ul class="feed">
+          <li v-for="row in feed" :key="row.id" class="tabular">
+            {{ row.text }}
+          </li>
+          <li v-if="feed.length === 0" class="muted">Waiting for events…</li>
+        </ul>
+      </section>
+    </template>
+  </AsyncState>
 </template>
 
 <style scoped>

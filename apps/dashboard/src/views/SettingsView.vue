@@ -8,6 +8,7 @@ import {
   useClient,
   useToken,
 } from '@/composables/useApi';
+import { useAsync } from '@/composables/useAsync';
 import type { CreatedToken, PriceRowInput, TokenInfo } from '@/api/client';
 import type { PricingRow } from '@/api/types';
 import { formatCost, modelLabel } from '@/lib/format';
@@ -20,8 +21,8 @@ const pricing = ref<PricingRow[]>([]);
 const unpricedModels = ref<string[]>([]);
 const newLabel = ref('');
 const minted = ref<CreatedToken | null>(null);
-const error = ref('');
 const priceStatus = ref('');
+const { error, run } = useAsync();
 const { clearToken } = useToken();
 
 const today = new Date().toISOString().slice(0, 10);
@@ -47,15 +48,13 @@ function setTheme(value: string): void {
 }
 
 async function load(): Promise<void> {
-  try {
+  await run(async () => {
     const client = useClient();
     tokens.value = await client.listTokens();
     pricing.value = await client.pricing();
     const byModel = (await client.usage({ groupBy: 'model' })).buckets;
     unpricedModels.value = pricedCoverage(byModel).unpricedKeys;
-  } catch (e) {
-    error.value = String(e);
-  }
+  });
 }
 
 function prefill(model: string): void {
