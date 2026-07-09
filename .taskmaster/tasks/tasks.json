@@ -1112,9 +1112,7 @@
         "id": "22",
         "title": "Machines Page: Staleness Clock + Differentiators",
         "description": "Fix Machines page: unfreeze staleness clock and add differentiators.",
-        "details": "Frontend (Machines page): Drive 'now' from ticking ref (setInterval, cleared on unmount) instead of computed(() => Date.now()). Re-poll machines() on same interval. Add per-machine burn-rate and share-of-fleet columns, token-share bar, totals footer, status scale (online/recent/stale/dead) with thresholds, sort-stale-first with 'N offline' banner, and click-through to Usage/Sessions filtered by machine. Test with vitest.",
-        "testStrategy": "vitest: Test ticking ref and re-poll logic. Frontend: Verify status scale, sorting, banner, and click-through. Ensure quality gates pass.",
-        "priority": "medium",
+        "status": "done",
         "dependencies": [
           "15",
           "16",
@@ -1124,8 +1122,102 @@
           "20",
           "21"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Frontend (Machines page): Drive 'now' from ticking ref (setInterval, cleared on unmount) instead of computed(() => Date.now()). Re-poll machines() on same interval. Add per-machine burn-rate and share-of-fleet columns, token-share bar, totals footer, status scale (online/recent/stale/dead) with thresholds, sort-stale-first with 'N offline' banner, and click-through to Usage/Sessions filtered by machine. Test with vitest.",
+        "testStrategy": "vitest: Test ticking ref and re-poll logic. Frontend: Verify status scale, sorting, banner, and click-through. Ensure quality gates pass (46 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement machineStatus with shared thresholds",
+            "description": "Backend (lib/machines.ts): Implement machineStatus(lastSeen, nowMs) with single shared thresholds (online<2m/recent<30m/stale<24h/offline), statusRank (stale/offline first), and isDown. Unit-test.",
+            "dependencies": [],
+            "details": "Rewrote Machines page (roadmap #5): lib/machines.ts machineStatus(lastSeen, nowMs) with single shared thresholds (online<2m/recent<30m/stale<24h/offline) + statusRank (stale/offline first) + isDown, unit-tested.",
+            "status": "done",
+            "testStrategy": "Unit tests for machineStatus thresholds, statusRank ordering, and isDown logic.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Fix frozen-clock bug",
+            "description": "Frontend: Fix frozen-clock bug by using ticking ref (15s interval) instead of computed(() => Date.now()).",
+            "dependencies": [],
+            "details": "FIXED the frozen-clock bug: now is a ref ticked every 15s (was computed(()=>Date.now()) which never updated, so staleness lied).",
+            "status": "done",
+            "testStrategy": "Test ticking ref updates every 15s and re-polls machines() correctly.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add status indicators and sorting",
+            "description": "Frontend: Add status dot, relative 'ago', sort stale/offline-first, and 'N machines offline or stale' banner.",
+            "dependencies": [],
+            "details": "Added a status dot + relative 'ago', sort stale/offline-first, an 'N machines offline or stale' banner.",
+            "status": "done",
+            "testStrategy": "Verify status dot rendering, relative time display, sorting order, and banner text.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add fleet metrics and formatting",
+            "description": "Frontend: Add share-of-fleet inline bar with %, fleet totals footer (events + tokens), and locale-formatted event_count.",
+            "dependencies": [],
+            "details": "Added a share-of-fleet inline bar + %, a fleet totals footer (events + tokens), event_count locale-formatted.",
+            "status": "done",
+            "testStrategy": "Verify share-of-fleet bar, totals footer values, and locale formatting.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement click-through and AsyncState",
+            "description": "Frontend: Implement click-through to /sessions?machine=id and AsyncState (loading/empty/error).",
+            "dependencies": [],
+            "details": "Added click-through to /sessions?machine=id, and AsyncState (loading/empty/error).",
+            "status": "done",
+            "testStrategy": "Test click-through navigation and AsyncState rendering for loading, empty, and error states.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Add burn-rate and share-of-fleet columns",
+            "description": "Frontend: Add per-machine burn-rate and share-of-fleet columns, token-share bar, and totals footer.",
+            "dependencies": [],
+            "details": "Add per-machine burn-rate and share-of-fleet columns, token-share bar, totals footer.",
+            "status": "pending",
+            "testStrategy": "Verify column rendering, token-share bar, and totals footer.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Implement status scale and sorting",
+            "description": "Frontend: Implement status scale (online/recent/stale/dead) with thresholds and sort-stale-first.",
+            "dependencies": [],
+            "details": "Add status scale (online/recent/stale/dead) with thresholds, sort-stale-first.",
+            "status": "pending",
+            "testStrategy": "Test status scale thresholds and sorting order.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "Add offline banner and click-through",
+            "description": "Frontend: Add 'N offline' banner and click-through to Usage/Sessions filtered by machine.",
+            "dependencies": [],
+            "details": "Add 'N offline' banner and click-through to Usage/Sessions filtered by machine.",
+            "status": "pending",
+            "testStrategy": "Verify banner text and click-through navigation with machine filter.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 9,
+            "title": "Run vitest tests",
+            "description": "Test: Run vitest for ticking ref, re-poll logic, status scale, sorting, banner, and click-through.",
+            "dependencies": [],
+            "details": "Test with vitest: Test ticking ref and re-poll logic. Frontend: Verify status scale, sorting, banner, and click-through. Ensure quality gates pass.",
+            "status": "pending",
+            "testStrategy": "Run vitest suite and ensure all quality gates pass (46 dashboard tests, build + eslint/prettier clean).",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T19:04:55.933Z"
       },
       {
         "id": "23",
@@ -1230,9 +1322,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T18:59:32.350Z",
+      "lastModified": "2026-07-09T19:04:55.934Z",
       "taskCount": 27,
-      "completedCount": 22,
+      "completedCount": 23,
       "tags": [
         "master"
       ]
