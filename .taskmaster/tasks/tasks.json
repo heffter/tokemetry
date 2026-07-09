@@ -1535,13 +1535,14 @@
       {
         "id": "31",
         "title": "Timezone setting",
-        "description": "useSettings composable persisting IANA timezone (default browser); Settings picker; formatDateTime honoring it across all absolute renders; server TOKEMETRY_TIMEZONE for alert quiet-hours.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "Frontend: useSettings composable persists an IANA timezone ('' = auto/browser via Intl.resolvedOptions), Settings page adds a timezone <select> (Intl.supportedValuesOf) with a live 'now' preview; formatDateTime now renders in activeTimezone() so all absolute displays re-render on change; routed the bare toLocaleString() tooltips in Blocks/Sessions/Alerts through it. Backend: config.timezone (TOKEMETRY_TIMEZONE), AlertEngine(timezone) resolves a ZoneInfo (UTC fallback) and _in_quiet_hours evaluates in it; added tzdata dep for Windows. Tests: quiet-hours + resolve-zone units; 114 server + 51 dashboard pass; gates clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "details": "",
+        "testStrategy": "",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:42:12.464Z"
       },
       {
         "id": "32",
@@ -1612,9 +1613,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T20:32:01.216Z",
+      "lastModified": "2026-07-09T20:42:12.464Z",
       "taskCount": 37,
-      "completedCount": 30,
+      "completedCount": 31,
       "tags": [
         "master"
       ]

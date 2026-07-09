@@ -17,6 +17,9 @@ dependencies = [
   "httpx>=0.28",
   "loguru>=0.7",
   "pydantic-settings>=2.7",
+  # IANA timezone database, so ZoneInfo resolves user timezones for alert
+  # quiet-hours on platforms without a system tz database (e.g. Windows).
+  "tzdata>=2024.1",
 ]
 
 [tool.uv.sources]

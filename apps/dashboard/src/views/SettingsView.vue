@@ -9,13 +9,22 @@ import {
   useToken,
 } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
+import {
+  availableTimezones,
+  browserTimezone,
+  useSettings,
+} from '@/composables/useSettings';
 import type { CreatedToken, PriceRowInput, TokenInfo } from '@/api/client';
 import type { PricingRow } from '@/api/types';
-import { formatCost, modelLabel } from '@/lib/format';
+import { formatCost, formatDateTime, modelLabel } from '@/lib/format';
 import { pricedCoverage } from '@/lib/coverage';
 
 const theme = ref(storedTheme());
 const themes = ['system', 'light', 'dark'];
+const { timezonePref, setTimezone } = useSettings();
+const timezones = availableTimezones();
+// A live preview of "now" so the picker's effect is immediately visible.
+const nowPreview = ref(new Date().toISOString());
 const tokens = ref<TokenInfo[]>([]);
 const pricing = ref<PricingRow[]>([]);
 const unpricedModels = ref<string[]>([]);
@@ -129,6 +138,18 @@ onMounted(load);
       >
         {{ t }}
       </button>
+    </div>
+    <div class="tzrow">
+      <label for="tz">Timezone</label>
+      <select
+        id="tz"
+        :value="timezonePref"
+        @change="setTimezone(($event.target as HTMLSelectElement).value)"
+      >
+        <option value="">Auto — browser ({{ browserTimezone() }})</option>
+        <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
+      </select>
+      <span class="muted">now: {{ formatDateTime(nowPreview) }}</span>
     </div>
   </section>
 
@@ -263,6 +284,22 @@ h3 {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+.tzrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  flex-wrap: wrap;
+}
+.tzrow select {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--text-primary);
+  max-width: 260px;
 }
 .form {
   margin: 0.75rem 0;

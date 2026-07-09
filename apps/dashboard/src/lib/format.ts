@@ -1,5 +1,7 @@
 // Presentation formatters. Pure functions, unit-tested.
 
+import { activeTimezone } from '@/composables/useSettings';
+
 const TOKEN_UNITS = ['', 'K', 'M', 'B', 'T'];
 
 /** Format a token count compactly (1234 -> "1.2K", 5_000_000 -> "5.0M"). */
@@ -43,14 +45,15 @@ export function timeUntil(iso: string | null, now: Date = new Date()): string {
 
 /** Absolute date and time for an ISO timestamp ("Jul 12, 2:30 PM").
  *
- * Rendered in the browser's local timezone. Task 31 routes the timezone
- * preference through here; callers do not change.
+ * Rendered in the user's selected timezone (see useSettings); reading the
+ * reactive preference here means every call site re-renders when it changes.
  */
 export function formatDateTime(iso: string | null): string {
   if (iso === null) return '—';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
   return new Intl.DateTimeFormat(undefined, {
+    timeZone: activeTimezone(),
     month: 'short',
     day: 'numeric',
     hour: 'numeric',

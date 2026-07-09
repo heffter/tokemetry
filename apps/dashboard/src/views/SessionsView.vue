@@ -9,7 +9,12 @@ import AsyncState from '@/components/AsyncState.vue';
 import { useClient } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
 import { barOption } from '@/lib/charts';
-import { formatCost, formatTokens, timeAgo } from '@/lib/format';
+import {
+  formatCost,
+  formatDateTime,
+  formatTokens,
+  timeAgo,
+} from '@/lib/format';
 import type { SessionSummary } from '@/api/types';
 
 const route = useRoute();
@@ -182,7 +187,7 @@ onMounted(load);
               >
               <template v-else>{{ formatCost(s.cost_usd) }}</template>
             </td>
-            <td :title="new Date(s.last_at).toLocaleString()">
+            <td :title="formatDateTime(s.last_at)">
               {{ timeAgo(s.last_at) }}
             </td>
           </tr>

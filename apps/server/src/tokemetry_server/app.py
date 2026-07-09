@@ -90,7 +90,9 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         else:
             active_cost_fn = (await _build_cost_engine(session_factory, dialect_name)).cost
         http_client = httpx.AsyncClient(timeout=30.0)
-        alert_engine = AlertEngine(build_notifiers(resolved, http_client))
+        alert_engine = AlertEngine(
+            build_notifiers(resolved, http_client), timezone=resolved.timezone
+        )
         app.state.settings = resolved
         app.state.engine = engine
         app.state.session_factory = session_factory

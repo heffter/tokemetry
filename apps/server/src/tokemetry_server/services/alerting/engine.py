@@ -9,8 +9,9 @@ history is complete).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from loguru import logger
 from sqlalchemy import func, select
@@ -33,9 +34,14 @@ class FiredAlert:
 class AlertEngine:
     """Evaluates alert rules and dispatches through notification channels."""
 
-    def __init__(self, notifiers: dict[str, Notifier]) -> None:
-        """Create the engine over a channel-name -> notifier registry."""
+    def __init__(self, notifiers: dict[str, Notifier], timezone: str = "UTC") -> None:
+        """Create the engine over a channel-name -> notifier registry.
+
+        ``timezone`` is the IANA name in which quiet hours are evaluated; an
+        unknown name falls back to UTC.
+        """
         self._notifiers = notifiers
+        self._tz = _resolve_zone(timezone)
 
     async def run(
         self, session: AsyncSession, now: datetime | None = None
@@ -50,7 +56,7 @@ class AlertEngine:
 
         fired: list[FiredAlert] = []
         for rule in rules:
-            if _in_quiet_hours(rule, reference):
+            if _in_quiet_hours(rule, reference, self._tz):
                 continue
             if await self._in_cooldown(session, rule, reference):
                 continue
@@ -110,8 +116,21 @@ def _channels(rule: models.AlertRule) -> list[str]:
     return []
 
 
-def _in_quiet_hours(rule: models.AlertRule, now: datetime) -> bool:
-    """True when ``now`` falls within the rule's UTC quiet-hours window."""
+def _resolve_zone(name: str) -> tzinfo:
+    """Return the IANA zone, falling back to UTC on an unknown name."""
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        logger.warning("unknown timezone '{}', evaluating quiet hours in UTC", name)
+        return UTC
+
+
+def _in_quiet_hours(rule: models.AlertRule, now: datetime, zone: tzinfo = UTC) -> bool:
+    """True when ``now`` falls within the rule's quiet-hours window.
+
+    Hours are compared in ``zone`` (the user's timezone) so "no alerts
+    22:00-07:00" means the user's night rather than UTC's.
+    """
     quiet = rule.quiet_hours
     if not isinstance(quiet, dict):
         return False
@@ -119,7 +138,7 @@ def _in_quiet_hours(rule: models.AlertRule, now: datetime) -> bool:
     end = quiet.get("end_hour")
     if not isinstance(start, int) or not isinstance(end, int):
         return False
-    hour = now.astimezone(UTC).hour
+    hour = now.astimezone(zone).hour
     if start == end:
         return False
     if start < end:

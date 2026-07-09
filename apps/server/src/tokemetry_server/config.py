@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     #: Seconds between background alert evaluations.
     alerts_interval_seconds: float = Field(default=60.0, gt=0)
 
+    #: IANA timezone name used to evaluate alert quiet hours (e.g.
+    #: "Europe/Budapest"). Defaults to UTC; an unknown name falls back to UTC.
+    timezone: str = Field(default="UTC")
+
     # --- Notification channel settings (all optional; a channel is only
     # available when its required settings are present). Secrets stay here on
     # the server, never in the database alert rows. ---

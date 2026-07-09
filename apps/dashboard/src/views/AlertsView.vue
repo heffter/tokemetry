@@ -7,7 +7,13 @@ import AsyncState from '@/components/AsyncState.vue';
 import Sparkline from '@/components/Sparkline.vue';
 import { useClient } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
-import { formatPct, formatTokens, timeAgo, windowLabel } from '@/lib/format';
+import {
+  formatDateTime,
+  formatPct,
+  formatTokens,
+  timeAgo,
+  windowLabel,
+} from '@/lib/format';
 import type { AlertEvent, AlertRule, AlertRuleInput } from '@/api/client';
 import type { Limit, SummaryNow } from '@/api/types';
 
@@ -267,7 +273,7 @@ onMounted(() => {
               event.severity
             }}</span>
             <span class="title">{{ event.title }}</span>
-            <span class="muted" :title="new Date(event.ts).toLocaleString()">
+            <span class="muted" :title="formatDateTime(event.ts)">
               {{ timeAgo(event.ts) }}
             </span>
             <span class="muted">{{

@@ -9,6 +9,7 @@ import { useAsync } from '@/composables/useAsync';
 import { timeBarOption } from '@/lib/charts';
 import {
   formatCost,
+  formatDateTime,
   formatPct,
   formatTokens,
   timeUntil,
@@ -137,7 +138,7 @@ onMounted(load);
         </thead>
         <tbody>
           <tr v-for="block in blocks" :key="block.start">
-            <td>{{ new Date(block.start).toLocaleString() }}</td>
+            <td>{{ formatDateTime(block.start) }}</td>
             <td class="num tabular">{{ formatTokens(block.total_tokens) }}</td>
             <td class="num tabular">
               {{ formatTokens(block.peak_tokens_per_min) }}
