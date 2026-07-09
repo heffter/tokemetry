@@ -1495,13 +1495,124 @@
         "testStrategy": "Backend: pytest with SQLite to verify fetch_litellm_prices, sync_anthropic_pricing, and transactional integrity of SyncResult. Verify effective_date=2025-01-01 covers all retained history. Frontend: test createPrice/syncLitellm/recomputeCosts flow and PriceRowInput rendering. SettingsView: validate 5-column table layout, overflow-x scroll, add/override form, unpriced-model banner with click-to-prefill chips, and Sync-from-LiteLLM + Recompute button event reporting. Verify modelLabel strip order (-v1:0 before -YYYYMMDD). Gates: 102 server tests + 25 dashboard tests, ruff/mypy strict/trivy zero issues, build/lint clean.",
         "subtasks": [],
         "updatedAt": "2026-07-09T18:28:58.092Z"
+      },
+      {
+        "id": "28",
+        "title": "Fix empty Trends and Breakdowns tabs",
+        "description": "Remove the directive-less bare <template> wrapping AsyncState slot content in TrendsView.vue and BreakdownsView.vue so both tabs render; add eslint vue/no-lone-template to prevent regression.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Fixed: removed directive-less <template> wrapping AsyncState slot in TrendsView and BreakdownsView (Vue rendered it as inert native template, hiding all children). Added eslint vue/no-lone-template=error to block regression. 47 dashboard tests pass, build+lint+format clean.",
+        "testStrategy": "Verify that Trends and Breakdowns tabs render correctly with AsyncState content. Confirm eslint vue/no-lone-template=error blocks regression. Run 47 dashboard tests and validate build+lint+format are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:15:09.946Z"
+      },
+      {
+        "id": "29",
+        "title": "Fix naive datetime serialization across the API",
+        "description": "Add a shared UtcDatetime Pydantic type with a field serializer stamping UTC on naive values; apply to every response schema so all datetime fields are offset-aware.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "30",
+        "title": "Limits freshness, reset rollover, weekly absolute time",
+        "description": "Attach snapshot age to limits payload; roll a past five_hour resets_at forward in 5h steps (mark derived); GaugeCard shows staleness badge and weekly absolute reset time.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "31",
+        "title": "Timezone setting",
+        "description": "useSettings composable persisting IANA timezone (default browser); Settings picker; formatDateTime honoring it across all absolute renders; server TOKEMETRY_TIMEZONE for alert quiet-hours.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "32",
+        "title": "Project grouping root-folder heuristic",
+        "description": "New tokemetry_core/projects.py project_group(path): strip worktree tail, case/sep normalize, group by segment after a root marker (TOKEMETRY_PROJECT_ROOTS default devel); apply in rollups + sessions query; admin rebuild.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "33",
+        "title": "Global filters and all-time summary",
+        "description": "GET /api/v1/summary/overview (all-time totals); shared FilterBar (range presets + custom + machine/project) wired into Trends and Breakdowns; all-time stat strip on Trends.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "34",
+        "title": "Alerts rework to community best practices",
+        "description": "Migration adds warn/crit thresholds + rule state; severity from threshold crossed; resolved notifications; ntfy Priority/Tags/Click; seeded defaults; test-channel endpoint; quiet hours in tz; dual-threshold UI.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "35",
+        "title": "Per-session drill-down and efficiency stats",
+        "description": "GET /api/v1/sessions/{id}: per-event series + tokens/turn, cache hit rate, context growth, inflection point (>2x median). SessionsView expandable row with cumulative sparkline. Metadata only.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "36",
+        "title": "Anomaly insights",
+        "description": "services/insights.py: per-session vs account baseline (mean+/-2sigma, >=20 sessions), severity=cost*(1-cache_hit); GET /api/v1/insights/anomalies; Insights card + row flags on Sessions.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "37",
+        "title": "Cache framing and plan-value polish",
+        "description": "Breakdowns cache card reassurance copy (~95% cache-read is normal) + caching-saved figure; Now value tile labels its window explicitly.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T19:25:34.555Z",
-      "taskCount": 27,
-      "completedCount": 27,
+      "lastModified": "2026-07-09T20:15:09.947Z",
+      "taskCount": 37,
+      "completedCount": 28,
       "tags": [
         "master"
       ]

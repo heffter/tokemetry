@@ -103,56 +103,54 @@ onMounted(load);
     :error="error"
     @retry="retry"
   >
-    <template>
-      <section class="card">
-        <h3>Cache</h3>
-        <p>
-          <strong class="tabular">{{ formatTokens(cacheStats.read) }}</strong>
-          cache-read tokens —
-          <strong class="tabular">{{
-            formatPct(cacheStats.hitRatio * 100)
-          }}</strong>
-          of prompt tokens served from cache, each cached token reused
-          <strong class="tabular">{{ cacheStats.reuse.toFixed(1) }}x</strong> on
-          average.
-        </p>
-      </section>
-      <section class="card">
-        <h3>By model</h3>
-        <EChart :option="modelChart" height="300px" />
-        <ChartTable
-          caption="Tokens by model and token type"
-          :columns="['Model', ...TOKEN_TABLE_HEADERS]"
-          :rows="tokenTableRows(sorted(byModel), (b) => modelLabel(b.key))"
-        />
-      </section>
-      <section class="card">
-        <h3>By machine</h3>
-        <EChart :option="machineChart" height="300px" />
-        <ChartTable
-          caption="Tokens by machine and token type"
-          :columns="['Machine', ...TOKEN_TABLE_HEADERS]"
-          :rows="tokenTableRows(sorted(byMachine), dimLabel)"
-        />
-      </section>
-      <section class="card">
-        <h3>By project</h3>
-        <EChart :option="projectChart" height="300px" />
-        <ChartTable
-          caption="Tokens by project and token type"
-          :columns="['Project', ...TOKEN_TABLE_HEADERS]"
-          :rows="tokenTableRows(sorted(byProject), dimLabel)"
-        />
-      </section>
-      <section class="card">
-        <h3>When you burn tokens (weekday × hour)</h3>
-        <EChart :option="punchChart" height="260px" />
-      </section>
-      <section class="card">
-        <h3>Daily activity</h3>
-        <EChart :option="calendarChart" height="180px" />
-      </section>
-    </template>
+    <section class="card">
+      <h3>Cache</h3>
+      <p>
+        <strong class="tabular">{{ formatTokens(cacheStats.read) }}</strong>
+        cache-read tokens —
+        <strong class="tabular">{{
+          formatPct(cacheStats.hitRatio * 100)
+        }}</strong>
+        of prompt tokens served from cache, each cached token reused
+        <strong class="tabular">{{ cacheStats.reuse.toFixed(1) }}x</strong> on
+        average.
+      </p>
+    </section>
+    <section class="card">
+      <h3>By model</h3>
+      <EChart :option="modelChart" height="300px" />
+      <ChartTable
+        caption="Tokens by model and token type"
+        :columns="['Model', ...TOKEN_TABLE_HEADERS]"
+        :rows="tokenTableRows(sorted(byModel), (b) => modelLabel(b.key))"
+      />
+    </section>
+    <section class="card">
+      <h3>By machine</h3>
+      <EChart :option="machineChart" height="300px" />
+      <ChartTable
+        caption="Tokens by machine and token type"
+        :columns="['Machine', ...TOKEN_TABLE_HEADERS]"
+        :rows="tokenTableRows(sorted(byMachine), dimLabel)"
+      />
+    </section>
+    <section class="card">
+      <h3>By project</h3>
+      <EChart :option="projectChart" height="300px" />
+      <ChartTable
+        caption="Tokens by project and token type"
+        :columns="['Project', ...TOKEN_TABLE_HEADERS]"
+        :rows="tokenTableRows(sorted(byProject), dimLabel)"
+      />
+    </section>
+    <section class="card">
+      <h3>When you burn tokens (weekday × hour)</h3>
+      <EChart :option="punchChart" height="260px" />
+    </section>
+    <section class="card">
+      <h3>Daily activity</h3>
+      <EChart :option="calendarChart" height="180px" />
+    </section>
   </AsyncState>
 </template>
 

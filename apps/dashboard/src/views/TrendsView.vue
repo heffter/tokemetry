@@ -74,28 +74,26 @@ watch(dimension, () => run(loadDimension));
     :error="error"
     @retry="retry"
   >
-    <template>
-      <section class="card">
-        <h3>Daily tokens (last 30 days)</h3>
-        <EChart :option="option" height="320px" />
-      </section>
-      <section class="card">
-        <div class="toolbar">
-          <h3>By {{ dimension }}</h3>
-          <div class="toggle">
-            <button
-              v-for="d in dims"
-              :key="d"
-              :class="{ active: dimension === d }"
-              @click="dimension = d"
-            >
-              {{ d }}
-            </button>
-          </div>
+    <section class="card">
+      <h3>Daily tokens (last 30 days)</h3>
+      <EChart :option="option" height="320px" />
+    </section>
+    <section class="card">
+      <div class="toolbar">
+        <h3>By {{ dimension }}</h3>
+        <div class="toggle">
+          <button
+            v-for="d in dims"
+            :key="d"
+            :class="{ active: dimension === d }"
+            @click="dimension = d"
+          >
+            {{ d }}
+          </button>
         </div>
-        <EChart :option="dimChart" height="320px" />
-      </section>
-    </template>
+      </div>
+      <EChart :option="dimChart" height="320px" />
+    </section>
   </AsyncState>
 </template>
 
