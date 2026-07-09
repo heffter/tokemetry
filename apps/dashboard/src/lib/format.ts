@@ -61,3 +61,31 @@ const WINDOW_LABELS: Record<string, string> = {
 export function windowLabel(kind: string): string {
   return WINDOW_LABELS[kind] ?? kind;
 }
+
+/** Humanize a model id ("claude-opus-4-8-20260101" -> "Opus 4.8"). */
+export function modelLabel(id: string): string {
+  let s = id.replace(/^.*anthropic\./, '').replace(/^claude-/, '');
+  s = s.replace(/-\d{8}$/, '').replace(/-v\d+:\d+$/, '');
+  const match = s.match(/^([a-z]+)-(\d+(?:-\d+)*)$/);
+  if (match) {
+    const family = match[1][0].toUpperCase() + match[1].slice(1);
+    return `${family} ${match[2].replace(/-/g, '.')}`;
+  }
+  return id;
+}
+
+interface TokenBucket {
+  cache_read_tokens: number;
+  total_tokens: number;
+}
+
+/** Fraction of total tokens (0-1) that were served from cache reads. */
+export function cacheReadShare(buckets: TokenBucket[]): number {
+  let read = 0;
+  let total = 0;
+  for (const bucket of buckets) {
+    read += bucket.cache_read_tokens;
+    total += bucket.total_tokens;
+  }
+  return total === 0 ? 0 : read / total;
+}

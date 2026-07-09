@@ -4,6 +4,25 @@
 
 import type { EChartsCoreOption } from 'echarts';
 import { isDark, seriesColor } from './palette';
+import { formatTokens } from './format';
+import type { UsageBucket } from '@/api/types';
+
+/** Format an axis/tooltip token value compactly. */
+function tokenValue(value: unknown): string {
+  return formatTokens(Number(value));
+}
+
+/** The five token components, in a fixed hue order, with an accessor. */
+export const TOKEN_COMPONENTS: {
+  label: string;
+  get: (b: UsageBucket) => number;
+}[] = [
+  { label: 'input', get: (b) => b.input_tokens },
+  { label: 'output', get: (b) => b.output_tokens },
+  { label: 'cache read', get: (b) => b.cache_read_tokens },
+  { label: 'cache write 5m', get: (b) => b.cache_write_short_tokens },
+  { label: 'cache write 1h', get: (b) => b.cache_write_long_tokens },
+];
 
 interface ThemeInk {
   text: string;
@@ -40,8 +59,8 @@ export function barOption(
 ): EChartsCoreOption {
   const theme = ink();
   return {
-    grid: { top: 24, right: 16, bottom: 48, left: 56 },
-    tooltip: { trigger: 'axis' },
+    grid: { top: 24, right: 16, bottom: 48, left: 64 },
+    tooltip: { trigger: 'axis', valueFormatter: tokenValue },
     xAxis: {
       type: 'category',
       data: categories,
@@ -50,7 +69,7 @@ export function barOption(
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: theme.muted },
+      axisLabel: { color: theme.muted, formatter: tokenValue },
       splitLine: { lineStyle: { color: theme.grid } },
     },
     series: [
@@ -67,6 +86,41 @@ export function barOption(
   };
 }
 
+/** A stacked bar of the five token components per category (hue-ordered). */
+export function stackedTokenBarOption(
+  categories: string[],
+  buckets: UsageBucket[]
+): EChartsCoreOption {
+  const theme = ink();
+  const dark = isDark();
+  return {
+    grid: { top: 28, right: 16, bottom: 56, left: 64 },
+    tooltip: { trigger: 'axis', valueFormatter: tokenValue },
+    legend: { top: 0, textStyle: { color: theme.text } },
+    xAxis: {
+      type: 'category',
+      data: categories,
+      axisLabel: {
+        color: theme.muted,
+        rotate: categories.length > 6 ? 30 : 0,
+      },
+      axisLine: { lineStyle: { color: theme.grid } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: theme.muted, formatter: tokenValue },
+      splitLine: { lineStyle: { color: theme.grid } },
+    },
+    series: TOKEN_COMPONENTS.map((component, index) => ({
+      name: component.label,
+      type: 'bar',
+      stack: 'tokens',
+      data: buckets.map(component.get),
+      itemStyle: { color: seriesColor(index, dark) },
+    })),
+  };
+}
+
 /** A stacked area chart over a shared time/category axis. */
 export function stackedAreaOption(
   categories: string[],
@@ -75,8 +129,8 @@ export function stackedAreaOption(
   const theme = ink();
   const dark = isDark();
   return {
-    grid: { top: 24, right: 16, bottom: 48, left: 56 },
-    tooltip: { trigger: 'axis' },
+    grid: { top: 24, right: 16, bottom: 48, left: 64 },
+    tooltip: { trigger: 'axis', valueFormatter: tokenValue },
     legend: { top: 0, textStyle: { color: theme.text } },
     xAxis: {
       type: 'category',
@@ -87,7 +141,7 @@ export function stackedAreaOption(
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: theme.muted },
+      axisLabel: { color: theme.muted, formatter: tokenValue },
       splitLine: { lineStyle: { color: theme.grid } },
     },
     series: series.map((entry, index) => ({

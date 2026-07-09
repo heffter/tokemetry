@@ -6,8 +6,15 @@ import GaugeCard from '@/components/GaugeCard.vue';
 import StatTile from '@/components/StatTile.vue';
 import EChart from '@/components/EChart.vue';
 import { useClient, useToken } from '@/composables/useApi';
-import { barOption } from '@/lib/charts';
-import { formatCost, formatTokens, timeUntil } from '@/lib/format';
+import { stackedTokenBarOption } from '@/lib/charts';
+import {
+  cacheReadShare,
+  formatCost,
+  formatPct,
+  formatTokens,
+  modelLabel,
+  timeUntil,
+} from '@/lib/format';
 import { costIsTrustworthy, pricedCoverage } from '@/lib/coverage';
 import type { CostResponse, StreamMessage } from '@/api/types';
 import type { SummaryNow } from '@/api/types';
@@ -20,12 +27,15 @@ let socket: WebSocket | null = null;
 
 const modelChart = computed(() => {
   const models = summary.value?.today.by_model ?? [];
-  return barOption(
-    models.map((m) => m.key),
-    models.map((m) => m.total_tokens),
-    'tokens'
+  return stackedTokenBarOption(
+    models.map((m) => modelLabel(m.key)),
+    models
   );
 });
+
+const cacheShare = computed(() =>
+  cacheReadShare(summary.value?.today.by_model ?? [])
+);
 
 // Coverage of today's cost: never present a bare dollar figure derived from
 // a price table that does not price every model in use.
@@ -122,6 +132,11 @@ onBeforeUnmount(() => socket?.close());
         :sub="valueTile.sub"
       />
       <StatTile
+        label="Cache reads"
+        :value="formatPct(cacheShare * 100)"
+        sub="of today's tokens served from cache"
+      />
+      <StatTile
         v-if="summary.prediction"
         label="Predicted limit"
         :value="timeUntil(summary.prediction.predicted_exhaustion_at)"
@@ -130,8 +145,8 @@ onBeforeUnmount(() => socket?.close());
     </section>
 
     <section class="card">
-      <h3>Today by model</h3>
-      <EChart :option="modelChart" height="300px" />
+      <h3>Today by model (token composition)</h3>
+      <EChart :option="modelChart" height="320px" />
     </section>
 
     <section class="card">

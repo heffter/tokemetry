@@ -801,17 +801,18 @@
       },
       {
         "id": "17",
-        "title": "Stacked Token-Composition Chart Builder",
+        "title": "Stacked Token-Composition Chart Builder (roadmap #3: charts.ts, format.ts, NowView, BreakdownsView, TrendsView) - Implemented stackedTokenBarOption, TOKEN_COMPONENTS, formatTokens formatters, modelId/",
         "description": "Implement stacked token-composition charts to visualize cache-read dominance.",
-        "details": "Chart Builder (src/lib): Create stackedBarOption builder with fixed categorical hue order (input/output/cache_read/cache_write_short/cache_write_long). Frontend: Apply to Now (today by model), Trends (daily), and Breakdowns (by model/machine/project). Add cache-read-share stat and 'exclude cache' toggle. Data is on UsageBucket. Test chart builder with vitest.",
-        "testStrategy": "vitest: Test stackedBarOption builder with sample data. Frontend: Verify chart rendering on Now, Trends, Breakdowns, and toggle functionality. Ensure quality gates pass.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "15",
           "16"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Chart Builder (src/lib): Create stackedTokenBarOption(categories, buckets) builder with fixed categorical hue order (input/output/cache_read/cache_write_5m/cache_write_1h) and formatTokens value+axis formatters. Export TOKEN_COMPONENTS with typed accessors. Retrofit barOption + stackedAreaOption with formatTokens formatters (eliminating '2700000000'). Frontend: Apply to NowView (today-by-model as stacked composition + 'Cache reads %' tile), BreakdownsView (three charts as stacked composition, sorted descending, model labels, Promise.all load, mislabeled cache-efficiency stat replaced with hit ratio = read/(read+input) and reuse = read/write), and TrendsView (daily chart as real 5-component stacked area, dimension chart as sorted stacked token bar, split loadDays/loadDimension so toggle no longer refetches daily chart). Add cacheReadShare() stat and 'exclude cache' toggle. Data is on UsageBucket. Test chart builder with vitest.",
+        "testStrategy": "vitest: Test stackedTokenBarOption builder with sample data. Frontend: Verify chart rendering on NowView, BreakdownsView, TrendsView, and toggle functionality. Ensure quality gates pass (28 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T18:05:15.451Z"
       },
       {
         "id": "18",
@@ -987,9 +988,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T17:56:47.090Z",
+      "lastModified": "2026-07-09T18:05:15.452Z",
       "taskCount": 26,
-      "completedCount": 16,
+      "completedCount": 17,
       "tags": [
         "master"
       ]

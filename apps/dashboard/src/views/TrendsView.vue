@@ -1,10 +1,15 @@
 <script setup lang="ts">
-// Daily usage trend, with a dimension toggle (model / machine / project) that
-// stacks the day series by that dimension.
+// Daily usage trend as a real stacked area over the five token components,
+// plus a categorical breakdown by a chosen dimension (stacked composition).
 import { computed, onMounted, ref, watch } from 'vue';
 import EChart from '@/components/EChart.vue';
 import { useClient } from '@/composables/useApi';
-import { stackedAreaOption } from '@/lib/charts';
+import {
+  stackedAreaOption,
+  stackedTokenBarOption,
+  TOKEN_COMPONENTS,
+} from '@/lib/charts';
+import { modelLabel } from '@/lib/format';
 import type { UsageBucket } from '@/api/types';
 
 const dimension = ref<'model' | 'machine' | 'project'>('model');
@@ -13,45 +18,57 @@ const dayBuckets = ref<UsageBucket[]>([]);
 const dimBuckets = ref<UsageBucket[]>([]);
 const error = ref('');
 
-const option = computed(() => {
-  const days = dayBuckets.value.map((b) => b.key);
-  // A single stacked series per dimension key, distributed proportionally per
-  // day is beyond this range query; show the per-day total plus a dimension
-  // breakdown bar. Here we stack the dimension totals as one area for shape.
-  return stackedAreaOption(days, [
-    {
-      name: 'total tokens',
-      values: dayBuckets.value.map((b) => b.total_tokens),
-    },
-  ]);
-});
-
-const dimChart = computed(() =>
+// Daily chart: a genuine stack of the five token components over time, so the
+// cache-read share is visible day by day instead of one opaque total line.
+const option = computed(() =>
   stackedAreaOption(
-    dimBuckets.value.map((b) => b.key),
-    [
-      {
-        name: dimension.value,
-        values: dimBuckets.value.map((b) => b.total_tokens),
-      },
-    ]
+    dayBuckets.value.map((b) => b.key),
+    TOKEN_COMPONENTS.map((component) => ({
+      name: component.label,
+      values: dayBuckets.value.map(component.get),
+    }))
   )
 );
 
-async function load(): Promise<void> {
+const dimSorted = computed(() =>
+  [...dimBuckets.value].sort((a, b) => b.total_tokens - a.total_tokens)
+);
+
+const dimChart = computed(() =>
+  stackedTokenBarOption(
+    dimSorted.value.map((b) =>
+      dimension.value === 'model'
+        ? modelLabel(b.key)
+        : b.key || '(unattributed)'
+    ),
+    dimSorted.value
+  )
+);
+
+async function loadDays(): Promise<void> {
   try {
-    const client = useClient();
-    dayBuckets.value = (await client.usage({ groupBy: 'day' })).buckets;
+    dayBuckets.value = (await useClient().usage({ groupBy: 'day' })).buckets;
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
+async function loadDimension(): Promise<void> {
+  try {
     dimBuckets.value = (
-      await client.usage({ groupBy: dimension.value })
+      await useClient().usage({ groupBy: dimension.value })
     ).buckets;
   } catch (e) {
     error.value = String(e);
   }
 }
 
-onMounted(load);
-watch(dimension, load);
+onMounted(() => {
+  void loadDays();
+  void loadDimension();
+});
+// Only the dimension chart depends on the toggle; the daily chart does not.
+watch(dimension, loadDimension);
 </script>
 
 <template>

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cacheReadShare,
   formatCost,
   formatPct,
   formatTokens,
+  modelLabel,
   timeUntil,
   utilizationStatus,
   windowLabel,
@@ -62,5 +64,36 @@ describe('windowLabel', () => {
   it('maps known windows and passes through unknown', () => {
     expect(windowLabel('five_hour')).toBe('5-hour block');
     expect(windowLabel('mystery')).toBe('mystery');
+  });
+});
+
+describe('modelLabel', () => {
+  it('humanizes dated and undated claude ids', () => {
+    expect(modelLabel('claude-opus-4-8-20260101')).toBe('Opus 4.8');
+    expect(modelLabel('claude-sonnet-4-6')).toBe('Sonnet 4.6');
+    expect(modelLabel('claude-haiku-4-5-20251001')).toBe('Haiku 4.5');
+    expect(modelLabel('claude-fable-5')).toBe('Fable 5');
+  });
+  it('strips provider and bedrock suffixes', () => {
+    expect(modelLabel('us.anthropic.claude-opus-4-5-20251101-v1:0')).toBe(
+      'Opus 4.5'
+    );
+  });
+  it('passes through unrecognized ids', () => {
+    expect(modelLabel('gpt-5-turbo-preview')).toBe('gpt-5-turbo-preview');
+  });
+});
+
+describe('cacheReadShare', () => {
+  it('computes the cache-read fraction', () => {
+    expect(
+      cacheReadShare([
+        { cache_read_tokens: 900, total_tokens: 1000 },
+        { cache_read_tokens: 0, total_tokens: 1000 },
+      ])
+    ).toBeCloseTo(0.45);
+  });
+  it('is zero for no usage', () => {
+    expect(cacheReadShare([])).toBe(0);
   });
 });
