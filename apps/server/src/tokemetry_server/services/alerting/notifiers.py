@@ -18,6 +18,9 @@ from loguru import logger
 
 from tokemetry_server.config import Settings
 
+# ntfy priority per severity: max for critical, high for warning, default else.
+_NTFY_PRIORITY = {"critical": "5", "warning": "4", "info": "3"}
+
 
 class Notifier(abc.ABC):
     """A notification channel."""
@@ -30,8 +33,12 @@ class Notifier(abc.ABC):
         """True when the channel has everything it needs to send."""
 
     @abc.abstractmethod
-    async def send(self, title: str, body: str) -> bool:
-        """Send a notification; return True on success."""
+    async def send(self, title: str, body: str, severity: str = "info") -> bool:
+        """Send a notification; return True on success.
+
+        ``severity`` is ``"info"``, ``"warning"``, or ``"critical"``; channels
+        that support priorities map it, others may ignore it.
+        """
 
 
 class NtfyNotifier(Notifier):
@@ -48,14 +55,20 @@ class NtfyNotifier(Notifier):
         """True when an ntfy topic is set."""
         return bool(self._settings.ntfy_topic)
 
-    async def send(self, title: str, body: str) -> bool:
-        """POST the message to the configured ntfy topic."""
+    async def send(self, title: str, body: str, severity: str = "info") -> bool:
+        """POST the message to the configured ntfy topic with a priority."""
         if not self.is_configured():
             return False
         url = f"{self._settings.ntfy_url.rstrip('/')}/{self._settings.ntfy_topic}"
+        headers = {
+            "Title": title,
+            "Priority": _NTFY_PRIORITY.get(severity, "3"),
+        }
+        if self._settings.dashboard_url:
+            headers["Click"] = self._settings.dashboard_url
         try:
             response = await self._client.post(
-                url, content=body.encode("utf-8"), headers={"Title": title}
+                url, content=body.encode("utf-8"), headers=headers
             )
             return response.is_success
         except httpx.HTTPError as exc:
@@ -77,7 +90,7 @@ class TelegramNotifier(Notifier):
         """True when a bot token and chat id are set."""
         return bool(self._settings.telegram_bot_token and self._settings.telegram_chat_id)
 
-    async def send(self, title: str, body: str) -> bool:
+    async def send(self, title: str, body: str, severity: str = "info") -> bool:
         """Send the message to the configured chat."""
         if not self.is_configured():
             return False
@@ -109,7 +122,7 @@ class SmtpNotifier(Notifier):
         s = self._settings
         return bool(s.smtp_host and s.smtp_from and s.smtp_to)
 
-    async def send(self, title: str, body: str) -> bool:
+    async def send(self, title: str, body: str, severity: str = "info") -> bool:
         """Send the email off the event loop."""
         if not self.is_configured():
             return False

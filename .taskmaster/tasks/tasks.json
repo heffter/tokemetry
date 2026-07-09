@@ -1644,13 +1644,14 @@
       {
         "id": "34",
         "title": "Alerts rework to community best practices",
-        "description": "Migration adds warn/crit thresholds + rule state; severity from threshold crossed; resolved notifications; ntfy Priority/Tags/Click; seeded defaults; test-channel endpoint; quiet hours in tz; dual-threshold UI.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "Migration 0002 adds warn_threshold/crit_threshold + state/last_fired_at; severity derived from which threshold a measure crosses (killed hardcoded >=95 and 'serious'->normalized info/warning/critical); engine as firing/normal state machine (notify on transition-in or post-cooldown repeat; firing->normal sends one 'Resolved' info notice ignoring cooldown); ntfy maps severity->Priority header (crit 5/warn 4) + optional Click (dashboard_url); seeded default rule set on first run (gated by seed_default_alerts, off in tests); POST /api/v1/alerts/test/{channel}; UI: dual warn/crit inputs, firing/ok state badge with last-fired tooltip, per-channel Test buttons; tests: warn/crit severity, resolved notice, seeding idempotency, test-channel + dual-threshold API; 207 server + 56 dashboard pass; gates clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "",
+        "testStrategy": "Test warn/crit severity levels, resolved notice generation, seeding idempotency, test-channel endpoint functionality, and dual-threshold API. Verify 207 server tests and 56 dashboard tests pass with clean gates.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T21:24:46.694Z"
       },
       {
         "id": "35",
@@ -1688,9 +1689,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T21:06:45.627Z",
+      "lastModified": "2026-07-09T21:24:46.694Z",
       "taskCount": 37,
-      "completedCount": 33,
+      "completedCount": 34,
       "tags": [
         "master"
       ]

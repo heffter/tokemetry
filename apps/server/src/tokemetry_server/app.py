@@ -28,6 +28,7 @@ from tokemetry_server.db.session import create_engine, create_session_factory
 from tokemetry_server.providers import build_registry
 from tokemetry_server.services.alerting.engine import AlertEngine
 from tokemetry_server.services.alerting.notifiers import build_notifiers
+from tokemetry_server.services.alerting.seed import seed_default_alert_rules
 from tokemetry_server.services.broadcast import Broadcaster
 from tokemetry_server.services.cost import CostEngine
 from tokemetry_server.services.pricing_repo import load_pricing_table, seed_default_pricing
@@ -89,6 +90,10 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
             active_cost_fn: CostFn = cost_fn
         else:
             active_cost_fn = (await _build_cost_engine(session_factory, dialect_name)).cost
+        if resolved.seed_default_alerts:
+            async with session_factory() as seed_session:
+                await seed_default_alert_rules(seed_session)
+                await seed_session.commit()
         http_client = httpx.AsyncClient(timeout=30.0)
         alert_engine = AlertEngine(
             build_notifiers(resolved, http_client), timezone=resolved.timezone

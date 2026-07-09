@@ -178,7 +178,11 @@ class AlertRule(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(200), unique=True)
     kind: Mapped[str] = mapped_column(String(50))
+    # Legacy single threshold, kept for compatibility; warn/crit take priority.
     threshold: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
+    # Dual thresholds: severity is derived from which one the measure crosses.
+    warn_threshold: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
+    crit_threshold: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
     window_kind: Mapped[str | None] = mapped_column(String(50))
     # A JSON list of channel names (e.g. ["ntfy", "telegram"]).
     channels: Mapped[Any] = mapped_column(JSONType, default=list)
@@ -186,6 +190,9 @@ class AlertRule(Base):
     quiet_hours: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     config: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    # Firing-state machine: "normal" or "firing"; drives resolved notices.
+    state: Mapped[str] = mapped_column(String(20), default="normal")
+    last_fired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     events: Mapped[list[AlertEvent]] = relationship(back_populates="rule")
 

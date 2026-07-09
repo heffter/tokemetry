@@ -28,6 +28,7 @@ def settings(db_path: Path) -> Settings:
     return Settings(
         database_url=f"sqlite+aiosqlite:///{db_path}",
         api_bootstrap_token=BOOTSTRAP_TOKEN,
+        seed_default_alerts=False,
     )
 
 

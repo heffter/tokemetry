@@ -16,14 +16,14 @@ class _FakeNotifier(Notifier):
     name = "fake"
 
     def __init__(self, ok: bool = True) -> None:
-        self.sent: list[tuple[str, str]] = []
+        self.sent: list[tuple[str, str, str]] = []
         self._ok = ok
 
     def is_configured(self) -> bool:
         return True
 
-    async def send(self, title: str, body: str) -> bool:
-        self.sent.append((title, body))
+    async def send(self, title: str, body: str, severity: str = "info") -> bool:
+        self.sent.append((title, body, severity))
         return self._ok
 
 
@@ -44,11 +44,13 @@ async def _add_rule(session: AsyncSession, **kwargs: object) -> models.AlertRule
     return rule
 
 
-async def _add_snapshot(session: AsyncSession, util: float) -> None:
+async def _add_snapshot(
+    session: AsyncSession, util: float, ts: datetime | None = None
+) -> None:
     session.add(
         models.LimitSnapshot(
             provider="anthropic",
-            ts=_NOW,
+            ts=ts if ts is not None else _NOW,
             window_kind="five_hour",
             utilization_pct=util,
             provenance="official",
@@ -107,6 +109,73 @@ async def test_cooldown_expires(async_session: AsyncSession) -> None:
 
     assert len(later) == 1
     assert await _event_count(async_session) == 2
+
+
+async def test_warn_threshold_yields_warning(async_session: AsyncSession) -> None:
+    notifier = _FakeNotifier()
+    engine = AlertEngine({"fake": notifier})
+    await _add_rule(
+        async_session,
+        threshold=None,
+        warn_threshold=Decimal("80"),
+        crit_threshold=Decimal("95"),
+    )
+    await _add_snapshot(async_session, 85.0)
+    await async_session.commit()
+
+    fired = await engine.run(async_session, now=_NOW)
+
+    assert fired[0].finding.severity == "warning"
+    assert notifier.sent[-1][2] == "warning"
+
+
+async def test_crit_threshold_yields_critical(async_session: AsyncSession) -> None:
+    notifier = _FakeNotifier()
+    engine = AlertEngine({"fake": notifier})
+    await _add_rule(
+        async_session,
+        threshold=None,
+        warn_threshold=Decimal("80"),
+        crit_threshold=Decimal("95"),
+    )
+    await _add_snapshot(async_session, 97.0)
+    await async_session.commit()
+
+    fired = await engine.run(async_session, now=_NOW)
+
+    assert fired[0].finding.severity == "critical"
+    assert notifier.sent[-1][2] == "critical"
+
+
+async def test_resolved_notification_on_recovery(async_session: AsyncSession) -> None:
+    notifier = _FakeNotifier()
+    engine = AlertEngine({"fake": notifier})
+    await _add_rule(
+        async_session, threshold=None, warn_threshold=Decimal("80"), crit_threshold=Decimal("95")
+    )
+    await _add_snapshot(async_session, 90.0)
+    await async_session.commit()
+
+    firing = await engine.run(async_session, now=_NOW)
+    await async_session.commit()
+    assert firing[0].finding.severity == "warning"
+
+    # Utilization drops below threshold in a newer snapshot: condition clears.
+    await _add_snapshot(async_session, 10.0, _NOW + timedelta(minutes=10))
+    await async_session.commit()
+    resolved = await engine.run(async_session, now=_NOW + timedelta(minutes=11))
+    await async_session.commit()
+
+    assert len(resolved) == 1
+    assert resolved[0].finding.severity == "info"
+    assert resolved[0].finding.title.startswith("Resolved")
+
+
+async def test_channel_helper(async_session: AsyncSession) -> None:
+    notifier = _FakeNotifier()
+    engine = AlertEngine({"fake": notifier})
+    assert await engine.test_channel("fake") is True
+    assert await engine.test_channel("missing") is False
 
 
 async def test_quiet_hours_skip(async_session: AsyncSession) -> None:

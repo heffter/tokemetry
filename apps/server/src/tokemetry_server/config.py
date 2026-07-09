@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     alerts_enabled: bool = Field(default=True)
     #: Seconds between background alert evaluations.
     alerts_interval_seconds: float = Field(default=60.0, gt=0)
+    #: Seed a default alert-rule set on first run when the table is empty.
+    seed_default_alerts: bool = Field(default=True)
 
     #: IANA timezone name used to evaluate alert quiet hours (e.g.
     #: "Europe/Budapest"). Defaults to UTC; an unknown name falls back to UTC.
@@ -79,6 +81,9 @@ class Settings(BaseSettings):
     # the server, never in the database alert rows. ---
     ntfy_url: str = Field(default="https://ntfy.sh")
     ntfy_topic: str | None = Field(default=None)
+    #: Dashboard base URL added as an ntfy Click action so a tapped
+    #: notification opens the app (e.g. "http://10.0.0.1:8790").
+    dashboard_url: str | None = Field(default=None)
     telegram_bot_token: str | None = Field(default=None)
     telegram_chat_id: str | None = Field(default=None)
     smtp_host: str | None = Field(default=None)

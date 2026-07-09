@@ -29,26 +29,52 @@ class AlertFinding:
 
 
 def _threshold(rule: models.AlertRule, default: float) -> float:
-    """Read a rule's numeric threshold, or a default."""
+    """Read a rule's warn threshold (or legacy single threshold), or a default."""
+    if rule.warn_threshold is not None:
+        return float(rule.warn_threshold)
     return float(rule.threshold) if rule.threshold is not None else default
+
+
+def _warn_crit(
+    rule: models.AlertRule, warn_default: float, crit_default: float
+) -> tuple[float, float]:
+    """Resolve a rule's (warn, crit) thresholds with per-kind defaults.
+
+    ``warn`` falls back to the legacy single ``threshold``; ``crit`` falls back
+    to its default when unset. ``crit`` is floored at ``warn`` so the ordering
+    is always warn <= crit.
+    """
+    warn = _threshold(rule, warn_default)
+    crit = float(rule.crit_threshold) if rule.crit_threshold is not None else crit_default
+    return warn, max(warn, crit)
+
+
+def _severity_for(value: float, warn: float, crit: float) -> str | None:
+    """Return the severity a measured value crosses, or None below warn."""
+    if value >= crit:
+        return "critical"
+    if value >= warn:
+        return "warning"
+    return None
 
 
 async def _limit_pct(
     session: AsyncSession, rule: models.AlertRule, now: datetime
 ) -> AlertFinding | None:
-    """Fire when a limit window's utilization reaches the threshold."""
-    threshold = _threshold(rule, 80.0)
+    """Fire when a limit window's utilization crosses a warn/crit threshold."""
+    warn, crit = _warn_crit(rule, 80.0, 95.0)
     window = rule.window_kind or "five_hour"
     for snapshot in await analytics.current_limits(session):
         if snapshot.window_kind != window:
             continue
         pct = float(snapshot.utilization_pct)
-        if pct >= threshold:
-            severity = "critical" if pct >= 95 else "warning"
+        severity = _severity_for(pct, warn, crit)
+        if severity is not None:
+            crossed = crit if severity == "critical" else warn
             return AlertFinding(
                 severity=severity,
                 title=f"{window} at {pct:.0f}%",
-                body=f"Utilization {pct:.1f}% has reached the {threshold:.0f}% threshold.",
+                body=f"Utilization {pct:.1f}% has crossed the {crossed:.0f}% threshold.",
                 context={"window_kind": window, "utilization_pct": pct},
             )
     return None
@@ -83,14 +109,16 @@ async def _predicted_exhaustion(
 async def _burn_rate(
     session: AsyncSession, rule: models.AlertRule, now: datetime
 ) -> AlertFinding | None:
-    """Fire when the token burn rate exceeds an absolute threshold."""
-    threshold = _threshold(rule, 5000.0)
+    """Fire when the token burn rate crosses a warn/crit threshold."""
+    warn, crit = _warn_crit(rule, 5000.0, 10000.0)
     rate = await analytics.token_burn_rate(session, now=now)
-    if rate >= threshold:
+    severity = _severity_for(rate, warn, crit)
+    if severity is not None:
+        crossed = crit if severity == "critical" else warn
         return AlertFinding(
-            severity="warning",
+            severity=severity,
             title="High burn rate",
-            body=f"Burning {rate:.0f} tokens/min (threshold {threshold:.0f}).",
+            body=f"Burning {rate:.0f} tokens/min (threshold {crossed:.0f}).",
             context={"burn_rate_per_min": rate},
         )
     return None
@@ -99,23 +127,29 @@ async def _burn_rate(
 async def _collector_stale(
     session: AsyncSession, rule: models.AlertRule, now: datetime
 ) -> AlertFinding | None:
-    """Fire when a machine has not reported within the threshold minutes."""
-    minutes = _threshold(rule, 30.0)
-    cutoff = now - timedelta(minutes=minutes)
+    """Fire when a machine's silence crosses a warn/crit staleness threshold."""
+    warn, crit = _warn_crit(rule, 30.0, 120.0)
+    cutoff = now - timedelta(minutes=warn)
     result = await session.execute(
         select(models.Machine.id, models.Machine.last_seen).where(
             models.Machine.last_seen.is_not(None), models.Machine.last_seen < cutoff
         )
     )
-    stale = [row[0] for row in result.all()]
-    if stale:
-        return AlertFinding(
-            severity="serious",
-            title="Collector stale",
-            body=f"No data from {', '.join(stale)} for over {minutes:.0f} minutes.",
-            context={"machines": stale},
-        )
-    return None
+    rows = result.all()
+    if not rows:
+        return None
+    stale = [row[0] for row in rows]
+    worst = max(
+        (now - (seen if seen.tzinfo else seen.replace(tzinfo=UTC))).total_seconds() / 60.0
+        for _, seen in rows
+    )
+    severity = _severity_for(worst, warn, crit) or "warning"
+    return AlertFinding(
+        severity=severity,
+        title="Collector stale",
+        body=f"No data from {', '.join(stale)} for over {warn:.0f} minutes.",
+        context={"machines": stale, "worst_stale_minutes": round(worst, 1)},
+    )
 
 
 async def _unknown_model(

@@ -179,6 +179,16 @@ export class ApiClient {
     );
   }
 
+  testChannel(
+    channel: string
+  ): Promise<{ channel: string; delivered: boolean }> {
+    return this.request<{ channel: string; delivered: boolean }>(
+      `/api/v1/alerts/test/${encodeURIComponent(channel)}`,
+      'POST',
+      {}
+    );
+  }
+
   listTokens(): Promise<TokenInfo[]> {
     return this.request<TokenInfo[]>('/api/v1/tokens');
   }
@@ -213,18 +223,24 @@ export interface AlertRule {
   name: string;
   kind: string;
   threshold: string | null;
+  warn_threshold: string | null;
+  crit_threshold: string | null;
   window_kind: string | null;
   channels: string[];
   cooldown_seconds: number;
   quiet_hours: Record<string, unknown> | null;
   enabled: boolean;
   config: Record<string, unknown>;
+  state: string;
+  last_fired_at: string | null;
 }
 
 export interface AlertRuleInput {
   name: string;
   kind: string;
   threshold?: string | null;
+  warn_threshold?: string | null;
+  crit_threshold?: string | null;
   window_kind?: string | null;
   channels: string[];
   cooldown_seconds: number;

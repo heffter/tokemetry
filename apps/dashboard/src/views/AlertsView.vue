@@ -28,19 +28,26 @@ const evalStatus = ref('');
 interface KindMeta {
   label: string;
   window: boolean;
-  threshold: { min?: number; max?: number; suffix: string; def: string } | null;
+  // Dual warn/critical thresholds; null for kinds that fire on a boolean state.
+  threshold: {
+    min?: number;
+    max?: number;
+    suffix: string;
+    warnDef: string;
+    critDef: string;
+  } | null;
 }
 
 const KINDS: Record<string, KindMeta> = {
   limit_pct: {
     label: 'Limit %',
     window: true,
-    threshold: { min: 0, max: 100, suffix: '%', def: '80' },
+    threshold: { min: 0, max: 100, suffix: '%', warnDef: '80', critDef: '95' },
   },
   burn_rate: {
     label: 'Burn rate',
     window: false,
-    threshold: { suffix: 'tok/min', def: '5000' },
+    threshold: { suffix: 'tok/min', warnDef: '5000', critDef: '10000' },
   },
   predicted_exhaustion: {
     label: 'Predicted exhaustion',
@@ -50,7 +57,7 @@ const KINDS: Record<string, KindMeta> = {
   collector_stale: {
     label: 'Collector stale',
     window: false,
-    threshold: { suffix: 'min', def: '30' },
+    threshold: { suffix: 'min', warnDef: '30', critDef: '120' },
   },
   unknown_model: { label: 'Unpriced usage', window: false, threshold: null },
 };
@@ -60,21 +67,25 @@ const WINDOWS = [
   'seven_day_opus',
   'seven_day_sonnet',
 ];
+const CHANNELS = ['ntfy', 'telegram', 'smtp'];
 
 const draft = ref({
   name: '',
   kind: 'limit_pct',
   window_kind: 'five_hour',
-  threshold: '80',
+  warn: '80',
+  crit: '95',
   channels: 'ntfy',
 });
 
 const draftMeta = computed(() => KINDS[draft.value.kind]);
+const testStatus = ref('');
 
 watch(
   () => draft.value.kind,
   (kind) => {
-    draft.value.threshold = KINDS[kind].threshold?.def ?? '';
+    draft.value.warn = KINDS[kind].threshold?.warnDef ?? '';
+    draft.value.crit = KINDS[kind].threshold?.critDef ?? '';
   }
 );
 
@@ -82,14 +93,18 @@ function currentLimit(windowKind: string | null): Limit | undefined {
   return summary.value?.limits.find((l) => l.window_kind === windowKind);
 }
 
+function ruleThreshold(rule: AlertRule): string {
+  return rule.warn_threshold ?? rule.threshold ?? '?';
+}
+
 function liveValue(rule: AlertRule): string {
   if (rule.kind === 'limit_pct') {
     const l = currentLimit(rule.window_kind);
     if (!l) return '—';
-    return `${formatPct(l.utilization_pct)} / ${rule.threshold ?? '?'}%`;
+    return `${formatPct(l.utilization_pct)} / ${ruleThreshold(rule)}%`;
   }
   if (rule.kind === 'burn_rate' && summary.value) {
-    return `${formatTokens(Math.round(summary.value.token_burn_rate_per_min))}/min / ${rule.threshold ?? '?'}`;
+    return `${formatTokens(Math.round(summary.value.token_burn_rate_per_min))}/min / ${ruleThreshold(rule)}`;
   }
   return '';
 }
@@ -99,11 +114,21 @@ function ruleInput(rule: AlertRule, enabled: boolean): AlertRuleInput {
     name: rule.name,
     kind: rule.kind,
     threshold: rule.threshold,
+    warn_threshold: rule.warn_threshold,
+    crit_threshold: rule.crit_threshold,
     window_kind: rule.window_kind,
     channels: rule.channels,
     cooldown_seconds: rule.cooldown_seconds,
     enabled,
   };
+}
+
+async function testChannel(channel: string): Promise<void> {
+  testStatus.value = `testing ${channel}…`;
+  const result = await useClient().testChannel(channel);
+  testStatus.value = result.delivered
+    ? `${channel}: test sent`
+    : `${channel}: not configured or failed`;
 }
 
 async function loadRules(): Promise<void> {
@@ -140,7 +165,8 @@ async function create(): Promise<void> {
   await useClient().createAlertRule({
     name: draft.value.name.trim(),
     kind: draft.value.kind,
-    threshold: meta.threshold ? draft.value.threshold : null,
+    warn_threshold: meta.threshold ? draft.value.warn : null,
+    crit_threshold: meta.threshold ? draft.value.crit : null,
     window_kind: meta.window ? draft.value.window_kind : null,
     channels: draft.value.channels
       .split(',')
@@ -215,18 +241,39 @@ onMounted(() => {
           </option>
         </select>
         <label v-if="draftMeta.threshold" class="threshold">
+          <span class="muted small">warn</span>
           <input
-            v-model="draft.threshold"
-            :type="draftMeta.threshold.max ? 'range' : 'number'"
+            v-model="draft.warn"
+            type="number"
             :min="draftMeta.threshold.min"
             :max="draftMeta.threshold.max"
+            class="thin"
           />
-          <span class="tabular"
-            >{{ draft.threshold }}{{ draftMeta.threshold.suffix }}</span
-          >
+          <span class="muted small">crit</span>
+          <input
+            v-model="draft.crit"
+            type="number"
+            :min="draftMeta.threshold.min"
+            :max="draftMeta.threshold.max"
+            class="thin"
+          />
+          <span class="muted small">{{ draftMeta.threshold.suffix }}</span>
         </label>
         <input v-model="draft.channels" placeholder="channels" class="narrow" />
         <button @click="create">Add</button>
+      </div>
+
+      <div class="channels-test">
+        <span class="muted small">test channel:</span>
+        <button
+          v-for="c in CHANNELS"
+          :key="c"
+          class="ghost"
+          @click="testChannel(c)"
+        >
+          {{ c }}
+        </button>
+        <span v-if="testStatus" class="muted small">{{ testStatus }}</span>
       </div>
       <div
         v-if="draft.kind === 'limit_pct' && formHistory.length > 1"
@@ -246,6 +293,15 @@ onMounted(() => {
         <li v-for="rule in rules" :key="rule.id">
           <span class="mono">{{ KINDS[rule.kind]?.label ?? rule.kind }}</span>
           <span>{{ rule.name }}</span>
+          <span
+            class="state"
+            :class="rule.state === 'firing' ? 'firing' : 'ok'"
+            :title="
+              rule.last_fired_at ? formatDateTime(rule.last_fired_at) : ''
+            "
+          >
+            {{ rule.state === 'firing' ? 'firing' : 'ok' }}
+          </span>
           <span class="muted live">{{ liveValue(rule) }}</span>
           <span class="muted">{{
             rule.channels.join(', ') || 'no channel'
@@ -321,6 +377,37 @@ h3 {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+.thin {
+  width: 64px;
+}
+.small {
+  font-size: 0.8rem;
+}
+.channels-test {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.ghost {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.state {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 5px;
+}
+.state.ok {
+  color: var(--status-good);
+}
+.state.firing {
+  color: var(--status-critical);
 }
 .spark {
   display: flex;
