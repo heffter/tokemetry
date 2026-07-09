@@ -232,6 +232,26 @@ class RebuildResult(BaseModel):
     rollups_rebuilt: int
 
 
+class AnomalyOut(BaseModel):
+    """One flagged session and why it stood out."""
+
+    session_id: str
+    project: str | None
+    reasons: list[str]
+    severity_score: float
+    total_tokens: int
+    cost_usd: float | None
+    cache_hit_rate: float
+
+
+class AnomalyReportOut(BaseModel):
+    """Anomaly-detection result across the account's sessions."""
+
+    enough_data: bool
+    session_count: int
+    anomalies: list[AnomalyOut]
+
+
 class SyncResult(BaseModel):
     """Outcome of a LiteLLM price sync."""
 

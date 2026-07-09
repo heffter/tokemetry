@@ -5,6 +5,7 @@
 // live in a single place.
 
 import type {
+  AnomalyReport,
   Block,
   CostResponse,
   HeatmapResponse,
@@ -107,6 +108,10 @@ export class ApiClient {
     return this.request<SessionDetail>(
       `/api/v1/sessions/${encodeURIComponent(id)}`
     );
+  }
+
+  insightsAnomalies(): Promise<AnomalyReport> {
+    return this.request<AnomalyReport>('/api/v1/insights/anomalies');
   }
 
   machines(): Promise<MachineSummary[]> {

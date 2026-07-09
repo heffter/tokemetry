@@ -115,6 +115,22 @@ export interface SessionDetail {
   stats: SessionStats;
 }
 
+export interface Anomaly {
+  session_id: string;
+  project: string | null;
+  reasons: string[];
+  severity_score: number;
+  total_tokens: number;
+  cost_usd: number | null;
+  cache_hit_rate: number;
+}
+
+export interface AnomalyReport {
+  enough_data: boolean;
+  session_count: number;
+  anomalies: Anomaly[];
+}
+
 export interface MachineSummary {
   id: string;
   platform: string | null;

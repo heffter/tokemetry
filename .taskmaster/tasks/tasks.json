@@ -1668,13 +1668,14 @@
       {
         "id": "36",
         "title": "Anomaly insights",
-        "description": "services/insights.py: per-session vs account baseline (mean+/-2sigma, >=20 sessions), severity=cost*(1-cache_hit); GET /api/v1/insights/anomalies; Insights card + row flags on Sessions.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "services/insights.py: classify_anomalies flags sessions vs the account's own baseline (mean+/-2sigma, 50k-token floor, needs >=20 sessions else enough_data=False): high tokens, high cost, low cache reuse, cost-inefficient composite; severity=cost*(1-cache_hit_rate), sorted desc. detect_anomalies aggregates per-session from usage_events (project normalized). GET /api/v1/insights/anomalies. SessionsView: Insights card listing top-6 anomalies (reason chips, click to expand detail), 'flagged' markers on anomalous rows, and a 'needs 20 sessions' note when the baseline is too small. Skipped unusual-model-mix (noisy). Tests: 4 classify units + endpoint integration. 219 server/core + 56 dashboard pass; gates clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "details": "",
+        "testStrategy": "Tests: 4 classify units + endpoint integration. 219 server/core + 56 dashboard pass; gates clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T21:43:20.128Z"
       },
       {
         "id": "37",
@@ -1690,9 +1691,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T21:34:51.392Z",
+      "lastModified": "2026-07-09T21:43:20.129Z",
       "taskCount": 37,
-      "completedCount": 35,
+      "completedCount": 36,
       "tags": [
         "master"
       ]

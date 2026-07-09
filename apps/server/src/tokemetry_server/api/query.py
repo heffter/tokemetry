@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_server.api.auth import require_token
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.schemas_query import (
+    AnomalyOut,
+    AnomalyReportOut,
     BlockOut,
     CostResponse,
     HeatmapResponse,
@@ -37,7 +39,7 @@ from tokemetry_server.api.schemas_query import (
 )
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db import models
-from tokemetry_server.services import analytics, queries, rollups
+from tokemetry_server.services import analytics, insights, queries, rollups
 
 router = APIRouter(prefix="/api/v1", tags=["query"])
 
@@ -296,6 +298,32 @@ async def session_detail(
             context_growth=detail.stats.context_growth,
             inflection_index=detail.stats.inflection_index,
         ),
+    )
+
+
+@router.get("/insights/anomalies", response_model=AnomalyReportOut)
+async def insights_anomalies(
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> AnomalyReportOut:
+    """Return sessions that deviate from the account's own usage baseline."""
+    report = await insights.detect_anomalies(session, settings.project_root_markers)
+    return AnomalyReportOut(
+        enough_data=report.enough_data,
+        session_count=report.session_count,
+        anomalies=[
+            AnomalyOut(
+                session_id=a.session_id,
+                project=a.project,
+                reasons=a.reasons,
+                severity_score=a.severity_score,
+                total_tokens=a.total_tokens,
+                cost_usd=a.cost_usd,
+                cache_hit_rate=a.cache_hit_rate,
+            )
+            for a in report.anomalies
+        ],
     )
 
 

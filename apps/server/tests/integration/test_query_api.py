@@ -161,6 +161,15 @@ def test_project_grouping_folds_variants(client: TestClient, auth: dict[str, str
     assert all(s["project"] == "Foo" for s in sessions if s["session_id"].startswith("psess"))
 
 
+def test_insights_anomalies_endpoint(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    data = _get(client, auth, "/api/v1/insights/anomalies")
+    # Only 2 seeded sessions: below the baseline minimum, so no anomalies.
+    assert data["enough_data"] is False
+    assert data["anomalies"] == []
+    assert data["session_count"] == 2
+
+
 def test_session_detail(client: TestClient, auth: dict[str, str]) -> None:
     _seed_events(client, auth)
     detail = _get(client, auth, "/api/v1/sessions/sess-0")

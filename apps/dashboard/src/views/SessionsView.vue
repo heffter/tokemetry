@@ -17,11 +17,19 @@ import {
   formatTokens,
   timeAgo,
 } from '@/lib/format';
-import type { SessionDetail, SessionSummary } from '@/api/types';
+import type { Anomaly, SessionDetail, SessionSummary } from '@/api/types';
 
 const route = useRoute();
 const { loading, error, run, retry } = useAsync();
 const sessions = ref<SessionSummary[]>([]);
+const anomalies = ref<Anomaly[]>([]);
+const enoughData = ref(true);
+
+// Map session id -> its anomaly, for row flags and the insights card.
+const anomalyById = computed(
+  () => new Map(anomalies.value.map((a) => [a.session_id, a]))
+);
+const topAnomalies = computed(() => anomalies.value.slice(0, 6));
 
 const expandedId = ref<string | null>(null);
 const detail = ref<SessionDetail | null>(null);
@@ -134,7 +142,20 @@ async function load(): Promise<void> {
   });
 }
 
-onMounted(load);
+async function loadAnomalies(): Promise<void> {
+  try {
+    const report = await useClient().insightsAnomalies();
+    enoughData.value = report.enough_data;
+    anomalies.value = report.anomalies;
+  } catch {
+    anomalies.value = [];
+  }
+}
+
+onMounted(() => {
+  void load();
+  void loadAnomalies();
+});
 </script>
 
 <template>
@@ -170,6 +191,30 @@ onMounted(load);
 
       <EChart :option="topChart" height="220px" />
 
+      <div v-if="topAnomalies.length" class="insights">
+        <h4>Insights — sessions that stand out</h4>
+        <ul>
+          <li
+            v-for="a in topAnomalies"
+            :key="a.session_id"
+            class="insight clickable"
+            @click="toggleDetail(a.session_id)"
+          >
+            <span class="mono">{{ a.session_id.slice(0, 8) }}</span>
+            <span>{{ a.project ?? '—' }}</span>
+            <span class="tabular">{{ formatTokens(a.total_tokens) }}</span>
+            <span class="reasons">
+              <span v-for="r in a.reasons" :key="r" class="chip warn">{{
+                r
+              }}</span>
+            </span>
+          </li>
+        </ul>
+      </div>
+      <p v-else-if="!enoughData" class="muted small note">
+        Anomaly detection needs at least 20 sessions to learn your baseline.
+      </p>
+
       <table>
         <thead>
           <tr>
@@ -196,6 +241,12 @@ onMounted(load);
               <td class="mono" :title="s.session_id">
                 {{ expandedId === s.session_id ? '▾' : '▸' }}
                 {{ s.session_id.slice(0, 8) }}
+                <span
+                  v-if="anomalyById.has(s.session_id)"
+                  class="flag"
+                  :title="anomalyById.get(s.session_id)?.reasons.join(', ')"
+                  >flagged</span
+                >
               </td>
               <td>{{ s.project ?? '—' }}</td>
               <td>{{ s.machine ?? '—' }}</td>
@@ -357,6 +408,45 @@ td {
 }
 .small {
   font-size: 0.75rem;
+}
+.note {
+  margin: 1rem 0 0;
+}
+.insights {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  background: var(--page);
+}
+.insights h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+.insights ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.insight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.insight .reasons {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.flag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--status-warning);
+  text-transform: uppercase;
+  margin-left: 0.3rem;
 }
 tfoot td {
   font-weight: 600;
