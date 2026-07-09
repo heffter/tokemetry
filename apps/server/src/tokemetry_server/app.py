@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tokemetry_core.models import UsageEvent
 
-from tokemetry_server.api import alerts, ingest, query, stream, tokens
+from tokemetry_server.api import alerts, ingest, pricing, query, stream, tokens
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db.migrate import upgrade_to_head
 from tokemetry_server.db.session import create_engine, create_session_factory
@@ -122,6 +122,7 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
     )
     app.include_router(ingest.router)
     app.include_router(query.router)
+    app.include_router(pricing.router)
     app.include_router(tokens.router)
     app.include_router(alerts.router)
     app.include_router(stream.router)

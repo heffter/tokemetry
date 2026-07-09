@@ -698,13 +698,246 @@
           }
         ],
         "updatedAt": "2026-07-09T15:54:43.768Z"
+      },
+      {
+        "id": "15",
+        "title": "Backend Pricing Write + Recompute Endpoints",
+        "description": "Implement backend pricing write and recompute endpoints to unblock the real cost story.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Backend (FastAPI) - IMPLEMENTED: api/pricing.py with POST /api/v1/pricing (create/override a price row via pricing_repo.upsert_price_rows, source default 'manual', returns PricingOut) and POST /api/v1/pricing/recompute (reload pricing table -> fresh CostEngine, recompute_costs over all events, refresh_rollups_for_days across the full event date span so rollup cost_usd updates too, and hot-swap app.state.cost_fn so future ingests use new prices without restart). Added PriceRowIn + RecomputeResult schemas. Wired router into app. Tests: auth required, create appears in listing, unpriced event -> add price -> recompute fills event AND rollup cost, future ingest priced. Gates: 101 server tests, ruff/mypy strict/trivy clean.\n\nFrontend (Vue) - TODO: In Settings view, add 'Add/override model price' form with all fields. On mount, diff usage(group_by=model) against pricing rows to render a banner listing unpriced models (e.g., 'Unpriced: opus-4.8, sonnet-5, fable-5') with one-click prefill for the form. Use vitest for shared logic tests in src/lib.",
+        "testStrategy": "Backend (IMPLEMENTED): pytest: Test upsert_price_rows and recompute_costs with SQLite. Verify transactional integrity for recompute. Auth required, create appears in listing, unpriced event -> add price -> recompute fills event AND rollup cost, future ingest priced. Gates: 101 server tests, ruff/mypy strict/trivy clean.\n\nFrontend (TODO): vitest: Test form submission, banner rendering, and prefill logic. Ensure quality gates: vue-tsc, vite, vitest, eslint, prettier.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement frontend pricing form",
+            "description": "Implement frontend 'Add/override model price' form in Settings view with all fields.",
+            "dependencies": [],
+            "details": "Create Vue form component with fields: provider, model, effective_date, source, per-MTok fields. Ensure validation and submission logic.",
+            "status": "pending",
+            "testStrategy": "vitest: Test form submission, field validation, and prefill logic. Ensure quality gates: vue-tsc, vite, eslint, prettier.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement unpriced models banner",
+            "description": "Implement banner rendering for unpriced models with one-click prefill.",
+            "dependencies": [
+              1
+            ],
+            "details": "On mount, diff usage(group_by=model) against pricing rows. Render banner listing unpriced models (e.g., 'Unpriced: opus-4.8, sonnet-5, fable-5'). Add one-click prefill button to populate form.",
+            "status": "pending",
+            "testStrategy": "vitest: Test banner rendering, unpriced model detection, and prefill logic. Ensure quality gates pass.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T17:49:40.231Z"
+      },
+      {
+        "id": "16",
+        "title": "Coverage-Gated Cost Display Helper",
+        "description": "Implement coverage-gated cost display to prevent authoritative dollar figures from incomplete price tables.",
+        "details": "Shared Logic (src/lib): Create helper computePricedCoverageRatio(usageBuckets) to calculate priced-coverage ratio (null cost_usd vs priced). Frontend (Now page): Gate 'Today' cost figure; suppress or annotate 'partial - N of M models unpriced' below ~90% coverage, lead with token total. In Sessions/Blocks/Breakdowns/Machines, distinguish 'unpriced' (model missing) from genuine $0 with an 'unpriced' pill/badge. Wire GET /cost value_multiple vs subscription_monthly_us into Now page for Max-value figure. Test with vitest.",
+        "testStrategy": "vitest: Test computePricedCoverageRatio with various bucket sets. Frontend: Verify cost gating logic, annotation rendering, and 'unpriced' badge display. Ensure quality gates pass.",
+        "priority": "high",
+        "dependencies": [
+          "15"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "17",
+        "title": "Stacked Token-Composition Chart Builder",
+        "description": "Implement stacked token-composition charts to visualize cache-read dominance.",
+        "details": "Chart Builder (src/lib): Create stackedBarOption builder with fixed categorical hue order (input/output/cache_read/cache_write_short/cache_write_long). Frontend: Apply to Now (today by model), Trends (daily), and Breakdowns (by model/machine/project). Add cache-read-share stat and 'exclude cache' toggle. Data is on UsageBucket. Test chart builder with vitest.",
+        "testStrategy": "vitest: Test stackedBarOption builder with sample data. Frontend: Verify chart rendering on Now, Trends, Breakdowns, and toggle functionality. Ensure quality gates pass.",
+        "priority": "high",
+        "dependencies": [
+          "15",
+          "16"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "18",
+        "title": "Live Feed Throttle + Polling Fallback",
+        "description": "Decouple live feed from fetch to eliminate WebSocket-driven refetch storm.",
+        "details": "Frontend (Now page): Throttle summary reloads to trailing ~10s cadence using debounce/throttle. Add ~30s polling fallback for idle/dropped sockets. Show 'updated Xs ago' indicator. Keep feed append-only. Test with vitest.",
+        "testStrategy": "vitest: Test throttle logic and polling fallback. Frontend: Verify 'updated Xs ago' indicator and feed behavior. Ensure quality gates pass.",
+        "priority": "high",
+        "dependencies": [
+          "15",
+          "16",
+          "17"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "19",
+        "title": "Chart Hygiene: Formatting + Accessibility",
+        "description": "Implement chart hygiene to fix formatting and accessibility issues.",
+        "details": "Shared Logic (src/lib): Pass formatTokens as tooltip.valueFormatter and axis label formatter everywhere. Add modelLabel() map mirroring WINDOW_LABELS to humanize model IDs. Sort categorical bars descending. Use bars (not filled area lines) for categorical breakdowns. Add visually-hidden table fallbacks for accessibility. Test with vitest.",
+        "testStrategy": "vitest: Test formatTokens, modelLabel(), and sorting logic. Frontend: Verify tooltip/axis formatting, bar sorting, and accessibility fallbacks. Ensure quality gates pass.",
+        "priority": "medium",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "20",
+        "title": "Shared AsyncState/StateCard Component",
+        "description": "Build shared AsyncState/StateCard component for loading, empty, and error states.",
+        "details": "Frontend (src/components): Create AsyncState/StateCard component with loading skeleton, empty message, and error card (human message from ApiError.status + Retry button). Keep last-good data visible. Adopt on all eight views, replacing raw String(e) cards and false 'no data' flashes. Test with vitest.",
+        "testStrategy": "vitest: Test component rendering for loading, empty, and error states. Frontend: Verify adoption on all views and Retry button functionality. Ensure quality gates pass.",
+        "priority": "medium",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "21",
+        "title": "Limits Time-Series + Exhaustion Forecast",
+        "description": "Implement Limits time-series with reset markers and projected exhaustion.",
+        "details": "Frontend (Now page): Use GET /limits/history. Draw utilization sparkline/area inside each GaugeCard with dashed slope-projected exhaustion segment (from prediction.slope) and reset marker. Compute most-at-risk window and promote to headline banner ('5-hour limit in ~40m, 92%, climbing 1.4%/min'). Replace one redundant Trends chart with utilization-over-time per window_kind. Test with vitest.",
+        "testStrategy": "vitest: Test utilization calculation and banner logic. Frontend: Verify sparkline rendering, exhaustion segment, reset marker, and banner display. Ensure quality gates pass.",
+        "priority": "medium",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "22",
+        "title": "Machines Page: Staleness Clock + Differentiators",
+        "description": "Fix Machines page: unfreeze staleness clock and add differentiators.",
+        "details": "Frontend (Machines page): Drive 'now' from ticking ref (setInterval, cleared on unmount) instead of computed(() => Date.now()). Re-poll machines() on same interval. Add per-machine burn-rate and share-of-fleet columns, token-share bar, totals footer, status scale (online/recent/stale/dead) with thresholds, sort-stale-first with 'N offline' banner, and click-through to Usage/Sessions filtered by machine. Test with vitest.",
+        "testStrategy": "vitest: Test ticking ref and re-poll logic. Frontend: Verify status scale, sorting, banner, and click-through. Ensure quality gates pass.",
+        "priority": "medium",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "23",
+        "title": "Navigable Tables: Sorting + Filtering + Drill-Down",
+        "description": "Implement navigable tables: sorting, filtering, drill-down, totals.",
+        "details": "Frontend (Sessions page): Make tables sortable (click headers) and filterable (machine/project/provider dropdowns + date range, wired to UsageQuery params). Add totals footer, top-N sessions bar chart, inline magnitude bar in Tokens cell, and per-session drill-down (usage group_by filtered to session). Add descending sort + top-N 'other' bucket and click-to-requery drill-down to Breakdowns and Blocks bars. Test with vitest.",
+        "testStrategy": "vitest: Test sorting, filtering, and drill-down logic. Frontend: Verify table rendering, totals footer, bar chart, and drill-down functionality. Ensure quality gates pass.",
+        "priority": "medium",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "24",
+        "title": "Blocks Page: Hero Card + Time Axis Chart",
+        "description": "Implement current in-progress 5-hour block hero card and chart improvements.",
+        "details": "Frontend (Blocks page): Pin current block as hero card (percent consumed, tokens vs limit, minutes to reset, burn-to-exhaustion verdict). Switch block chart to time axis (idle gaps as gaps), default to recent window (last 48h) with range picker, paginate/virtualize table, add totals/summary footer, color and sort end_utilization_pct column, and label peak_tokens_per_min as rate. Test with vitest.",
+        "testStrategy": "vitest: Test hero card calculations and chart logic. Frontend: Verify hero card, time axis chart, pagination, and sorting. Ensure quality gates pass.",
+        "priority": "medium",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "25",
+        "title": "Heatmap Punch-Card + Calendar Grid",
+        "description": "Render unused /heatmap punch-card and calendar.",
+        "details": "Frontend (Breakdowns page): Add GET /heatmap (weekday x hour punch_card + daily calendar). Create weekday-by-hour heatmap (sequential palette) and contribution-style calendar grid. Optionally add compact strip on Now/Trends. Test with vitest.",
+        "testStrategy": "vitest: Test heatmap and calendar rendering logic. Frontend: Verify heatmap palette, calendar grid, and optional compact strip. Ensure quality gates pass.",
+        "priority": "low",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "26",
+        "title": "Alerts Page: Kind-Aware Thresholds + Live Sparkline",
+        "description": "Fix Alerts page: kind-aware threshold control and live sparkline.",
+        "details": "Frontend (Alerts page): Make threshold control kind-aware (0-100 slider with % for limit_pct, tokens/min for burn_rate, duration for predicted_exhaustion, hidden for collector_stale/unknown_model). Set against live /limits/history sparkline. Show live current-vs-threshold per rule from summaryNow. Render event.ts as relative time with absolute tooltip, sort newest-first, and make events expandable (body + context). Add enable/disable toggle (not destructive delete) and confirm before delete. Surface evaluate() { fired } result. Add window_kind selector for window-scoped kinds. Test with vitest.",
+        "testStrategy": "vitest: Test kind-aware threshold logic and event rendering. Frontend: Verify sparkline, expandable events, enable/disable toggle, and confirm delete. Ensure quality gates pass.",
+        "priority": "low",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
+          "25"
+        ],
+        "status": "pending",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T15:54:43.770Z",
-      "taskCount": 14,
-      "completedCount": 14,
+      "lastModified": "2026-07-09T17:49:40.232Z",
+      "taskCount": 26,
+      "completedCount": 15,
       "tags": [
         "master"
       ]

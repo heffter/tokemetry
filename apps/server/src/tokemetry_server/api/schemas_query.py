@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UsageBucketOut(BaseModel):
@@ -142,6 +142,29 @@ class PricingOut(BaseModel):
     cache_write_short_per_mtok: Decimal
     cache_write_long_per_mtok: Decimal
     source: str
+
+
+class PriceRowIn(BaseModel):
+    """A price row to create or override."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1, max_length=50)
+    model: str = Field(min_length=1, max_length=200)
+    effective_date: date
+    input_per_mtok: Decimal = Field(ge=0)
+    output_per_mtok: Decimal = Field(ge=0)
+    cache_read_per_mtok: Decimal = Field(ge=0)
+    cache_write_short_per_mtok: Decimal = Field(ge=0)
+    cache_write_long_per_mtok: Decimal = Field(ge=0)
+    source: str = Field(default="manual", max_length=50)
+
+
+class RecomputeResult(BaseModel):
+    """Outcome of a cost recomputation."""
+
+    events_updated: int
+    rollups_refreshed: int
 
 
 class TokenCreateRequest(BaseModel):
