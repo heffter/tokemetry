@@ -40,7 +40,10 @@ export class ApiClient {
   constructor(
     private readonly token: string,
     private readonly baseUrl = '',
-    private readonly fetchFn: typeof fetch = fetch
+    // Wrap the global fetch so it is always invoked with the correct `this`
+    // (window). Passing the bare `fetch` reference and calling it as a method
+    // detaches it and native fetch throws "Illegal invocation".
+    private readonly fetchFn: typeof fetch = (input, init) => fetch(input, init)
   ) {}
 
   private async request<T>(
