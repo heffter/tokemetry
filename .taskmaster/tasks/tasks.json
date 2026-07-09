@@ -1,0 +1,203 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Core Models and Abstract Interfaces Setup",
+        "description": "Define the core normalized UsageEvent Pydantic model and abstract interfaces (UsageSource, LimitsSource, PricingStrategy) for the shared core package (tokemetry_core). Implement the FakeProvider test double to validate interfaces without Claude-specific assumptions.",
+        "details": "Create `packages/core/tokemetry_core/models.py` with `UsageEvent` including fields: provider, native_model_id, input_tokens, output_tokens, cache_read, cache_write_short, cache_write_long, timestamps, session/project/machine context, and extra dict. Define abstract base classes in `interfaces.py`: `UsageSource` (discover/parse), `LimitsSource` (poll limits), `PricingStrategy` (compute USD). Implement `FakeProvider` in `providers/fake.py` returning dummy data. Ensure Pydantic v2 validation and type hints. Add unit tests for model serialization and interface compliance.",
+        "testStrategy": "Run pytest on `packages/core` with 100% pass rate. Verify `UsageEvent` serialization/deserialization with fixtures. Confirm `FakeProvider` implements all abstract methods without errors. Check coverage >= 80% line, 70% branch. Validate ruff/mypy strict zero issues.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Anthropic Pricing Strategy and LiteLLM Sync",
+        "description": "Implement the Anthropic pricing strategy with date-versioned per-MTok rates per provider/model, synced from LiteLLM's model_prices_and_context_window.json. Add manual override support and handle dated/undated model IDs.",
+        "details": "Create `packages/core/tokemetry_core/pricing/anthropic.py` implementing `PricingStrategy`. Fetch `model_prices_and_context_window.json` from LiteLLM, parse into a date-versioned pricing table. Implement logic to resolve price for dated (e.g., `claude-opus-4-5-20251101`) and undated (e.g., `claude-fable-5`) model IDs. Add `manual_override` config in TOML to adjust prices. Compute cost using Anthropic formula: uncached input * input_price + 5m_cache * 1.25x + 1h_cache * 2x + cache_read * 0.1x + output * output_price. Add unit tests for price resolution and cost calculation.",
+        "testStrategy": "Test price resolution for dated and undated models with fixtures. Verify cost calculation matches Anthropic formula. Confirm manual override updates pricing table. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Claude Code JSONL Parser with Keep-Max Dedup",
+        "description": "Implement the Claude Code JSONL parser (ClaudeCodeJsonlSource) to parse ~/.claude/projects/<encoded-cwd>/*.jsonl and subagent transcripts. Extract usage fields and implement keep-max deduplication by requestId.",
+        "details": "Create `packages/core/tokemetry_core/providers/clause_code.py` implementing `UsageSource`. Parse JSONL files in `~/.claude/projects/<encoded-cwd>/` and `<session>/subagents/`. Extract fields: requestId, model, input/output tokens, cache_read_input_tokens, cache_creation (ephemeral_5m/1h split), server_tool_use, service_tier, speed, sessionId, timestamp, cwd, gitBranch, version, slug, isSidechain, sessionKind, entrypoint. Implement deduplication: for each requestId, keep the entry with maximum usage (never first-seen, never naive sum). Handle streaming placeholders for input_tokens. Add unit tests with fixtures from multiple Claude Code versions.",
+        "testStrategy": "Test parsing with fixtures from multiple Claude Code versions. Verify keep-max deduplication by requestId with regression tests. Confirm extraction of all required fields. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Database Schema and Alembic Migrations",
+        "description": "Define the Postgres database schema using SQLAlchemy 2 and Alembic migrations. Create tables: machines, usage_events, limit_snapshots, sessions, daily_rollups, pricing, alert_rules, alert_events, api_tokens.",
+        "details": "Create `apps/server/tokemetry_server/db/models.py` with SQLAlchemy 2 models. Define tables: `machines` (id, name, last_seen, collector_version), `usage_events` (PK event_id, provider, machine, session, ts, model, project, git_branch, client_version, entrypoint, is_sidechain, session_kind, token columns, service_tier, speed, cost_usd, provenance, source, extra jsonb), `limit_snapshots` (provider, window_kind, utilization_pct, resets_at, raw jsonb), `sessions` (id, project, machine, start_ts, end_ts), `daily_rollups` (date, provider, model, total_tokens, cost_usd), `pricing` (provider, model, date, input_price, output_price), `alert_rules` (id, name, condition, channel, cooldown), `alert_events` (id, rule_id, timestamp, message), `api_tokens` (id, name, token_hash, created_at). Add Alembic migrations in `apps/server/alembic/versions/`. Ensure plain timestamped tables for Grafana compatibility.",
+        "testStrategy": "Run Alembic upgrade/downgrade tests. Verify table creation with pytest. Check schema matches PRD requirements. Validate ruff/mypy strict zero issues. Ensure coverage >= 80%.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Idempotent Ingest Endpoints with Validation",
+        "description": "Implement idempotent ingest endpoints (POST /api/v1/ingest/events, /ingest/limits, /ingest/bootstrap) with batch all-or-nothing logic, upsert keeping maximum-usage row per event_id, and sanity validation rejecting garbage.",
+        "details": "Create `apps/server/tokemetry_server/api/ingest.py` with FastAPI endpoints. Implement `POST /api/v1/ingest/events`: accept batch of UsageEvents, deduplicate by event_id (keep max usage), validate sanity (reject negative counts, impossible token math). Implement `POST /ingest/limits`: accept limit snapshots, upsert by provider/window_kind. Implement `POST /ingest/bootstrap`: accept stats-cache data, mark provenance=stats_cache. Use SQLAlchemy upsert with `max()` for usage. Add error handling for invalid data. Add unit tests with fixtures.",
+        "testStrategy": "Test idempotent ingest with duplicate batches. Verify upsert keeps max usage. Confirm sanity validation rejects garbage. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Cost Engine and Unknown Model Handling",
+        "description": "Implement the cost engine to compute cost_usd at ingest using the provider's PricingStrategy and date-effective pricing row. Handle unknown models (null cost, trigger alert) and add recompute command for history repricing.",
+        "details": "Create `apps/server/tokemetry_server/services/cost_engine.py`. In `ingest/events`, compute `cost_usd` using `PricingStrategy` and date-effective pricing row. If model is unknown, set `cost_usd=null` and trigger alert via `alert_rules`. Add CLI command `reprice-history` to recompute costs when pricing table changes. Add unit tests for cost calculation and unknown model handling.",
+        "testStrategy": "Test cost computation for known and unknown models. Verify alert trigger for unknown models. Confirm reprice-history command updates history. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Daily Rollups Refresh on Ingest",
+        "description": "Implement daily rollups refresh on ingest for fast history queries. Create the daily_rollups table update logic triggered after ingest/events.",
+        "details": "Create `apps/server/tokemetry_server/services/rollups.py`. After `ingest/events`, aggregate tokens and cost_usd by date, provider, model into `daily_rollups`. Use SQLAlchemy aggregate queries. Add unit tests for rollup aggregation.",
+        "testStrategy": "Test rollup aggregation with sample data. Verify daily_rollups table updates correctly. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "medium",
+        "dependencies": [
+          4,
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Collector Daemon with Offset-Tracked Tailing",
+        "description": "Implement the collector daemon (apps/collector) as a cross-platform Python daemon running as Windows Scheduled Task, systemd unit, or launchd agent. Add source-plugin host with watchdog file events and periodic rescan for incremental, byte-offset-tracked tailing.",
+        "details": "Create `apps/collector/tokemetry_collector/daemon.py`. Use `watchdog` for file events and periodic rescan. Track byte offsets in local SQLite state DB (`state.db`). Implement incremental tailing of discovered files. Add TOML config (`config.toml`) for server URL, API token, machine name, per-source enable flags, poll intervals. Add operational modes: `--once`, `--dry-run`, daemon loop. Use `loguru` for structured JSON logging. Create Windows Scheduled Task XML, systemd unit, launchd plist templates.",
+        "testStrategy": "Test file event detection and incremental tailing. Verify offset persistence in SQLite. Confirm operational modes work. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "high",
+        "dependencies": [
+          1,
+          3,
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "ClaudeCodeJsonlSource Wiring and SQLite Upload Queue",
+        "description": "Wire the ClaudeCodeJsonlSource in the collector, including subagent transcripts parsing and stats-cache bootstrap import. Implement local SQLite upload queue with retry and exponential backoff for offline-safe uploads.",
+        "details": "Create `apps/collector/tokemetry_collector/sources/clause_code.py` to wire `ClaudeCodeJsonlSource`. Parse subagent transcripts in `<session>/subagents/`. Implement daily bootstrap import of `~/.claude/stats-cache.json` with provenance=stats_cache. Create `apps/collector/tokemetry_collector/queue.py` with local SQLite upload queue (`queue.db`). Add retry logic with exponential backoff. Ensure uploads are batched and idempotent. Add unit tests for source wiring and queue retry.",
+        "testStrategy": "Test subagent transcript parsing. Verify stats-cache bootstrap import. Confirm queue retry with exponential backoff. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "AnthropicOAuthLimitsSource Poller with Graceful Degradation",
+        "description": "Implement the AnthropicOAuthLimitsSource poller to poll the undocumented endpoint GET https://api.anthropic.com/api/oauth/usage with OAuth token from ~/.claude/.credentials.json. Add graceful degradation to local estimates on failure.",
+        "details": "Create `packages/core/tokemetry_core/providers/anthropic_oauth.py` implementing `LimitsSource`. Poll endpoint every 2 minutes with headers `anthropic-beta: oauth-2025-04-20` and Claude-Code-like User-Agent. Extract five_hour, seven_day, seven_day_opus, seven_day_sonnet utilization percentages and reset times. If poll fails, degrade to local estimates (JSONL-derived). Tag data as provenance=official. Add unit tests for poll success and failure degradation.",
+        "testStrategy": "Test poll success with valid OAuth token. Verify graceful degradation to local estimates on failure. Confirm provenance tagging. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Analytics Engines and Query API Implementation",
+        "description": "Implement analytics engines: Block engine (reconstruct 5-hour billing blocks anchored to official resets_at, inferred fallback), Burn-rate engine (tokens per minute over trailing window, predicted exhaustion time), and Query API endpoints with grouping/filtering.",
+        "details": "Create `apps/server/tokemetry_server/services/analytics.py`. Implement `BlockEngine`: reconstruct 5-hour blocks using official resets_at from limit_snapshots, infer from event timestamps if missing. Record totals, peak burn, end utilization. Implement `BurnRateEngine`: calculate tokens/min over trailing window, predict exhaustion time vs reset. Create `apps/server/tokemetry_server/api/query.py` with endpoints: GET /summary/now, /limits/current, /limits/history, /blocks, /usage (group_by day/hour/provider/model/machine/project/session, from/to, filters), /sessions, /machines, /heatmap, /cost, /pricing, /alerts, /alerts/events. Add WebSocket /stream for live events. Add unit tests for engines and query endpoints.",
+        "testStrategy": "Test block reconstruction with official and inferred resets. Verify burn-rate calculation and prediction. Confirm query endpoints return correct grouped/filter data. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "high",
+        "dependencies": [
+          7,
+          10
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Vue 3 Web Dashboard with All Views",
+        "description": "Implement the Vue 3 web dashboard (apps/dashboard) with Vite scaffold, theming, and API client. Build Now view (gauges, burn rate, live feed), then Trends, Blocks, Breakdowns, Sessions, Machines, Alerts/Settings views.",
+        "details": "Create `apps/dashboard` with Vue 3 + TypeScript + Vite + ECharts. Implement API client in `src/api/client.ts` for query endpoints. Build views: Now (gauges for 5-hour/weekly/weekly-Opus limits, burn-rate sparkline, live feed via WebSocket), Trends (daily stacked area, weekly bars, calendar heatmap, monthly USD vs subscription), Blocks (timeline, histogram), Breakdowns (project/machine/model shares, cache efficiency), Sessions (sortable table, drill-down), Machines (fleet health, staleness warnings), Alerts/Settings (rule config, history, pricing overrides). Add light/dark themes. Add ESLint/Prettier/vitest gates.",
+        "testStrategy": "Test all views with mock API data. Verify WebSocket live feed. Confirm theme switching. Run vitest with coverage >= 80%. Validate ESLint/Prettier clean.",
+        "priority": "high",
+        "dependencies": [
+          11
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Alerting Rule Engine and Notification Channels",
+        "description": "Implement the alerting rule engine evaluated on ingest and timer. Add notification channels (ntfy, Telegram, SMTP) with per-rule routing, cooldown windows, and quiet hours. Create alert configuration API and UI wiring.",
+        "details": "Create `apps/server/tokemetry_server/services/alerting.py`. Implement rule engine: 5-hour block at 80%/95%, weekly cap at 80%, predicted exhaustion before reset, burn-rate anomaly (>2x median), collector stale >30min, unknown model. Add notification channels: ntfy (primary), Telegram bot, SMTP email. Implement per-rule channel routing, cooldown windows, quiet hours. Create API endpoints: GET/PUT /alerts, GET /alerts/events. Wire UI in dashboard Alerts view. Add unit tests for rule evaluation and notification.",
+        "testStrategy": "Test rule evaluation with sample data. Verify notification routing and cooldown. Confirm API endpoints work. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+        "priority": "medium",
+        "dependencies": [
+          10,
+          11
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Deployment Packaging and Operations Documentation",
+        "description": "Implement deployment and packaging: Docker Compose for VPS (server + Postgres bound to WireGuard), nightly pg_dump backup, collector service wrappers (Windows/systemd/launchd), and operations documentation (server install, collector enrollment, API token provisioning, Grafana datasource guide).",
+        "details": "Create `docker-compose.yml` for VPS: server app + Postgres, bound to WireGuard interface only. Add nightly `pg_dump` backup script. Create collector service wrappers: Windows Scheduled Task XML, systemd unit, launchd plist with installation docs. Write operations documentation: server install guide, collector enrollment (per machine), API token provisioning for third-party apps, Grafana datasource how-to. Add deployment tests with docker-compose.",
+        "testStrategy": "Test Docker Compose deployment with WireGuard. Verify nightly pg_dump backup. Confirm service wrappers install correctly. Validate documentation completeness. Run deployment tests with docker-compose.",
+        "priority": "medium",
+        "dependencies": [
+          8,
+          9,
+          12,
+          13
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2026-07-09T08:25:09.380Z",
+      "updated": "2026-07-09T08:25:09.380Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
