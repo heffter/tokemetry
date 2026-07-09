@@ -24,6 +24,28 @@ export const TOKEN_COMPONENTS: {
   { label: 'cache write 1h', get: (b) => b.cache_write_long_tokens },
 ];
 
+/** Header labels for the token-composition accessible table (value columns). */
+export const TOKEN_TABLE_HEADERS = [
+  'Input',
+  'Output',
+  'Cache read',
+  'Write 5m',
+  'Write 1h',
+  'Total',
+];
+
+/** Build accessible-table rows (label + formatted components + total). */
+export function tokenTableRows(
+  buckets: UsageBucket[],
+  label: (b: UsageBucket) => string
+): string[][] {
+  return buckets.map((b) => [
+    label(b),
+    ...TOKEN_COMPONENTS.map((c) => formatTokens(c.get(b))),
+    formatTokens(b.total_tokens),
+  ]);
+}
+
 interface ThemeInk {
   text: string;
   muted: string;

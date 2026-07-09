@@ -5,8 +5,13 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import GaugeCard from '@/components/GaugeCard.vue';
 import StatTile from '@/components/StatTile.vue';
 import EChart from '@/components/EChart.vue';
+import ChartTable from '@/components/ChartTable.vue';
 import { useClient, useToken } from '@/composables/useApi';
-import { stackedTokenBarOption } from '@/lib/charts';
+import {
+  stackedTokenBarOption,
+  tokenTableRows,
+  TOKEN_TABLE_HEADERS,
+} from '@/lib/charts';
 import {
   cacheReadShare,
   formatCost,
@@ -178,6 +183,11 @@ onBeforeUnmount(() => {
     <section class="card">
       <h3>Today by model (token composition)</h3>
       <EChart :option="modelChart" height="320px" />
+      <ChartTable
+        caption="Today's tokens by model and token type"
+        :columns="['Model', ...TOKEN_TABLE_HEADERS]"
+        :rows="tokenTableRows(summary.today.by_model, (b) => modelLabel(b.key))"
+      />
     </section>
 
     <section class="card">

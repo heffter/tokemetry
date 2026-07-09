@@ -3,8 +3,13 @@
 // plus honest cache metrics.
 import { computed, onMounted, ref } from 'vue';
 import EChart from '@/components/EChart.vue';
+import ChartTable from '@/components/ChartTable.vue';
 import { useClient } from '@/composables/useApi';
-import { stackedTokenBarOption } from '@/lib/charts';
+import {
+  stackedTokenBarOption,
+  tokenTableRows,
+  TOKEN_TABLE_HEADERS,
+} from '@/lib/charts';
 import {
   cacheReadShare,
   formatPct,
@@ -12,6 +17,8 @@ import {
   modelLabel,
 } from '@/lib/format';
 import type { UsageBucket } from '@/api/types';
+
+const dimLabel = (b: UsageBucket): string => b.key || '(unattributed)';
 
 const byModel = ref<UsageBucket[]>([]);
 const byMachine = ref<UsageBucket[]>([]);
@@ -97,14 +104,29 @@ onMounted(load);
     <section class="card">
       <h3>By model</h3>
       <EChart :option="modelChart" height="300px" />
+      <ChartTable
+        caption="Tokens by model and token type"
+        :columns="['Model', ...TOKEN_TABLE_HEADERS]"
+        :rows="tokenTableRows(sorted(byModel), (b) => modelLabel(b.key))"
+      />
     </section>
     <section class="card">
       <h3>By machine</h3>
       <EChart :option="machineChart" height="300px" />
+      <ChartTable
+        caption="Tokens by machine and token type"
+        :columns="['Machine', ...TOKEN_TABLE_HEADERS]"
+        :rows="tokenTableRows(sorted(byMachine), dimLabel)"
+      />
     </section>
     <section class="card">
       <h3>By project</h3>
       <EChart :option="projectChart" height="300px" />
+      <ChartTable
+        caption="Tokens by project and token type"
+        :columns="['Project', ...TOKEN_TABLE_HEADERS]"
+        :rows="tokenTableRows(sorted(byProject), dimLabel)"
+      />
     </section>
   </template>
 </template>

@@ -895,17 +895,59 @@
         "id": "19",
         "title": "Chart Hygiene: Formatting + Accessibility",
         "description": "Implement chart hygiene to fix formatting and accessibility issues.",
-        "details": "Shared Logic (src/lib): Pass formatTokens as tooltip.valueFormatter and axis label formatter everywhere. Add modelLabel() map mirroring WINDOW_LABELS to humanize model IDs. Sort categorical bars descending. Use bars (not filled area lines) for categorical breakdowns. Add visually-hidden table fallbacks for accessibility. Test with vitest.",
-        "testStrategy": "vitest: Test formatTokens, modelLabel(), and sorting logic. Frontend: Verify tooltip/axis formatting, bar sorting, and accessibility fallbacks. Ensure quality gates pass.",
-        "priority": "medium",
+        "status": "done",
         "dependencies": [
           "15",
           "16",
           "17",
           "18"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Completed chart hygiene (roadmap #11) mostly landed in Task 17: formatTokens tooltip/axis formatters on every chart builder (no more '2700000000'), modelLabel() humanizes ids, descending sort on categorical bars, stackedTokenBar/bar used for categorical instead of area lines. This task adds the remaining accessibility piece: components/ChartTable.vue (visually-hidden sr-only <table> with caption + scoped headers mirroring a chart's data) plus charts.ts TOKEN_TABLE_HEADERS + tokenTableRows() helper, applied under the Now 'today by model' chart and all three Breakdowns charts so exact numbers are available to screen readers and copy. Gates: 28 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Test TOKEN_TABLE_HEADERS and tokenTableRows() helper. Frontend: Verify ChartTable.vue semantic HTML, sr-only visibility, and caption/scoped headers. Test integration under Now 'today by model' and all three Breakdowns charts. Ensure screen readers can access exact numbers and copy works. Quality gates: 28 dashboard tests pass, build + eslint/prettier clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create ChartTable.vue component",
+            "description": "Create components/ChartTable.vue: visually-hidden sr-only <table> with caption + scoped headers mirroring chart data.",
+            "dependencies": [],
+            "details": "Implement semantic HTML table with sr-only class for screen readers. Add caption element describing the chart. Use scoped headers (scope='col' and scope='row') for proper navigation. Ensure table mirrors exact data from the chart.",
+            "status": "pending",
+            "testStrategy": "Frontend: Verify table is visually hidden but accessible to screen readers. Check semantic HTML structure with caption and scoped headers. Test keyboard navigation through table.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Add TOKEN_TABLE_HEADERS and tokenTableRows() helper",
+            "description": "Add charts.ts TOKEN_TABLE_HEADERS constant and tokenTableRows() helper function.",
+            "dependencies": [],
+            "details": "Define TOKEN_TABLE_HEADERS array with column names for the table. Implement tokenTableRows() to extract chart data into table row format. Ensure helper handles all chart types correctly.",
+            "status": "pending",
+            "testStrategy": "vitest: Test TOKEN_TABLE_HEADERS structure and tokenTableRows() output. Verify data extraction matches chart data exactly.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Apply accessibility table to target charts",
+            "description": "Apply ChartTable.vue and tokenTableRows() to Now 'today by model' chart and all three Breakdowns charts.",
+            "dependencies": [],
+            "details": "Integrate ChartTable component under the Now chart and all Breakdowns charts. Pass tokenTableRows() data to the table. Ensure exact numbers are available for screen readers and copy functionality.",
+            "status": "pending",
+            "testStrategy": "Frontend: Verify table appears under all target charts. Test screen reader access to exact numbers. Confirm copy functionality works with table data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Run quality gates",
+            "description": "Run quality gates: 28 dashboard tests, build + eslint/prettier clean.",
+            "dependencies": [],
+            "details": "Execute all 28 dashboard tests to verify implementation. Run build process and ensure eslint and prettier report no issues. Confirm all quality gates pass before marking task complete.",
+            "status": "pending",
+            "testStrategy": "Dashboard: Run 28 tests with 100% pass rate. Build: Verify clean build with no errors. Linting: Confirm eslint and prettier are clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T18:41:14.329Z"
       },
       {
         "id": "20",
@@ -1064,9 +1106,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T18:35:12.548Z",
+      "lastModified": "2026-07-09T18:41:14.332Z",
       "taskCount": 27,
-      "completedCount": 19,
+      "completedCount": 20,
       "tags": [
         "master"
       ]
