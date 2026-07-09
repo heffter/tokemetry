@@ -400,15 +400,57 @@
         "id": "9",
         "title": "ClaudeCodeJsonlSource Wiring and SQLite Upload Queue",
         "description": "Wire the ClaudeCodeJsonlSource in the collector, including subagent transcripts parsing and stats-cache bootstrap import. Implement local SQLite upload queue with retry and exponential backoff for offline-safe uploads.",
-        "details": "Create `apps/collector/tokemetry_collector/sources/clause_code.py` to wire `ClaudeCodeJsonlSource`. Parse subagent transcripts in `<session>/subagents/`. Implement daily bootstrap import of `~/.claude/stats-cache.json` with provenance=stats_cache. Create `apps/collector/tokemetry_collector/queue.py` with local SQLite upload queue (`queue.db`). Add retry logic with exponential backoff. Ensure uploads are batched and idempotent. Add unit tests for source wiring and queue retry.",
-        "testStrategy": "Test subagent transcript parsing. Verify stats-cache bootstrap import. Confirm queue retry with exponential backoff. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "3",
           "8"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Wired ClaudeCodeJsonlSource into collector: `apps/collector/tokemetry_collector/sources/sources.py` registers `_build_claude_code` builder at import (reads optional `claude_home` from `SourceConfig.model_extra`, stamps `machine_name`), `CLAUDE_CODE_SOURCE` constant. `build_usage_sources` now returns the real source for `[sources.claude_code]`. End-to-end integration test: temp `~/.claude` with transcript+stats-cache, `collector.collect_once` uploads events (`native_model`, `machine attribution`) and `run_bootstrap` uploads daily aggregates to fake `MockTransport` server. VERIFIED with real CLI dry-run against live `~/.claude`: 525 files, 12729 events parsed, zero state change. Gates: 139 tests, ruff/mypy strict/trivy clean. Create `apps/collector/tokemetry_collector/sources/clause_code.py` to wire `ClaudeCodeJsonlSource`. Parse subagent transcripts in `<session>/subagents/`. Implement daily bootstrap import of `~/.claude/stats-cache.json` with provenance=stats_cache. Create `apps/collector/tokemetry_collector/queue.py` with local SQLite upload queue (`queue.db`). Add retry logic with exponential backoff. Ensure uploads are batched and idempotent. Add unit tests for source wiring and queue retry.",
+        "testStrategy": "Test subagent transcript parsing. Verify stats-cache bootstrap import. Confirm queue retry with exponential backoff. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues. Gates: 139 tests, ruff/mypy strict/trivy clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Unit Tests for Source Wiring and Queue Retry",
+            "description": "Create unit tests for source wiring and queue retry logic.",
+            "dependencies": [],
+            "details": "Write pytest tests covering `_build_claude_code` registration, `CLAUDE_CODE_SOURCE` constant, and `build_usage_sources` returning real source. Test queue retry with exponential backoff, batching, and idempotency. Ensure coverage >= 80%.",
+            "status": "pending",
+            "testStrategy": "Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Subagent Transcript Parsing",
+            "description": "Implement subagent transcript parsing in `<session>/subagents/`.",
+            "dependencies": [],
+            "details": "Parse subagent transcripts from `<session>/subagents/` directory. Extract relevant fields and integrate with collector pipeline. Ensure provenance tagging.",
+            "status": "pending",
+            "testStrategy": "Test subagent transcript parsing with real and synthetic data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Stats-Cache Bootstrap Import",
+            "description": "Implement daily bootstrap import of `~/.claude/stats-cache.json`.",
+            "dependencies": [],
+            "details": "Create daily bootstrap import logic for `~/.claude/stats-cache.json` with provenance=stats_cache. Integrate with collector pipeline and ensure idempotency.",
+            "status": "pending",
+            "testStrategy": "Verify stats-cache bootstrap import with real and synthetic data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "SQLite Upload Queue Implementation",
+            "description": "Create local SQLite upload queue with retry and exponential backoff.",
+            "dependencies": [],
+            "details": "Implement `apps/collector/tokemetry_collector/queue.py` with local SQLite upload queue (`queue.db`). Add retry logic with exponential backoff. Ensure uploads are batched and idempotent.",
+            "status": "pending",
+            "testStrategy": "Confirm queue retry with exponential backoff. Validate batching and idempotency.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T14:35:44.614Z"
       },
       {
         "id": "10",
@@ -483,9 +525,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T14:29:18.807Z",
+      "lastModified": "2026-07-09T14:35:44.615Z",
       "taskCount": 14,
-      "completedCount": 8,
+      "completedCount": 9,
       "tags": [
         "master"
       ]

@@ -1,15 +1,17 @@
 """Build usage and limit sources from configuration.
 
 Maps enabled source names in the config to concrete implementations. New
-providers register their builder here; the runner stays provider-agnostic.
-The Claude Code and Anthropic OAuth sources are wired in their own tasks.
+providers register a builder here; the runner stays provider-agnostic. The
+built-in builders are registered at import time.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 from tokemetry_core.interfaces import LimitsSource, UsageSource
+from tokemetry_core.providers.claude_code import ClaudeCodeJsonlSource
 
 from tokemetry_collector.config import CollectorConfig, SourceConfig
 
@@ -20,6 +22,18 @@ LimitsSourceBuilder = Callable[[CollectorConfig, SourceConfig], LimitsSource]
 
 _USAGE_BUILDERS: dict[str, UsageSourceBuilder] = {}
 _LIMITS_BUILDERS: dict[str, LimitsSourceBuilder] = {}
+
+
+def _build_claude_code(config: CollectorConfig, source_cfg: SourceConfig) -> UsageSource:
+    """Build the Claude Code JSONL usage source from config.
+
+    Honors an optional ``claude_home`` override; otherwise the source
+    resolves ``CLAUDE_CONFIG_DIR`` or ``~/.claude`` itself. The machine name
+    is stamped so events are attributed to this collector.
+    """
+    raw_home = (source_cfg.model_extra or {}).get("claude_home")
+    claude_home = Path(str(raw_home)) if raw_home else None
+    return ClaudeCodeJsonlSource(claude_home=claude_home, machine=config.machine_name)
 
 
 def register_usage_builder(name: str, builder: UsageSourceBuilder) -> None:
@@ -50,3 +64,9 @@ def build_limit_sources(config: CollectorConfig) -> list[LimitsSource]:
         if builder is not None:
             sources.append(builder(config, config.limits[name]))
     return sources
+
+
+#: The config key under which the Claude Code usage source is enabled.
+CLAUDE_CODE_SOURCE = "claude_code"
+
+register_usage_builder(CLAUDE_CODE_SOURCE, _build_claude_code)
