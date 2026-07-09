@@ -1,0 +1,301 @@
+# Overview
+
+tokemetry is a self-hosted, multi-machine AI token usage tracking system. It
+solves three problems for a developer using Claude Code on several machines
+under a Max/Pro subscription: usage history disappears (local transcripts are
+deleted after about 30 days), there is no cross-machine aggregation anywhere
+in the ecosystem, and subscription users lack limit-centric monitoring
+(5-hour block and weekly cap utilization, burn rate, predicted exhaustion).
+
+tokemetry consists of a per-machine collector daemon (Windows, Linux,
+macOS), a central API-first FastAPI server with Postgres storage running on a
+private VPS (reachable only over WireGuard), a Vue 3 web dashboard, and an
+alerting engine (ntfy, Telegram, SMTP). Everything the dashboard shows is
+available through a documented, bearer-token-authenticated REST API so
+third-party applications (for example OpenClaw) can consume the same data.
+
+The system is multi-provider by design: all provider-specific logic lives
+behind OOP abstractions (UsageSource, LimitsSource, PricingStrategy) in a
+shared core package, with Claude Code as the first concrete provider adapter
+and OpenAI adapters planned. "provider" is a first-class dimension in the
+database, API, and dashboard.
+
+# Core Features
+
+## Shared core package (tokemetry_core)
+
+- Normalized UsageEvent pydantic model: provider, native model id, generic
+  token fields (input, output, cache_read, cache_write_short,
+  cache_write_long), timestamps, session/project/machine context, and an
+  extra dict for provider-specific counters (for example Anthropic web
+  search request counts). Anthropic 5-minute/1-hour cache TTLs map to
+  short/long cache writes.
+- Abstract interfaces: UsageSource (discover/parse/bootstrap on the
+  collector side), LimitsSource (poll limit utilization), PricingStrategy
+  (compute USD cost server-side).
+- Provider registry so collectors enable sources per machine via config and
+  the server resolves pricing strategies by provider name.
+- A FakeProvider implementation used by test suites to prove the interfaces
+  and prevent Claude-specific assumptions from leaking into core.
+- Pricing table logic: date-versioned per-MTok rates per provider/model,
+  synced from LiteLLM's model_prices_and_context_window.json with manual
+  override support. Must handle dated (claude-opus-4-5-20251101) and undated
+  (claude-fable-5) model ids.
+
+## Claude Code provider adapter (first concrete provider)
+
+- ClaudeCodeJsonlSource parses ~/.claude/projects/<encoded-cwd>/*.jsonl and
+  <session>/subagents/*.jsonl transcripts, honoring CLAUDE_CONFIG_DIR.
+  Extracts per-request usage from assistant lines: requestId, model,
+  input/output tokens, cache_read_input_tokens, cache_creation
+  ephemeral_5m/1h split, server_tool_use counters, service_tier, speed, plus
+  sessionId, timestamp, cwd (project), gitBranch, version, slug,
+  isSidechain, sessionKind, entrypoint.
+- Correct deduplication: one logical request emits 2-10 JSONL lines sharing
+  a requestId; the parser must keep the maximum-usage entry per requestId
+  (never first-seen, never naive summing). input_tokens can be a streaming
+  placeholder; cache fields are most reliable.
+- Bootstrap import of ~/.claude/stats-cache.json daily aggregates (marked
+  provenance=stats_cache) so history predating local transcript retention is
+  available from day one.
+- AnthropicOAuthLimitsSource polls the undocumented endpoint
+  GET https://api.anthropic.com/api/oauth/usage with the OAuth token from
+  ~/.claude/.credentials.json, headers anthropic-beta: oauth-2025-04-20 and
+  a Claude-Code-like User-Agent, roughly every 2 minutes. Returns five_hour,
+  seven_day, seven_day_opus, seven_day_sonnet utilization percentages and
+  reset times plus extra-usage-credit fields. This source is authoritative
+  and cross-device but unstable by nature: it must degrade gracefully to
+  local estimates on failure, and the OAuth token must never leave the
+  machine.
+- Every stored number carries a provenance tag: official (OAuth endpoint),
+  local_estimate (JSONL-derived), or stats_cache (bootstrap import).
+- Privacy: conversation content never leaves the machine; only usage
+  metadata and counters are collected and uploaded.
+
+## Collector daemon (apps/collector)
+
+- Cross-platform Python daemon; runs as Windows Scheduled Task, systemd
+  unit, or launchd agent.
+- Source-plugin host: watchdog file events plus periodic rescan drive
+  incremental, byte-offset-tracked tailing of discovered files; offsets
+  persist in a local SQLite state database.
+- Local SQLite upload queue with retry and exponential backoff; the
+  collector is fully offline-safe and crash-safe; uploads are batched and
+  idempotent.
+- TOML configuration: server URL, API token, machine name, per-source enable
+  flags, poll intervals.
+- Operational modes: --once (single pass then exit), --dry-run (parse and
+  report without uploading), plus a normal daemon loop. Structured JSON
+  logging via loguru.
+
+## Server: ingest and storage (apps/server)
+
+- FastAPI service, SQLAlchemy 2 + Alembic, Postgres in production (SQLite
+  for development). Plain timestamped tables so Grafana can be pointed at
+  the database later.
+- Tables: machines; usage_events (PK event_id = provider-scoped request id,
+  provider, machine, session, ts, model, project, git_branch,
+  client_version, entrypoint, is_sidechain, session_kind, token columns,
+  service_tier, speed, cost_usd, provenance, source, extra jsonb);
+  limit_snapshots (normalized provider/window_kind/utilization_pct/resets_at
+  rows plus raw jsonb); sessions; daily_rollups; pricing; alert_rules;
+  alert_events; api_tokens (hashed).
+- Idempotent ingest endpoints: POST /api/v1/ingest/events, /ingest/limits,
+  /ingest/bootstrap. Batches are all-or-nothing; upsert keeps the
+  maximum-usage row per event_id. Sanity validation rejects garbage
+  (negative counts, impossible token math).
+- Cost engine: computes cost_usd at ingest using the provider's
+  PricingStrategy and the date-effective pricing row; unknown models ingest
+  with null cost and trigger an alert; a recompute command reprices history
+  when the pricing table changes.
+- Daily rollups refreshed on ingest for fast history queries.
+
+## Server: analytics engines and query API
+
+- Block engine: reconstructs 5-hour billing blocks anchored to official
+  resets_at timestamps from limit snapshots when available, inferred from
+  event timestamps otherwise; each block records totals, peak burn, and end
+  utilization with provenance.
+- Burn-rate engine: tokens per minute over a trailing window, plus predicted
+  time of limit exhaustion compared to the reset time.
+- Query API (bearer-token auth, OpenAPI published at /docs):
+  GET /api/v1/summary/now (gauges, burn rate, predictions);
+  GET /api/v1/limits/current and /limits/history; GET /api/v1/blocks;
+  GET /api/v1/usage with group_by day/hour/provider/model/machine/project/
+  session, from/to range, and dimension filters;
+  GET /api/v1/sessions and /sessions/{id}; GET /api/v1/machines;
+  GET /api/v1/heatmap; GET /api/v1/cost (equivalent API dollars, value
+  multiple vs subscription price); GET /api/v1/pricing;
+  GET and PUT /api/v1/alerts; GET /api/v1/alerts/events.
+- WebSocket /api/v1/stream pushing live usage events and limit updates to
+  the dashboard.
+- API token management: create/revoke named bearer tokens (stored hashed)
+  for third-party clients such as OpenClaw.
+
+## Web dashboard (apps/dashboard)
+
+- Vue 3 + TypeScript + Vite + ECharts single-page application served by the
+  server; ESLint, Prettier, vitest gates; light and dark themes.
+- Now view (front page): three limit gauges (5-hour block, weekly,
+  weekly-Opus) with reset countdowns and provenance badges; burn-rate
+  sparkline with predicted exhaustion time ("limit at about 14:32, 43
+  minutes before reset"); today's tokens by model; live per-machine activity
+  feed over WebSocket.
+- Blocks view: timeline of past 5-hour blocks with tokens, peak burn, end
+  utilization; histogram of block utilization.
+- Trends view: daily stacked area with model/machine/project dimension
+  toggle; weekly bars vs weekly cap; GitHub-style calendar heatmap plus
+  hour-of-day/weekday punch card; monthly equivalent-USD vs subscription
+  price reference line.
+- Breakdowns view: project, machine, model, main-vs-subagent shares; cache
+  efficiency (hit ratio, USD saved by caching); web search/fetch counts.
+- Sessions view: sortable/filterable session table with drill-down to a
+  per-request timeline.
+- Machines view: fleet health, last seen, collector version drift,
+  staleness warnings.
+- Alerts and Settings views: alert rule configuration, alert history,
+  pricing table with overrides.
+
+## Alerting
+
+- Rule engine evaluated on ingest and on a timer: 5-hour block at 80 and 95
+  percent (official numbers), weekly cap at 80 percent, predicted block
+  exhaustion before reset, burn-rate anomaly (over 2x trailing median),
+  collector stale over 30 minutes, unknown model without pricing.
+- Notification channels: ntfy (primary), Telegram bot, SMTP email; per-rule
+  channel routing, cooldown windows, quiet hours.
+
+## Deployment and packaging
+
+- Docker Compose for the VPS: server app plus Postgres, bound to the
+  WireGuard interface only; nightly pg_dump backup.
+- Collector packaging: installable via uv/pipx; Windows Scheduled Task XML,
+  systemd unit, launchd plist templates with installation documentation.
+- Operations documentation: server install, collector enrollment (per
+  machine), API token provisioning for third-party apps, Grafana datasource
+  how-to.
+
+# Technical Architecture
+
+- Monorepo uv workspace: apps/server (tokemetry_server), apps/collector
+  (tokemetry_collector), apps/dashboard (Vue SPA), packages/core
+  (tokemetry_core). Python 3.12, pydantic v2, loguru structured JSON
+  logging.
+- Data flow: collector discovers and tails provider sources, normalizes to
+  UsageEvent, queues locally in SQLite, uploads batches over HTTPS across
+  WireGuard to the server ingest API; the server deduplicates, prices,
+  rolls up, evaluates alerts, and serves queries plus the SPA.
+- Cost formula (Anthropic): uncached input tokens times input price, plus
+  5-minute cache writes times 1.25x input price, plus 1-hour cache writes
+  times 2x input price, plus cache reads times 0.1x input price, plus output
+  tokens times output price. Prices are per-MTok, date-versioned.
+- Security: server listens on the WireGuard interface only; every endpoint
+  requires a bearer token; API tokens stored hashed; no conversation
+  content, no OAuth tokens, and no API keys are ever transmitted or stored
+  server-side; .mcp.json and .env files are never committed.
+- Quality gates (all mandatory before any commit): pytest 100 percent pass
+  with coverage at least 80 percent line / 70 percent branch, ruff zero
+  warnings, mypy strict zero issues, trivy no HIGH/CRITICAL findings,
+  shellcheck clean for shell scripts, ESLint/Prettier clean for TypeScript.
+
+# Development Roadmap
+
+## Phase 1: Core foundations and server ingest
+
+Core abstractions (UsageEvent, UsageSource, LimitsSource, PricingStrategy,
+provider registry, FakeProvider test double), Anthropic pricing strategy and
+LiteLLM sync, Claude Code JSONL parser with keep-max dedup, database schema
+and Alembic migrations, idempotent ingest endpoints with validation, cost
+computation at ingest, daily rollups. Outcome: usage data can be POSTed and
+correctly stored, priced, and rolled up; provable with fixtures end to end.
+
+## Phase 2: Collector
+
+Collector daemon host with offset-tracked tailing (watchdog plus rescan),
+ClaudeCodeJsonlSource wiring including subagent transcripts, stats-cache
+bootstrap import, SQLite offline queue with retries, AnthropicOAuthLimitsSource
+poller with graceful degradation, TOML config, --once and --dry-run modes,
+structured logging. Outcome: a real machine's usage flows into the server
+continuously.
+
+## Phase 3: Analytics engines and query API
+
+Block engine (official-anchored with inferred fallback), burn-rate and
+prediction engine, all GET query endpoints with provider/machine/project/
+model/session grouping and filtering, heatmap and cost endpoints, WebSocket
+stream, API token management. Outcome: the full read API that the dashboard
+and third-party apps consume.
+
+## Phase 4: Web dashboard
+
+Vite scaffold with theming and API client, Now view first (gauges, burn
+rate, live feed), then Trends, Blocks, Breakdowns, Sessions, Machines,
+Alerts/Settings views. Outcome: the daily-driver UI.
+
+## Phase 5: Alerting
+
+Rule engine, ntfy/Telegram/SMTP notifiers, cooldowns and quiet hours, alert
+configuration API and UI wiring, alert history. Outcome: proactive limit
+warnings on all configured channels.
+
+## Phase 6: Deployment and packaging
+
+Docker Compose deployment bound to WireGuard, nightly pg_dump, collector
+service wrappers for Windows/systemd/launchd, installation and operations
+documentation, Grafana datasource guide, API token provisioning guide.
+Outcome: production deployment on the VPS with at least two machines
+enrolled.
+
+# Logical Dependency Chain
+
+1. Core models and abstractions come first; everything depends on them.
+2. Pricing and the Claude JSONL parser depend on core; the database schema
+   and ingest depend on core models.
+3. The collector depends on core parsing and a working ingest API.
+4. Analytics engines depend on stored data; the query API depends on the
+   engines.
+5. The dashboard depends on the query API and WebSocket stream.
+6. Alerting depends on limit snapshots and the burn-rate engine.
+7. Deployment packaging comes last but should be exercised continuously via
+   docker-compose in development.
+Each phase produces something runnable and testable on its own; prefer
+getting a thin vertical slice (parser to ingest to a queryable total)
+working early, then broadening.
+
+# Risks and Mitigations
+
+- The OAuth usage endpoint is undocumented and may change or disappear:
+  isolate it in one LimitsSource class, tag its data as official, degrade to
+  local estimates automatically, and alert when it starts failing.
+- Claude Code JSONL schema drift across versions: version-tolerant parsing
+  (ignore unknown fields, defensive extraction), fixtures from multiple
+  Claude Code versions, and an unknown-format counter surfaced in the
+  Machines view.
+- Duplicate/streaming JSONL entries cause counting errors: keep-max dedup by
+  requestId is a hard requirement with dedicated regression fixtures.
+- Unknown or renamed model ids break pricing: ingest with null cost, alert,
+  reprice after the pricing table updates.
+- Single developer, multiple machines: idempotent ingest means any machine
+  can re-upload history safely; the server is the single source of truth.
+
+# Out of Scope (v1)
+
+Concrete OpenAI adapters (OpenAICodexSource, OpenAIApiSource,
+OpenAIPricingStrategy), OTEL ingest endpoint, Grafana dashboard JSON,
+Claude Code statusline integration, multi-user/auth-role support,
+non-Anthropic providers beyond the FakeProvider test double.
+
+# Appendix
+
+- Key ecosystem findings: ccusage issue 888 (first-seen dedup undercounts
+  output tokens up to 5x), Claude-Code-Usage-Monitor (provenance-tagged
+  numbers, P90 plan-limit estimation), viberank (server-side sanity
+  validation of submitted usage), LiteLLM
+  model_prices_and_context_window.json as machine-readable pricing mirror.
+- Local data verified on the primary Windows machine on 2026-07-09:
+  18 project directories, 529 transcript files, about 231 MB, roughly 5
+  weeks of retention; stats-cache.json v4 with daily per-model token series;
+  no OTEL configured.
+- Claude Code JSONL usage object includes cache_creation ephemeral_5m/1h
+  split, server_tool_use counters, service_tier, speed, and an iterations
+  array; costUSD is absent in current versions.
