@@ -1398,9 +1398,7 @@
         "id": "25",
         "title": "Heatmap Punch-Card + Calendar Grid",
         "description": "Render unused /heatmap punch-card and calendar.",
-        "details": "Frontend (Breakdowns page): Add GET /heatmap (weekday x hour punch_card + daily calendar). Create weekday-by-hour heatmap (sequential palette) and contribution-style calendar grid. Optionally add compact strip on Now/Trends. Test with vitest.",
-        "testStrategy": "vitest: Test heatmap and calendar rendering logic. Frontend: Verify heatmap palette, calendar grid, and optional compact strip. Ensure quality gates pass.",
-        "priority": "low",
+        "status": "done",
         "dependencies": [
           "15",
           "16",
@@ -1413,8 +1411,52 @@
           "23",
           "24"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "low",
+        "details": "Frontend (Breakdowns page): Add GET /heatmap (weekday x hour punch_card + daily calendar). Create weekday-by-hour heatmap (sequential palette) and contribution-style calendar grid. Optionally add compact strip on Now/Trends. Test with vitest.\n\nIMPLEMENTATION UPDATE: Rendered unused /heatmap (roadmap #10): charts.ts punchCardOption() draws a weekday x hour heatmap (ECharts heatmap, sequential blue ramp light/dark, formatted tooltip) and calendarOption() draws a GitHub-style daily contribution calendar (ECharts calendar coordinate + heatmap over the data date range). Breakdowns now fetches client.heatmap() alongside the usage cuts and shows both under 'When you burn tokens' and 'Daily activity'. Answers 'when do I burn quota' - a throttling-avoidance question the backend already served and no view used.\n\nGATES: 47 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Test heatmap and calendar rendering logic. Frontend: Verify heatmap palette, calendar grid, and optional compact strip. Ensure quality gates pass.\n\nUPDATED: Verify ECharts heatmap (sequential blue ramp, formatted tooltip) and calendar (GitHub-style, calendar coordinate + heatmap overlay) render correctly. Confirm Breakdowns page displays data under 'When you burn tokens' and 'Daily activity'. Ensure 47 dashboard tests pass and build + eslint/prettier gates are clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement punchCardOption() heatmap",
+            "description": "Implement charts.ts punchCardOption() for weekday x hour heatmap using ECharts (sequential blue ramp light/dark, formatted tooltip).",
+            "dependencies": [],
+            "details": "Create ECharts heatmap configuration in charts.ts. Use sequential blue ramp for light/dark values. Ensure tooltip is formatted correctly to display weekday and hour data.",
+            "status": "done",
+            "testStrategy": "Verify heatmap renders correctly with ECharts. Check tooltip formatting and color ramp application.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement calendarOption() calendar",
+            "description": "Implement charts.ts calendarOption() for GitHub-style daily contribution calendar using ECharts calendar coordinate + heatmap over data date range.",
+            "dependencies": [],
+            "details": "Create ECharts calendar configuration in charts.ts. Use calendar coordinate system with heatmap overlay over the data date range. Ensure it matches GitHub-style contribution calendar appearance.",
+            "status": "done",
+            "testStrategy": "Verify calendar renders correctly with ECharts. Check heatmap overlay and calendar coordinate system.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Update Breakdowns page to display heatmap and calendar",
+            "description": "Update Breakdowns page to fetch client.heatmap() alongside usage cuts and display both under 'When you burn tokens' and 'Daily activity' sections.",
+            "dependencies": [],
+            "details": "Modify Breakdowns page component to call client.heatmap(). Integrate heatmap and calendar data into the page under the specified sections. Ensure proper data binding and rendering.",
+            "status": "done",
+            "testStrategy": "Verify Breakdowns page fetches and displays heatmap and calendar data correctly. Check section labels and data presentation.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Pass quality gates",
+            "description": "Run 47 dashboard tests and ensure build + eslint/prettier clean gates pass.",
+            "dependencies": [],
+            "details": "Execute all 47 dashboard tests. Verify build process completes without errors. Ensure eslint and prettier checks pass with no issues.",
+            "status": "done",
+            "testStrategy": "Confirm all 47 tests pass. Verify build success and code quality gates (eslint/prettier) are clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T19:20:09.316Z"
       },
       {
         "id": "26",
@@ -1456,9 +1498,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T19:15:03.224Z",
+      "lastModified": "2026-07-09T19:20:09.317Z",
       "taskCount": 27,
-      "completedCount": 25,
+      "completedCount": 26,
       "tags": [
         "master"
       ]

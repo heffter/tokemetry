@@ -5,11 +5,107 @@
 import type { EChartsCoreOption } from 'echarts';
 import { isDark, seriesColor } from './palette';
 import { formatTokens } from './format';
-import type { UsageBucket } from '@/api/types';
+import type { PunchCell, UsageBucket } from '@/api/types';
 
 /** Format an axis/tooltip token value compactly. */
 function tokenValue(value: unknown): string {
   return formatTokens(Number(value));
+}
+
+/** Sequential blue ramp (light->dark on light surface, dark->bright on dark). */
+function blueRamp(dark: boolean): string[] {
+  return dark
+    ? ['#0d366b', '#184f95', '#256abf', '#3987e5', '#86b6ef']
+    : ['#cde2fb', '#9ec5f4', '#5598e7', '#2a78d6', '#184f95'];
+}
+
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** A weekday x hour punch card heatmap (sequential blue). */
+export function punchCardOption(cells: PunchCell[]): EChartsCoreOption {
+  const theme = ink();
+  const max = Math.max(1, ...cells.map((c) => c.total_tokens));
+  return {
+    grid: { top: 12, right: 12, bottom: 60, left: 44 },
+    tooltip: {
+      position: 'top',
+      formatter: (p: unknown) => {
+        const params = p as { value: [number, number, number] };
+        return `${WEEKDAYS[params.value[1]]} ${params.value[0]}:00 — ${formatTokens(params.value[2])}`;
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: Array.from({ length: 24 }, (_, h) => `${h}`),
+      splitArea: { show: true },
+      axisLabel: { color: theme.muted },
+    },
+    yAxis: {
+      type: 'category',
+      data: WEEKDAYS,
+      splitArea: { show: true },
+      axisLabel: { color: theme.muted },
+    },
+    visualMap: {
+      min: 0,
+      max,
+      calculable: true,
+      orient: 'horizontal',
+      left: 'center',
+      bottom: 8,
+      textStyle: { color: theme.muted },
+      inRange: { color: blueRamp(isDark()) },
+    },
+    series: [
+      {
+        type: 'heatmap',
+        data: cells.map((c) => [c.hour, c.weekday, c.total_tokens]),
+        itemStyle: { borderColor: theme.surface, borderWidth: 1 },
+      },
+    ],
+  };
+}
+
+/** A GitHub-style daily contribution calendar for the given date range. */
+export function calendarOption(days: UsageBucket[]): EChartsCoreOption {
+  const theme = ink();
+  const max = Math.max(1, ...days.map((d) => d.total_tokens));
+  const dates = days.map((d) => d.key).sort();
+  const range =
+    dates.length > 0 ? [dates[0], dates[dates.length - 1]] : undefined;
+  return {
+    tooltip: {
+      formatter: (p: unknown) => {
+        const params = p as { value: [string, number] };
+        return `${params.value[0]} — ${formatTokens(params.value[1])}`;
+      },
+    },
+    visualMap: {
+      min: 0,
+      max,
+      show: false,
+      inRange: { color: blueRamp(isDark()) },
+    },
+    calendar: {
+      top: 20,
+      left: 40,
+      right: 10,
+      cellSize: ['auto', 16],
+      range,
+      itemStyle: { borderColor: theme.surface, color: theme.surface },
+      splitLine: { lineStyle: { color: theme.grid } },
+      dayLabel: { color: theme.muted },
+      monthLabel: { color: theme.muted },
+      yearLabel: { show: false },
+    },
+    series: [
+      {
+        type: 'heatmap',
+        coordinateSystem: 'calendar',
+        data: days.map((d) => [d.key, d.total_tokens]),
+      },
+    ],
+  };
 }
 
 /** The five token components, in a fixed hue order, with an accessor. */

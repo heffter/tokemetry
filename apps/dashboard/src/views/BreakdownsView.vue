@@ -8,6 +8,8 @@ import AsyncState from '@/components/AsyncState.vue';
 import { useClient } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
 import {
+  calendarOption,
+  punchCardOption,
   stackedTokenBarOption,
   tokenTableRows,
   TOKEN_TABLE_HEADERS,
@@ -18,7 +20,7 @@ import {
   formatTokens,
   modelLabel,
 } from '@/lib/format';
-import type { UsageBucket } from '@/api/types';
+import type { HeatmapResponse, UsageBucket } from '@/api/types';
 
 const dimLabel = (b: UsageBucket): string => b.key || '(unattributed)';
 
@@ -26,6 +28,14 @@ const { loading, error, run, retry } = useAsync();
 const byModel = ref<UsageBucket[]>([]);
 const byMachine = ref<UsageBucket[]>([]);
 const byProject = ref<UsageBucket[]>([]);
+const heatmap = ref<HeatmapResponse | null>(null);
+
+const punchChart = computed(() =>
+  punchCardOption(heatmap.value?.punch_card ?? [])
+);
+const calendarChart = computed(() =>
+  calendarOption(heatmap.value?.calendar ?? [])
+);
 
 /** Sort descending by total tokens so the biggest driver reads leftmost. */
 function sorted(buckets: UsageBucket[]): UsageBucket[] {
@@ -71,14 +81,16 @@ const cacheStats = computed(() => {
 async function load(): Promise<void> {
   await run(async () => {
     const client = useClient();
-    const [model, machine, project] = await Promise.all([
+    const [model, machine, project, heat] = await Promise.all([
       client.usage({ groupBy: 'model' }),
       client.usage({ groupBy: 'machine' }),
       client.usage({ groupBy: 'project' }),
+      client.heatmap(),
     ]);
     byModel.value = model.buckets;
     byMachine.value = machine.buckets;
     byProject.value = project.buckets;
+    heatmap.value = heat;
   });
 }
 
@@ -131,6 +143,14 @@ onMounted(load);
           :columns="['Project', ...TOKEN_TABLE_HEADERS]"
           :rows="tokenTableRows(sorted(byProject), dimLabel)"
         />
+      </section>
+      <section class="card">
+        <h3>When you burn tokens (weekday × hour)</h3>
+        <EChart :option="punchChart" height="260px" />
+      </section>
+      <section class="card">
+        <h3>Daily activity</h3>
+        <EChart :option="calendarChart" height="180px" />
       </section>
     </template>
   </AsyncState>
