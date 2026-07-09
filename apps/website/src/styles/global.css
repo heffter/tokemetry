@@ -87,7 +87,7 @@ button:focus-visible {
 .site-nav {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 18px;
   color: var(--tm-text-muted);
   font-size: 0.94rem;
 }
@@ -445,10 +445,11 @@ h1 {
 .content-page {
   background: var(--tm-light-bg);
   color: var(--tm-light-text);
+  color-scheme: light;
 }
 
 .page-hero {
-  padding: 82px 0 46px;
+  padding: 74px 0 54px;
   background: #0b111c;
   color: var(--tm-text);
 }
@@ -456,27 +457,67 @@ h1 {
 .page-hero h1 {
   max-width: 880px;
   font-size: clamp(2.8rem, 7vw, 5.2rem);
+  line-height: 0.98;
+}
+
+.page-hero .hero-copy {
+  max-width: 760px;
+  color: #cbd5e1;
+  line-height: 1.48;
 }
 
 .prose {
   max-width: 880px;
   padding: 64px 0 92px;
+  line-height: 1.72;
 }
 
 .prose h2 {
   margin-top: 42px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  padding-top: 8px;
   font-size: 1.8rem;
+  line-height: 1.18;
 }
 
 .prose h3 {
   margin-top: 28px;
+  margin-bottom: 8px;
+  line-height: 1.25;
 }
 
 .prose p,
 .prose li {
   color: var(--tm-light-muted);
-  font-size: 1.03rem;
+  font-size: 1.05rem;
+}
+
+.prose p {
+  max-width: 76ch;
+  margin-bottom: 18px;
+}
+
+.prose ul,
+.prose ol {
+  max-width: 76ch;
+  margin: 0 0 20px;
+  padding-left: 24px;
+}
+
+.prose li + li {
+  margin-top: 8px;
+}
+
+.prose a {
+  color: #0f6674;
+  font-weight: 700;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.prose > .doc-grid {
+  max-width: none;
+  margin-bottom: 48px;
 }
 
 .prose code,
@@ -489,7 +530,45 @@ h1 {
   border: 1px solid var(--tm-light-border);
   background: #101722;
   color: #d8dee9;
-  padding: 18px;
+  margin: 24px 0 30px;
+  padding: 20px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.content-page .doc-card {
+  display: block;
+  min-height: 170px;
+  border-color: var(--tm-light-border);
+  background: #fff;
+  color: var(--tm-light-text);
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.content-page .doc-card:hover {
+  border-color: rgba(20, 61, 70, 0.36);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.content-page .doc-card h3 {
+  color: var(--tm-light-text);
+  font-size: 1.14rem;
+}
+
+.content-page .doc-card p {
+  color: var(--tm-light-muted);
+  line-height: 1.55;
+}
+
+.content-page .doc-card::after {
+  content: "Read guide";
+  display: inline-block;
+  margin-top: 18px;
+  color: #0f6674;
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
 .brand-grid {
@@ -506,6 +585,12 @@ h1 {
 
 .brand-tile.dark {
   background: #071419;
+  color: var(--tm-text);
+}
+
+.brand-tile.dark p,
+.brand-tile.dark code {
+  color: #cbd5e1;
 }
 
 .brand-tile img {
@@ -533,8 +618,29 @@ h1 {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .header-inner {
+    min-height: auto;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px 0;
+  }
+
   .site-nav {
-    display: none;
+    width: 100%;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .site-nav a {
+    flex: 0 1 auto;
+    border: 1px solid var(--tm-border);
+    padding: 7px 10px;
+    color: var(--tm-text);
+    font-size: 0.86rem;
+  }
+
+  .site-nav .nav-github {
+    padding: 7px 10px;
   }
 }
 
