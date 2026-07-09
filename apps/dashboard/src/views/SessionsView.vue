@@ -42,7 +42,15 @@ onMounted(load);
           <td>{{ s.machine ?? '—' }}</td>
           <td class="num tabular">{{ s.message_count }}</td>
           <td class="num tabular">{{ formatTokens(s.total_tokens) }}</td>
-          <td class="num tabular">{{ formatCost(s.cost_usd) }}</td>
+          <td class="num tabular">
+            <span
+              v-if="s.cost_usd === null"
+              class="unpriced"
+              title="No price for this model — add it in Settings"
+              >unpriced</span
+            >
+            <template v-else>{{ formatCost(s.cost_usd) }}</template>
+          </td>
           <td>{{ new Date(s.last_at).toLocaleString() }}</td>
         </tr>
         <tr v-if="sessions.length === 0">
@@ -56,6 +64,13 @@ onMounted(load);
 <style scoped>
 h3 {
   margin: 0 0 1rem;
+}
+.unpriced {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.05rem 0.35rem;
 }
 table {
   width: 100%;

@@ -8,10 +8,12 @@ import EChart from '@/components/EChart.vue';
 import { useClient, useToken } from '@/composables/useApi';
 import { barOption } from '@/lib/charts';
 import { formatCost, formatTokens, timeUntil } from '@/lib/format';
-import type { StreamMessage } from '@/api/types';
+import { costIsTrustworthy, pricedCoverage } from '@/lib/coverage';
+import type { CostResponse, StreamMessage } from '@/api/types';
 import type { SummaryNow } from '@/api/types';
 
 const summary = ref<SummaryNow | null>(null);
+const cost = ref<CostResponse | null>(null);
 const error = ref('');
 const feed = ref<string[]>([]);
 let socket: WebSocket | null = null;
@@ -25,9 +27,41 @@ const modelChart = computed(() => {
   );
 });
 
+// Coverage of today's cost: never present a bare dollar figure derived from
+// a price table that does not price every model in use.
+const todayCoverage = computed(() =>
+  pricedCoverage(summary.value?.today.by_model ?? [])
+);
+
+const todayCostSub = computed(() => {
+  const cov = todayCoverage.value;
+  if (cov.totalTokens === 0) return 'no usage yet today';
+  if (costIsTrustworthy(cov)) {
+    return `${formatCost(summary.value?.today.cost_usd ?? null)} equivalent`;
+  }
+  return `cost partial — ${cov.unpricedKeys.length} model(s) unpriced`;
+});
+
+const valueTile = computed(() => {
+  const c = cost.value;
+  if (!c) return { value: '—', sub: '' };
+  if (c.value_multiple !== null) {
+    return {
+      value: `${c.value_multiple.toFixed(1)}x`,
+      sub: `vs $${c.subscription_monthly_usd}/mo · priced models only`,
+    };
+  }
+  return {
+    value: formatCost(c.total_cost_usd),
+    sub: 'equivalent, last 30 days',
+  };
+});
+
 async function load(): Promise<void> {
   try {
-    summary.value = await useClient().summaryNow();
+    const client = useClient();
+    summary.value = await client.summaryNow();
+    cost.value = await client.cost();
   } catch (e) {
     error.value = String(e);
   }
@@ -80,7 +114,12 @@ onBeforeUnmount(() => socket?.close());
       <StatTile
         label="Today"
         :value="formatTokens(summary.today.total_tokens)"
-        :sub="`${formatCost(summary.today.cost_usd)} equivalent`"
+        :sub="todayCostSub"
+      />
+      <StatTile
+        label="Plan value"
+        :value="valueTile.value"
+        :sub="valueTile.sub"
       />
       <StatTile
         v-if="summary.prediction"
