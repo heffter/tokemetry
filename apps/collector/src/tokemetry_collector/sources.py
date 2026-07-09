@@ -11,9 +11,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from tokemetry_core.interfaces import LimitsSource, UsageSource
-from tokemetry_core.providers.claude_code import ClaudeCodeJsonlSource
+from tokemetry_core.providers.claude_code import ClaudeCodeJsonlSource, default_claude_home
 
 from tokemetry_collector.config import CollectorConfig, SourceConfig
+from tokemetry_collector.limits_anthropic import AnthropicOAuthLimitsSource
 
 #: Registry of usage-source builders keyed by config source name.
 UsageSourceBuilder = Callable[[CollectorConfig, SourceConfig], UsageSource]
@@ -34,6 +35,17 @@ def _build_claude_code(config: CollectorConfig, source_cfg: SourceConfig) -> Usa
     raw_home = (source_cfg.model_extra or {}).get("claude_home")
     claude_home = Path(str(raw_home)) if raw_home else None
     return ClaudeCodeJsonlSource(claude_home=claude_home, machine=config.machine_name)
+
+
+def _build_anthropic_oauth(config: CollectorConfig, source_cfg: SourceConfig) -> LimitsSource:
+    """Build the Anthropic OAuth limits source from config.
+
+    Honors an optional ``claude_home`` override (where ``.credentials.json``
+    lives); otherwise resolves the default Claude home.
+    """
+    raw_home = (source_cfg.model_extra or {}).get("claude_home")
+    claude_home = Path(str(raw_home)) if raw_home else default_claude_home()
+    return AnthropicOAuthLimitsSource(claude_home=claude_home, machine=config.machine_name)
 
 
 def register_usage_builder(name: str, builder: UsageSourceBuilder) -> None:
@@ -68,5 +80,8 @@ def build_limit_sources(config: CollectorConfig) -> list[LimitsSource]:
 
 #: The config key under which the Claude Code usage source is enabled.
 CLAUDE_CODE_SOURCE = "claude_code"
+#: The config key under which the Anthropic OAuth limits source is enabled.
+ANTHROPIC_OAUTH_LIMITS = "anthropic_oauth"
 
 register_usage_builder(CLAUDE_CODE_SOURCE, _build_claude_code)
+register_limits_builder(ANTHROPIC_OAUTH_LIMITS, _build_anthropic_oauth)

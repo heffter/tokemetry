@@ -456,14 +456,15 @@
         "id": "10",
         "title": "AnthropicOAuthLimitsSource Poller with Graceful Degradation",
         "description": "Implement the AnthropicOAuthLimitsSource poller to poll the undocumented endpoint GET https://api.anthropic.com/api/oauth/usage with OAuth token from ~/.claude/.credentials.json. Add graceful degradation to local estimates on failure.",
-        "details": "Create `packages/core/tokemetry_core/providers/anthropic_oauth.py` implementing `LimitsSource`. Poll endpoint every 2 minutes with headers `anthropic-beta: oauth-2025-04-20` and Claude-Code-like User-Agent. Extract five_hour, seven_day, seven_day_opus, seven_day_sonnet utilization percentages and reset times. If poll fails, degrade to local estimates (JSONL-derived). Tag data as provenance=official. Add unit tests for poll success and failure degradation.",
-        "testStrategy": "Test poll success with valid OAuth token. Verify graceful degradation to local estimates on failure. Confirm provenance tagging. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "1"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "AnthropicOAuthLimitsSource is implemented (collector-side to keep core httpx-free). Reads OAuth token from ~/.claude/.credentials.json using defensive recursive accessToken search. GET /api/oauth/usage with Bearer + `anthropic-beta: oauth-2025-04-20` + Claude-Code UA. Maps five_hour/seven_day/seven_day_opus/seven_day_sonnet windows to normalized LimitSnapshots (provenance=official, resets_at parses ISO or epoch). Skips null windows. Token never leaves machine. All failure modes (missing token, network, non-2xx, bad body) -> LimitsUnavailableError for graceful degradation. Registered `anthropic_oauth` limits builder in sources.py. Tests: token read variations, window mapping, epoch reset, all error->unavailable paths, builder registration. Docs updated. Gates: 148 tests, ruff/mypy strict/trivy clean.",
+        "testStrategy": "Test poll success with valid OAuth token. Verify graceful degradation to local estimates on failure. Confirm provenance tagging. Run pytest with coverage >= 80%. Validate ruff/mypy strict/trivy zero issues. (Actual: 148 tests pass, ruff/mypy strict/trivy clean).",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T14:42:14.816Z"
       },
       {
         "id": "11",
@@ -525,9 +526,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T14:35:44.615Z",
+      "lastModified": "2026-07-09T14:42:14.817Z",
       "taskCount": 14,
-      "completedCount": 9,
+      "completedCount": 10,
       "tags": [
         "master"
       ]

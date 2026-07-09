@@ -52,3 +52,26 @@ TOML file; see `deploy/collector.example.toml`. Key fields: `server_url`,
 `limits_poll_interval_seconds`, `state_db_path`, and `[sources.*]` /
 `[limits.*]` tables with `enabled` flags. Secrets (the API token) live only
 in this file on the machine; never commit it.
+
+## Built-in sources
+
+| Config key | Kind | Implementation |
+|---|---|---|
+| `[sources.claude_code]` | usage | `ClaudeCodeJsonlSource` -- tails `~/.claude` transcripts (optional `claude_home` override). |
+| `[limits.anthropic_oauth]` | limits | `AnthropicOAuthLimitsSource` -- polls the OAuth usage endpoint. |
+
+### Anthropic OAuth limits
+
+`AnthropicOAuthLimitsSource` reads the OAuth access token from
+`~/.claude/.credentials.json` and calls the undocumented
+`GET https://api.anthropic.com/api/oauth/usage` endpoint (headers:
+`Authorization: Bearer <token>`, `anthropic-beta: oauth-2025-04-20`, a
+Claude-Code-like `User-Agent`). It maps the `five_hour`, `seven_day`,
+`seven_day_opus`, and `seven_day_sonnet` windows into normalized
+`LimitSnapshot`s with `provenance='official'`.
+
+The token never leaves the machine -- only utilization percentages and reset
+times are uploaded. The endpoint is unofficial and may change; every failure
+(missing token, network error, non-2xx, unparseable body) raises
+`LimitsUnavailableError`, and the collector degrades to local estimates
+rather than crashing.
