@@ -1,0 +1,38 @@
+# Secrets and machine-local configuration -- never commit
+.mcp.json
+.env
+.env.*
+*.pem
+*.key
+.claude/settings.local.json
+.claude/worktrees/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Node / dashboard
+node_modules/
+apps/dashboard/dist/
+*.tsbuildinfo
+
+# Logs and local state
+*.log
+*.sqlite3
+*.db
+
+# OS noise
+Thumbs.db
+.DS_Store
