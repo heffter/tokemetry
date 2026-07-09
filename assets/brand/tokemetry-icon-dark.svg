@@ -2,10 +2,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="tokemetry icon">
   <defs>
     <linearGradient id="tokemetry-accent" x1="0" y1="40" x2="340" y2="180" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#27D8F3"/><stop offset="1" stop-color="#45E08D"/></linearGradient>
-    <linearGradient id="tokemetry-frame" x1="95" y1="10" x2="330" y2="210" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#235F6C"/><stop offset="1" stop-color="#1A4950"/></linearGradient>
+    <linearGradient id="tokemetry-frame" x1="95" y1="10" x2="330" y2="210" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2E8391"/><stop offset="1" stop-color="#256D78"/></linearGradient>
   </defs>
   <g transform="translate(36,92) scale(1.24)" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M202 15 L305 74 L305 156 L202 215 L99 156 L99 74 Z" fill="none" stroke="url(#tokemetry-frame)" stroke-width="13" opacity="0.72"/>
+    <path d="M202 15 L305 74 L305 156 L202 215 L99 156 L99 74 Z" fill="none" stroke="url(#tokemetry-frame)" stroke-width="13" opacity="0.9"/>
     <polygon points="70.85,125.50 44.00,141.00 17.15,125.50 17.15,94.50 44.00,79.00 70.85,94.50" fill="url(#tokemetry-accent)"/>
     <polygon points="122.19,74.50 104.00,85.00 85.81,74.50 85.81,53.50 104.00,43.00 122.19,53.50" fill="url(#tokemetry-accent)" opacity="0.96"/>
     <polygon points="122.19,162.50 104.00,173.00 85.81,162.50 85.81,141.50 104.00,131.00 122.19,141.50" fill="url(#tokemetry-accent)" opacity="0.96"/>
