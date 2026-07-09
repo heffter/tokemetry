@@ -1,0 +1,33 @@
+# tokemetry collector configuration (example).
+# Copy to a machine-local path and fill in the values. Never commit a file
+# containing a real api_token.
+
+# Base URL of the tokemetry server, reachable over WireGuard.
+server_url = "http://10.10.0.1:8787"
+
+# Bearer token minted on the server (or the bootstrap token for first run).
+api_token = "tkm_replace_me"
+
+# Stable name identifying this machine in the dashboard.
+machine_name = "desk-windows"
+
+# How often to run a collection cycle, in seconds.
+poll_interval_seconds = 60
+
+# How often to poll subscription limit windows, in seconds.
+limits_poll_interval_seconds = 120
+
+# Max usage events per upload batch.
+upload_batch_size = 500
+
+# Where the collector keeps its offset store and upload queue.
+state_db_path = "tokemetry-collector-state.sqlite3"
+
+# Usage sources to tail. The claude_code source is wired in a later task.
+[sources.claude_code]
+enabled = true
+# claude_home = "C:/Users/you/.claude"   # optional; defaults to ~/.claude
+
+# Limit sources to poll.
+[limits.anthropic_oauth]
+enabled = true

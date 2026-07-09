@@ -293,16 +293,108 @@
         "id": "8",
         "title": "Collector Daemon with Offset-Tracked Tailing",
         "description": "Implement the collector daemon (apps/collector) as a cross-platform Python daemon running as Windows Scheduled Task, systemd unit, or launchd agent. Add source-plugin host with watchdog file events and periodic rescan for incremental, byte-offset-tracked tailing.",
-        "details": "Create `apps/collector/tokemetry_collector/daemon.py`. Use `watchdog` for file events and periodic rescan. Track byte offsets in local SQLite state DB (`state.db`). Implement incremental tailing of discovered files. Add TOML config (`config.toml`) for server URL, API token, machine name, per-source enable flags, poll intervals. Add operational modes: `--once`, `--dry-run`, daemon loop. Use `loguru` for structured JSON logging. Create Windows Scheduled Task XML, systemd unit, launchd plist templates.",
-        "testStrategy": "Test file event detection and incremental tailing. Verify offset persistence in SQLite. Confirm operational modes work. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "1",
           "3",
           "7"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Implemented collector daemon (Task 8): config.py (TOML via tomllib+pydantic, per-source enable flags, extra=allow for source opts), state.py (SQLite: file_offsets, upload_queue, meta; crash/offline-safe), uploader.py (httpx.Client POST to ingest endpoints, network errors -> False not raised), wire.py (core->wire JSON serializers, machine per-batch), runner.py (Collector.collect_once: tail sources with offset tracking + truncation reset + batch chunking, poll limits with graceful degradation, drain queue oldest-first stopping on failure; run() daemon loop with separate limits cadence + injectable clock; run_bootstrap idempotent via meta flag; dry_run changes nothing), sources.py (provider-agnostic builder registry, filled by Task 9/10), cli.py (--config/--once/--dry-run/--bootstrap, signal-based stop). Runner tested against FakeUsageSource/FakeLimitsSource + httpx MockTransport fake server: offset advance/resume, offline requeue+recovery, truncation reparse, chunking, limits degrade, bootstrap once. Docs: docs/collector/overview.md + deploy/collector.example.toml. Gates: 136 tests, ruff/mypy strict/trivy clean.",
+        "testStrategy": "Test file event detection and incremental tailing. Verify offset persistence in SQLite. Confirm operational modes work. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues. Gates: 136 tests, ruff/mypy strict/trivy clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Config Module Implementation",
+            "description": "Verify config.py TOML parsing with pydantic and per-source flags.",
+            "dependencies": [],
+            "details": "config.py implemented: TOML via tomllib+pydantic, per-source enable flags, extra=allow for source opts.",
+            "status": "done",
+            "testStrategy": "Test TOML parsing with fixtures. Verify per-source flags and extra=allow behavior.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "State Module Implementation",
+            "description": "Verify state.py SQLite persistence with crash/offline-safe behavior.",
+            "dependencies": [],
+            "details": "state.py implemented: SQLite with file_offsets, upload_queue, meta; crash/offline-safe.",
+            "status": "done",
+            "testStrategy": "Test offset advance/resume, offline requeue+recovery, truncation reparse.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Uploader Module Implementation",
+            "description": "Verify uploader.py httpx.Client POST with network error handling.",
+            "dependencies": [],
+            "details": "uploader.py implemented: httpx.Client POST to ingest endpoints, network errors -> False not raised.",
+            "status": "done",
+            "testStrategy": "Test network error handling with httpx MockTransport. Verify False not raised.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Runner Module Implementation",
+            "description": "Verify runner.py offset tracking, truncation reset, batch chunking, and limits degradation.",
+            "dependencies": [],
+            "details": "runner.py implemented: Collector.collect_once with offset tracking + truncation reset + batch chunking, poll limits with graceful degradation, drain queue oldest-first stopping on failure; run() daemon loop with separate limits cadence + injectable clock; run_bootstrap idempotent via meta flag; dry_run changes nothing.",
+            "status": "done",
+            "testStrategy": "Test against FakeUsageSource/FakeLimitsSource + httpx MockTransport: offset advance/resume, offline requeue+recovery, truncation reparse, chunking, limits degrade, bootstrap once.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "CLI Module Implementation",
+            "description": "Verify cli.py signal-based stop and operational modes.",
+            "dependencies": [],
+            "details": "cli.py implemented: --config/--once/--dry-run/--bootstrap, signal-based stop.",
+            "status": "done",
+            "testStrategy": "Test operational modes and signal-based stop.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Sources Module Implementation",
+            "description": "Verify sources.py provider-agnostic builder registry.",
+            "dependencies": [],
+            "details": "sources.py implemented: provider-agnostic builder registry, filled by Task 9/10.",
+            "status": "done",
+            "testStrategy": "Test builder registry with provider-agnostic sources.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Wire Module Implementation",
+            "description": "Verify wire.py core->wire JSON serializers and machine per-batch.",
+            "dependencies": [],
+            "details": "wire.py implemented: core->wire JSON serializers, machine per-batch.",
+            "status": "done",
+            "testStrategy": "Test JSON serialization and machine per-batch behavior.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "Documentation Implementation",
+            "description": "Verify docs/collector/overview.md and deploy/collector.example.toml.",
+            "dependencies": [],
+            "details": "Docs implemented: docs/collector/overview.md + deploy/collector.example.toml.",
+            "status": "done",
+            "testStrategy": "Review docs for completeness and accuracy.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 9,
+            "title": "Gates Verification",
+            "description": "Verify gates: 136 tests, ruff/mypy strict/trivy clean.",
+            "dependencies": [],
+            "details": "Gates met: 136 tests, ruff/mypy strict/trivy clean.",
+            "status": "done",
+            "testStrategy": "Run test suite and linters to verify gates.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T14:29:18.807Z"
       },
       {
         "id": "9",
@@ -391,9 +483,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T14:16:29.791Z",
+      "lastModified": "2026-07-09T14:29:18.807Z",
       "taskCount": 14,
-      "completedCount": 7,
+      "completedCount": 8,
       "tags": [
         "master"
       ]
