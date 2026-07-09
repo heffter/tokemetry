@@ -89,7 +89,7 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
             active_cost_fn: CostFn = cost_fn
         else:
             active_cost_fn = (await _build_cost_engine(session_factory, dialect_name)).cost
-        http_client = httpx.AsyncClient(timeout=15.0)
+        http_client = httpx.AsyncClient(timeout=30.0)
         alert_engine = AlertEngine(build_notifiers(resolved, http_client))
         app.state.settings = resolved
         app.state.engine = engine
@@ -98,6 +98,7 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         app.state.cost_fn = active_cost_fn
         app.state.broadcaster = Broadcaster()
         app.state.alert_engine = alert_engine
+        app.state.http_client = http_client
 
         alert_task: asyncio.Task[None] | None = None
         if resolved.alerts_enabled:

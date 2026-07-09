@@ -1,7 +1,12 @@
-"""HTTP tests for the pricing write and recompute endpoints."""
+"""HTTP tests for the pricing write, sync, and recompute endpoints."""
 
+from typing import Any
+
+import httpx
+import pytest
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
+from tokemetry_server.api import pricing as pricing_module
 
 _MACHINE = {"name": "box-1"}
 
@@ -69,6 +74,35 @@ def test_recompute_fills_previously_unpriced_cost(
     assert float(after) == 7.0  # 1M input tokens at $7/MTok
     assert rollup is not None
     assert float(rollup) == 7.0  # rollup cost refreshed too
+
+
+def test_sync_litellm_upserts_prices(
+    client: TestClient, auth: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture: dict[str, Any] = {
+        "claude-fable-5": {
+            "litellm_provider": "anthropic",
+            "input_cost_per_token": 7e-06,
+            "output_cost_per_token": 3.5e-05,
+        },
+        "gpt-5": {
+            "litellm_provider": "openai",
+            "input_cost_per_token": 1e-06,
+            "output_cost_per_token": 4e-06,
+        },
+    }
+
+    async def _fake_fetch(_: httpx.AsyncClient) -> dict[str, Any]:
+        return fixture
+
+    monkeypatch.setattr(pricing_module, "fetch_litellm_prices", _fake_fetch)
+
+    result = client.post("/api/v1/pricing/sync-litellm", headers=auth)
+    assert result.status_code == 200
+    assert result.json()["synced"] == 1  # openai excluded
+
+    listing = client.get("/api/v1/pricing", headers=auth).json()
+    assert any(row["model"] == "claude-fable-5" and row["source"] == "litellm" for row in listing)
 
 
 def test_recompute_updates_future_ingest_pricing(

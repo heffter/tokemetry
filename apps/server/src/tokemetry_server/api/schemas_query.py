@@ -167,6 +167,12 @@ class RecomputeResult(BaseModel):
     rollups_refreshed: int
 
 
+class SyncResult(BaseModel):
+    """Outcome of a LiteLLM price sync."""
+
+    synced: int
+
+
 class TokenCreateRequest(BaseModel):
     """Request to mint an API token."""
 

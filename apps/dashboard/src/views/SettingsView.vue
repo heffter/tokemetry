@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Settings: theme, API token management, and the pricing table.
+// Settings: theme, API token management, and pricing management (the screen
+// that fixes the app-wide "cost n/a" problem).
 import { onMounted, ref } from 'vue';
 import {
   applyTheme,
@@ -7,17 +8,38 @@ import {
   useClient,
   useToken,
 } from '@/composables/useApi';
-import type { CreatedToken, TokenInfo } from '@/api/client';
+import type { CreatedToken, PriceRowInput, TokenInfo } from '@/api/client';
 import type { PricingRow } from '@/api/types';
+import { formatCost, modelLabel } from '@/lib/format';
+import { pricedCoverage } from '@/lib/coverage';
 
 const theme = ref(storedTheme());
 const themes = ['system', 'light', 'dark'];
 const tokens = ref<TokenInfo[]>([]);
 const pricing = ref<PricingRow[]>([]);
+const unpricedModels = ref<string[]>([]);
 const newLabel = ref('');
 const minted = ref<CreatedToken | null>(null);
 const error = ref('');
+const priceStatus = ref('');
 const { clearToken } = useToken();
+
+const today = new Date().toISOString().slice(0, 10);
+const priceForm = ref<PriceRowInput>(blankPrice());
+
+function blankPrice(): PriceRowInput {
+  return {
+    provider: 'anthropic',
+    model: '',
+    effective_date: today,
+    input_per_mtok: '',
+    output_per_mtok: '',
+    cache_read_per_mtok: '',
+    cache_write_short_per_mtok: '',
+    cache_write_long_per_mtok: '',
+    source: 'manual',
+  };
+}
 
 function setTheme(value: string): void {
   theme.value = value;
@@ -29,8 +51,55 @@ async function load(): Promise<void> {
     const client = useClient();
     tokens.value = await client.listTokens();
     pricing.value = await client.pricing();
+    const byModel = (await client.usage({ groupBy: 'model' })).buckets;
+    unpricedModels.value = pricedCoverage(byModel).unpricedKeys;
   } catch (e) {
     error.value = String(e);
+  }
+}
+
+function prefill(model: string): void {
+  priceForm.value = { ...blankPrice(), model };
+  priceStatus.value = '';
+}
+
+async function addPrice(): Promise<void> {
+  const f = priceForm.value;
+  if (!f.model.trim() || !f.input_per_mtok || !f.output_per_mtok) {
+    priceStatus.value = 'model, input and output prices are required';
+    return;
+  }
+  try {
+    await useClient().createPrice(f);
+    const result = await useClient().recomputeCosts();
+    priceStatus.value = `added ${f.model}; repriced ${result.events_updated} events`;
+    priceForm.value = blankPrice();
+    await load();
+  } catch (e) {
+    priceStatus.value = String(e);
+  }
+}
+
+async function syncLitellm(): Promise<void> {
+  priceStatus.value = 'syncing from LiteLLM…';
+  try {
+    const synced = await useClient().syncLitellm();
+    const result = await useClient().recomputeCosts();
+    priceStatus.value = `synced ${synced.synced} prices; repriced ${result.events_updated} events`;
+    await load();
+  } catch (e) {
+    priceStatus.value = String(e);
+  }
+}
+
+async function recompute(): Promise<void> {
+  priceStatus.value = 'recomputing…';
+  try {
+    const result = await useClient().recomputeCosts();
+    priceStatus.value = `repriced ${result.events_updated} events`;
+    await load();
+  } catch (e) {
+    priceStatus.value = String(e);
   }
 }
 
@@ -65,6 +134,89 @@ onMounted(load);
   </section>
 
   <section class="card">
+    <div class="head">
+      <h3>Pricing</h3>
+      <div class="toggle">
+        <button @click="syncLitellm">Sync from LiteLLM</button>
+        <button @click="recompute">Recompute costs</button>
+      </div>
+    </div>
+
+    <div v-if="unpricedModels.length" class="banner">
+      <strong>{{ unpricedModels.length }}</strong> model(s) in use have no price
+      (cost shows as unpriced):
+      <span
+        v-for="m in unpricedModels"
+        :key="m"
+        class="chip"
+        @click="prefill(m)"
+      >
+        {{ modelLabel(m) }} — add price
+      </span>
+    </div>
+
+    <div class="form">
+      <input v-model="priceForm.model" placeholder="model id" class="wide" />
+      <input v-model="priceForm.input_per_mtok" placeholder="input /MTok" />
+      <input v-model="priceForm.output_per_mtok" placeholder="output /MTok" />
+      <input
+        v-model="priceForm.cache_read_per_mtok"
+        placeholder="cache read /MTok"
+      />
+      <input
+        v-model="priceForm.cache_write_short_per_mtok"
+        placeholder="cache write 5m"
+      />
+      <input
+        v-model="priceForm.cache_write_long_per_mtok"
+        placeholder="cache write 1h"
+      />
+      <button @click="addPrice">Add / override</button>
+    </div>
+    <div v-if="priceStatus" class="muted status">{{ priceStatus }}</div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Model</th>
+            <th>Effective</th>
+            <th class="num">Input</th>
+            <th class="num">Output</th>
+            <th class="num">Cache read</th>
+            <th class="num">Write 5m</th>
+            <th class="num">Write 1h</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="row in pricing"
+            :key="`${row.provider}-${row.model}-${row.effective_date}`"
+          >
+            <td>{{ row.provider }}</td>
+            <td>{{ modelLabel(row.model) }}</td>
+            <td class="tabular">{{ row.effective_date }}</td>
+            <td class="num tabular">{{ formatCost(row.input_per_mtok) }}</td>
+            <td class="num tabular">{{ formatCost(row.output_per_mtok) }}</td>
+            <td class="num tabular">
+              {{ formatCost(row.cache_read_per_mtok) }}
+            </td>
+            <td class="num tabular">
+              {{ formatCost(row.cache_write_short_per_mtok) }}
+            </td>
+            <td class="num tabular">
+              {{ formatCost(row.cache_write_long_per_mtok) }}
+            </td>
+            <td>{{ row.source }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
     <h3>API tokens</h3>
     <div v-if="error" class="muted">{{ error }}</div>
     <div class="mint">
@@ -87,28 +239,6 @@ onMounted(load);
   </section>
 
   <section class="card">
-    <h3>Pricing</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Model</th>
-          <th class="num">Input /MTok</th>
-          <th class="num">Output /MTok</th>
-          <th>Source</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in pricing" :key="`${row.model}-${row.effective_date}`">
-          <td>{{ row.model }}</td>
-          <td class="num tabular">${{ row.input_per_mtok }}</td>
-          <td class="num tabular">${{ row.output_per_mtok }}</td>
-          <td>{{ row.source }}</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section class="card">
     <button class="danger" @click="clearToken">
       Disconnect (forget token)
     </button>
@@ -120,12 +250,23 @@ section {
   margin-bottom: 1.25rem;
 }
 h3 {
-  margin: 0 0 1rem;
+  margin: 0;
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
 }
 .toggle,
-.mint {
+.mint,
+.form {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.form {
+  margin: 0.75rem 0;
 }
 button {
   font: inherit;
@@ -147,10 +288,37 @@ input {
   border: 1px solid var(--border);
   background: var(--page);
   color: var(--text-primary);
+  width: 120px;
+}
+input.wide {
+  width: 220px;
   flex: 1;
+}
+.banner {
+  background: color-mix(in srgb, var(--status-warning) 12%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+.chip {
+  display: inline-block;
+  margin: 0.15rem 0.25rem 0 0;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--surface);
+}
+.status {
+  font-size: 0.85rem;
 }
 .minted code {
   word-break: break-all;
+}
+.scroll {
+  overflow-x: auto;
 }
 .tokens {
   list-style: none;
@@ -177,7 +345,8 @@ input {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 th,
 td {

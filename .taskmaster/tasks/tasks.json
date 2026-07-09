@@ -984,13 +984,27 @@
         ],
         "status": "pending",
         "subtasks": []
+      },
+      {
+        "id": "27",
+        "title": "Settings Pricing UI + LiteLLM Sync",
+        "description": "Settings pricing management UI plus a LiteLLM price-sync endpoint",
+        "status": "done",
+        "dependencies": [
+          "15"
+        ],
+        "priority": "high",
+        "details": "Backend: POST /api/v1/pricing/sync-litellm (fetch_litellm_prices via app.state.http_client, sync_anthropic_pricing, effective_date fixed to 2025-01-01 so synced prices cover ALL retained history not just today); stored http_client on app.state; SyncResult schema; monkeypatched test. Frontend client: createPrice/syncLitellm/recomputeCosts + PriceRowInput. SettingsView rewritten: full 5-column price table (input/output/cache read/write 5m/write 1h) + provider + effective_date in an overflow-x scroll, an add/override price form (all fields), an unpriced-model banner (diff usage group_by=model coverage) with click-to-prefill chips, and Sync-from-LiteLLM + Recompute buttons that report events repriced. Fixed modelLabel bedrock/date strip order (strip -v1:0 before -YYYYMMDD). VERIFIED on real data: LiteLLM sync priced 23 models, recomputed 11373 events; cost went from 0.79 (Haiku only) to ~$ equivalent with Opus 4.7 = $ revealed. Gates: 102 server tests + 25 dashboard tests, ruff/mypy/trivy/build/lint clean.",
+        "testStrategy": "Backend: pytest with SQLite to verify fetch_litellm_prices, sync_anthropic_pricing, and transactional integrity of SyncResult. Verify effective_date=2025-01-01 covers all retained history. Frontend: test createPrice/syncLitellm/recomputeCosts flow and PriceRowInput rendering. SettingsView: validate 5-column table layout, overflow-x scroll, add/override form, unpriced-model banner with click-to-prefill chips, and Sync-from-LiteLLM + Recompute button event reporting. Verify modelLabel strip order (-v1:0 before -YYYYMMDD). Gates: 102 server tests + 25 dashboard tests, ruff/mypy strict/trivy zero issues, build/lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T18:28:58.092Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T18:05:15.452Z",
-      "taskCount": 26,
-      "completedCount": 17,
+      "lastModified": "2026-07-09T18:28:58.093Z",
+      "taskCount": 27,
+      "completedCount": 18,
       "tags": [
         "master"
       ]

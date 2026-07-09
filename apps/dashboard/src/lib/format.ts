@@ -65,7 +65,9 @@ export function windowLabel(kind: string): string {
 /** Humanize a model id ("claude-opus-4-8-20260101" -> "Opus 4.8"). */
 export function modelLabel(id: string): string {
   let s = id.replace(/^.*anthropic\./, '').replace(/^claude-/, '');
-  s = s.replace(/-\d{8}$/, '').replace(/-v\d+:\d+$/, '');
+  // Strip the bedrock version suffix (-v1:0) before the date (-YYYYMMDD),
+  // otherwise the date is left dangling at the end.
+  s = s.replace(/-v\d+:\d+$/, '').replace(/-\d{8}$/, '');
   const match = s.match(/^([a-z]+)-(\d+(?:-\d+)*)$/);
   if (match) {
     const family = match[1][0].toUpperCase() + match[1].slice(1);

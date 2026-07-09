@@ -115,6 +115,29 @@ export class ApiClient {
     return this.request<PricingRow[]>('/api/v1/pricing');
   }
 
+  createPrice(row: PriceRowInput): Promise<PricingRow> {
+    return this.request<PricingRow>('/api/v1/pricing', 'POST', row);
+  }
+
+  syncLitellm(): Promise<{ synced: number }> {
+    return this.request<{ synced: number }>(
+      '/api/v1/pricing/sync-litellm',
+      'POST',
+      {}
+    );
+  }
+
+  recomputeCosts(): Promise<{
+    events_updated: number;
+    rollups_refreshed: number;
+  }> {
+    return this.request<{ events_updated: number; rollups_refreshed: number }>(
+      '/api/v1/pricing/recompute',
+      'POST',
+      {}
+    );
+  }
+
   alertRules(): Promise<AlertRule[]> {
     return this.request<AlertRule[]>('/api/v1/alerts');
   }
@@ -200,6 +223,18 @@ export interface AlertEvent {
   body: string;
   delivered: boolean;
   context: Record<string, unknown>;
+}
+
+export interface PriceRowInput {
+  provider: string;
+  model: string;
+  effective_date: string;
+  input_per_mtok: string;
+  output_per_mtok: string;
+  cache_read_per_mtok: string;
+  cache_write_short_per_mtok: string;
+  cache_write_long_per_mtok: string;
+  source: string;
 }
 
 export function buildUsageParams(query: UsageQuery): string {

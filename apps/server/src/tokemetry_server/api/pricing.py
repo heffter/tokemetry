@@ -18,10 +18,19 @@ from tokemetry_core.models import PriceRow
 
 from tokemetry_server.api.auth import require_token
 from tokemetry_server.api.deps import get_session
-from tokemetry_server.api.schemas_query import PriceRowIn, PricingOut, RecomputeResult
+from tokemetry_server.api.schemas_query import (
+    PriceRowIn,
+    PricingOut,
+    RecomputeResult,
+    SyncResult,
+)
 from tokemetry_server.db import models
 from tokemetry_server.providers import build_registry
 from tokemetry_server.services.cost import CostEngine
+from tokemetry_server.services.litellm_sync import (
+    fetch_litellm_prices,
+    sync_anthropic_pricing,
+)
 from tokemetry_server.services.pricing_repo import (
     load_pricing_table,
     recompute_costs,
@@ -30,6 +39,10 @@ from tokemetry_server.services.pricing_repo import (
 from tokemetry_server.services.rollups import refresh_rollups_for_days
 
 router = APIRouter(prefix="/api/v1/pricing", tags=["pricing"])
+
+#: Effective date for LiteLLM-synced prices: early enough to cover all
+#: retained history, so recompute prices every stored event.
+_SYNC_EFFECTIVE_DATE = date(2025, 1, 1)
 
 
 @router.post("", response_model=PricingOut, status_code=status.HTTP_201_CREATED)
@@ -62,6 +75,26 @@ async def create_price(
         cache_write_long_per_mtok=payload.cache_write_long_per_mtok,
         source=payload.source,
     )
+
+
+@router.post("/sync-litellm", response_model=SyncResult)
+async def sync_litellm(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> SyncResult:
+    """Fetch LiteLLM's price database and upsert Anthropic rows.
+
+    Prices are stored with an early effective date so they apply to all
+    historical events (equivalent-cost estimation for a subscriber, where
+    prices rarely change). Does not recompute stored costs; call
+    ``/recompute`` afterward.
+    """
+    data = await fetch_litellm_prices(request.app.state.http_client)
+    synced = await sync_anthropic_pricing(
+        session, request.app.state.dialect_name, data, _SYNC_EFFECTIVE_DATE
+    )
+    return SyncResult(synced=synced)
 
 
 @router.post("/recompute", response_model=RecomputeResult)
