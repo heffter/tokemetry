@@ -470,15 +470,16 @@
         "id": "11",
         "title": "Analytics Engines and Query API Implementation",
         "description": "Implement analytics engines: Block engine (reconstruct 5-hour billing blocks anchored to official resets_at, inferred fallback), Burn-rate engine (tokens per minute over trailing window, predicted exhaustion time), and Query API endpoints with grouping/filtering.",
-        "details": "Create `apps/server/tokemetry_server/services/analytics.py`. Implement `BlockEngine`: reconstruct 5-hour blocks using official resets_at from limit_snapshots, infer from event timestamps if missing. Record totals, peak burn, end utilization. Implement `BurnRateEngine`: calculate tokens/min over trailing window, predict exhaustion time vs reset. Create `apps/server/tokemetry_server/api/query.py` with endpoints: GET /summary/now, /limits/current, /limits/history, /blocks, /usage (group_by day/hour/provider/model/machine/project/session, from/to, filters), /sessions, /machines, /heatmap, /cost, /pricing, /alerts, /alerts/events. Add WebSocket /stream for live events. Add unit tests for engines and query endpoints.",
-        "testStrategy": "Test block reconstruction with official and inferred resets. Verify burn-rate calculation and prediction. Confirm query endpoints return correct grouped/filter data. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "7",
           "10"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Implemented analytics engines + query API + tokens + WebSocket (Task 11): services/analytics.py (current_limits latest-per-window, limits_history, token_burn_rate tokens/min trailing window, predict_exhaustion via official utilization slope extrapolation, blocks reconstruction anchored to five_hour resets_at with peak-per-minute burn + end utilization), services/queries.py (usage_grouped day/provider/model/machine/project from rollups + session from events, list_sessions, list_machines, punch_card, total_cost, list_pricing), services/tokens.py (create/list/revoke, hashed, plaintext once), services/broadcast.py (in-process pub/sub, drops slow subscribers). Routers: api/query.py (summary/now, limits/current+history, blocks, usage, sessions, machines, heatmap, cost with value-multiple, pricing), api/tokens.py (POST/GET/DELETE), api/stream.py (WS auth via ?token, forwards broadcaster msgs). Ingest routes publish live events. Added subscription_monthly_usd setting. Tests: analytics (burn/prediction slope/blocks anchor+peak), queries (all group-bys, sessions, machines, punch card, cost, pricing), query API HTTP (auth, all endpoints, clock-relative seeds), tokens lifecycle (mint/use/list/dup409/revoke/reject), WS reject + live delivery. Docs: docs/api/query.md. Gates: 176 tests, ruff/mypy strict/trivy clean.",
+        "testStrategy": "Test block reconstruction with official and inferred resets. Verify burn-rate calculation and prediction. Confirm query endpoints return correct grouped/filter data. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues. Gates: 176 tests, ruff/mypy strict/trivy clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T15:00:40.840Z"
       },
       {
         "id": "12",
@@ -526,9 +527,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T14:42:14.817Z",
+      "lastModified": "2026-07-09T15:00:40.840Z",
       "taskCount": 14,
-      "completedCount": 10,
+      "completedCount": 11,
       "tags": [
         "master"
       ]

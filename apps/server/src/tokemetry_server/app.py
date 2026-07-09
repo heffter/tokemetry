@@ -17,11 +17,12 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tokemetry_core.models import UsageEvent
 
-from tokemetry_server.api import ingest
+from tokemetry_server.api import ingest, query, stream, tokens
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db.migrate import upgrade_to_head
 from tokemetry_server.db.session import create_engine, create_session_factory
 from tokemetry_server.providers import build_registry
+from tokemetry_server.services.broadcast import Broadcaster
 from tokemetry_server.services.cost import CostEngine
 from tokemetry_server.services.pricing_repo import load_pricing_table, seed_default_pricing
 
@@ -67,6 +68,7 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         app.state.session_factory = session_factory
         app.state.dialect_name = dialect_name
         app.state.cost_fn = active_cost_fn
+        app.state.broadcaster = Broadcaster()
         try:
             yield
         finally:
@@ -79,6 +81,9 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         lifespan=lifespan,
     )
     app.include_router(ingest.router)
+    app.include_router(query.router)
+    app.include_router(tokens.router)
+    app.include_router(stream.router)
 
     @app.get("/api/v1/health", tags=["meta"])
     async def health() -> dict[str, str]:

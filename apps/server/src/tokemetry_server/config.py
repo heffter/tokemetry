@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     #: single-node deployment; disable to manage migrations out of band.
     auto_migrate: bool = Field(default=True)
 
+    #: Monthly subscription price in USD, used to show the "value multiple"
+    #: (equivalent API cost vs what the subscription costs). None hides it.
+    subscription_monthly_usd: float | None = Field(default=None)
+
     @property
     def sync_database_url(self) -> str:
         """Return the database URL with a synchronous driver for Alembic."""
