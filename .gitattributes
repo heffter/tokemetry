@@ -1,0 +1,10 @@
+# Normalize line endings: store LF in the repo for text files, matching
+# .editorconfig. Prevents CRLF/LF churn across Windows, Linux, and macOS.
+* text=auto eol=lf
+
+# Binary files are never normalized.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

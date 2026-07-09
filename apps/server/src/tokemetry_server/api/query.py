@@ -1,0 +1,295 @@
+"""Read API: summary, limits, blocks, usage, sessions, machines, cost.
+
+Every endpoint requires a bearer token and takes an explicit or defaulted
+day range. Aggregations are delegated to the services layer; this module
+handles HTTP concerns (params, defaults, response shaping) only.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.deps import get_session
+from tokemetry_server.api.schemas_query import (
+    BlockOut,
+    CostResponse,
+    HeatmapResponse,
+    LimitOut,
+    MachineOut,
+    PredictionOut,
+    PricingOut,
+    PunchCell,
+    SessionOut,
+    SummaryNow,
+    TodaySummary,
+    UsageBucketOut,
+    UsageResponse,
+)
+from tokemetry_server.config import Settings, get_settings
+from tokemetry_server.db import models
+from tokemetry_server.services import analytics, queries
+
+router = APIRouter(prefix="/api/v1", tags=["query"])
+
+#: Default look-back for range queries.
+_DEFAULT_DAYS = 30
+
+
+def _default_range(
+    date_from: date | None, date_to: date | None
+) -> tuple[date, date]:
+    """Resolve a (start, end) day range with a 30-day default."""
+    end = date_to if date_to is not None else datetime.now(UTC).date()
+    start = date_from if date_from is not None else end - timedelta(days=_DEFAULT_DAYS)
+    return start, end
+
+
+def _bucket_out(bucket: queries.UsageBucket) -> UsageBucketOut:
+    """Map a service usage bucket to its response schema."""
+    return UsageBucketOut(
+        key=bucket.key,
+        input_tokens=bucket.input_tokens,
+        output_tokens=bucket.output_tokens,
+        cache_read_tokens=bucket.cache_read_tokens,
+        cache_write_short_tokens=bucket.cache_write_short_tokens,
+        cache_write_long_tokens=bucket.cache_write_long_tokens,
+        total_tokens=bucket.total_tokens,
+        cost_usd=bucket.cost_usd,
+    )
+
+
+def _limit_out(snapshot: models.LimitSnapshot) -> LimitOut:
+    """Map a limit snapshot ORM row to its response schema."""
+    return LimitOut(
+        provider=snapshot.provider,
+        window_kind=snapshot.window_kind,
+        utilization_pct=float(snapshot.utilization_pct),
+        resets_at=snapshot.resets_at,
+        ts=snapshot.ts,
+        provenance=snapshot.provenance,
+    )
+
+
+@router.get("/summary/now", response_model=SummaryNow)
+async def summary_now(
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> SummaryNow:
+    """Return the dashboard front-page summary."""
+    now = datetime.now(UTC)
+    today = now.date()
+    limits = await analytics.current_limits(session)
+    burn = await analytics.token_burn_rate(session, now=now)
+    prediction = await analytics.predict_exhaustion(session, now=now)
+    by_model = await queries.usage_grouped(session, "model", today, today)
+    total_tokens = sum(bucket.total_tokens for bucket in by_model)
+    costs = [bucket.cost_usd for bucket in by_model if bucket.cost_usd is not None]
+
+    return SummaryNow(
+        now=now,
+        limits=[_limit_out(item) for item in limits],
+        token_burn_rate_per_min=burn,
+        prediction=(
+            PredictionOut(
+                window_kind=prediction.window_kind,
+                utilization_pct=prediction.utilization_pct,
+                slope_pct_per_min=prediction.slope_pct_per_min,
+                predicted_exhaustion_at=prediction.predicted_exhaustion_at,
+                resets_at=prediction.resets_at,
+            )
+            if prediction is not None
+            else None
+        ),
+        today=TodaySummary(
+            total_tokens=total_tokens,
+            cost_usd=sum(costs, Decimal("0")) if costs else None,
+            by_model=[_bucket_out(bucket) for bucket in by_model],
+        ),
+    )
+
+
+@router.get("/limits/current", response_model=list[LimitOut])
+async def limits_current(
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> list[LimitOut]:
+    """Return the latest snapshot for each limit window."""
+    return [_limit_out(item) for item in await analytics.current_limits(session)]
+
+
+@router.get("/limits/history", response_model=list[LimitOut])
+async def limits_history(
+    window_kind: str = Query(..., min_length=1),
+    hours: int = Query(24, ge=1, le=720),
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> list[LimitOut]:
+    """Return a window's utilization history over the last ``hours``."""
+    now = datetime.now(UTC)
+    snapshots = await analytics.limits_history(
+        session, window_kind, now - timedelta(hours=hours), now
+    )
+    return [_limit_out(item) for item in snapshots]
+
+
+@router.get("/blocks", response_model=list[BlockOut])
+async def blocks(
+    hours: int = Query(120, ge=5, le=2400),
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> list[BlockOut]:
+    """Return reconstructed 5-hour usage blocks over the last ``hours``."""
+    now = datetime.now(UTC)
+    computed = await analytics.blocks(session, now - timedelta(hours=hours), now)
+    return [
+        BlockOut(
+            start=block.start,
+            end=block.end,
+            total_tokens=block.total_tokens,
+            cost_usd=block.cost_usd,
+            peak_tokens_per_min=block.peak_tokens_per_min,
+            end_utilization_pct=block.end_utilization_pct,
+        )
+        for block in computed
+    ]
+
+
+@router.get("/usage", response_model=UsageResponse)
+async def usage(
+    group_by: str = Query("day"),
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+    provider: str | None = None,
+    machine: str | None = None,
+    model: str | None = None,
+    project: str | None = None,
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> UsageResponse:
+    """Aggregate usage over a day range grouped by one dimension."""
+    start, end = _default_range(date_from, date_to)
+    buckets = await queries.usage_grouped(
+        session, group_by, start, end, provider, machine, model, project
+    )
+    return UsageResponse(
+        group_by=group_by,
+        start=start,
+        end=end,
+        buckets=[_bucket_out(bucket) for bucket in buckets],
+    )
+
+
+@router.get("/sessions", response_model=list[SessionOut])
+async def sessions(
+    limit: int = Query(100, ge=1, le=1000),
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> list[SessionOut]:
+    """Return recent sessions, newest first."""
+    return [
+        SessionOut(
+            session_id=item.session_id,
+            provider=item.provider,
+            machine=item.machine,
+            project=item.project,
+            started_at=item.started_at,
+            last_at=item.last_at,
+            message_count=item.message_count,
+            total_tokens=item.total_tokens,
+            cost_usd=item.cost_usd,
+        )
+        for item in await queries.list_sessions(session, limit)
+    ]
+
+
+@router.get("/machines", response_model=list[MachineOut])
+async def machines(
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> list[MachineOut]:
+    """Return every registered machine with usage totals."""
+    return [
+        MachineOut(
+            id=item.id,
+            platform=item.platform,
+            last_seen=item.last_seen,
+            collector_version=item.collector_version,
+            total_tokens=item.total_tokens,
+            event_count=item.event_count,
+        )
+        for item in await queries.list_machines(session)
+    ]
+
+
+@router.get("/heatmap", response_model=HeatmapResponse)
+async def heatmap(
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> HeatmapResponse:
+    """Return calendar (daily) and punch-card (weekday x hour) usage."""
+    start, end = _default_range(date_from, date_to)
+    calendar = await queries.usage_grouped(session, "day", start, end)
+    card = await queries.punch_card(session, start, end)
+    return HeatmapResponse(
+        calendar=[_bucket_out(bucket) for bucket in calendar],
+        punch_card=[
+            PunchCell(weekday=weekday, hour=hour, total_tokens=tokens)
+            for (weekday, hour), tokens in sorted(card.items())
+        ],
+    )
+
+
+@router.get("/cost", response_model=CostResponse)
+async def cost(
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> CostResponse:
+    """Return total cost over a range and the subscription value multiple."""
+    start, end = _default_range(date_from, date_to)
+    total = await queries.total_cost(session, start, end)
+    monthly = settings.subscription_monthly_usd
+    days = (end - start).days + 1
+    multiple: float | None = None
+    if monthly:
+        prorated = monthly * days / 30.0
+        if prorated > 0:
+            multiple = float(total) / prorated
+    return CostResponse(
+        start=start,
+        end=end,
+        total_cost_usd=total,
+        subscription_monthly_usd=monthly,
+        value_multiple=multiple,
+    )
+
+
+@router.get("/pricing", response_model=list[PricingOut])
+async def pricing(
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> list[PricingOut]:
+    """Return the pricing table."""
+    return [
+        PricingOut(
+            provider=row.provider,
+            model=row.model,
+            effective_date=row.effective_date,
+            input_per_mtok=row.input_per_mtok,
+            output_per_mtok=row.output_per_mtok,
+            cache_read_per_mtok=row.cache_read_per_mtok,
+            cache_write_short_per_mtok=row.cache_write_short_per_mtok,
+            cache_write_long_per_mtok=row.cache_write_long_per_mtok,
+            source=row.source,
+        )
+        for row in await queries.list_pricing(session)
+    ]

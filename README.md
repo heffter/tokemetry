@@ -59,6 +59,19 @@ uv run mypy .           # strict type check
 Quality gates: pytest (80% line / 70% branch coverage), ruff (zero warnings),
 mypy strict, trivy (no HIGH/CRITICAL), shellcheck for shell scripts.
 
+## Deployment
+
+- [Server](docs/deployment/server.md) — Docker Compose on a VPS behind
+  WireGuard (app + Postgres + nightly backup).
+- [Collector](docs/deployment/collector.md) — install and run as a service
+  on Windows, Linux, and macOS.
+- [Grafana](docs/deployment/grafana.md) — point Grafana at the database.
+- [API clients](docs/deployment/api-clients.md) — provision tokens for
+  OpenClaw and other apps.
+
+More docs live under [`docs/`](docs/): architecture, API, collector, and
+alerting.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

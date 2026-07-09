@@ -1,0 +1,59 @@
+# tokemetry server + Postgres for a single VPS.
+#
+# The server port is published ONLY on the WireGuard address (set WG_ADDRESS
+# in .env, e.g. 10.10.0.1) so the dashboard and API are never exposed on the
+# public interface. Copy .env.example to .env and fill in the values.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tokemetry}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-tokemetry}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tokemetry}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TOKEMETRY_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tokemetry}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tokemetry}
+      TOKEMETRY_API_BOOTSTRAP_TOKEN: ${TOKEMETRY_API_BOOTSTRAP_TOKEN:?set a bootstrap token}
+      TOKEMETRY_SUBSCRIPTION_MONTHLY_USD: ${TOKEMETRY_SUBSCRIPTION_MONTHLY_USD:-}
+      TOKEMETRY_NTFY_TOPIC: ${TOKEMETRY_NTFY_TOPIC:-}
+    # Publish only on the WireGuard interface address.
+    ports:
+      - '${WG_ADDRESS:-127.0.0.1}:8787:8787'
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGUSER: ${POSTGRES_USER:-tokemetry}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-tokemetry}
+      PGHOST: db
+    volumes:
+      - ./backup.sh:/usr/local/bin/backup.sh:ro
+      - backups:/backups
+    entrypoint: ['/bin/sh', '-c']
+    command: ['while true; do /usr/local/bin/backup.sh; sleep 86400; done']
+
+volumes:
+  db-data:
+  backups:
