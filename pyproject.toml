@@ -1,0 +1,74 @@
+# Workspace root: shared tooling configuration and dev dependencies.
+# The installable packages live in apps/ and packages/ (uv workspace members).
+[project]
+name = "tokemetry"
+version = "0.1.0"
+description = "Self-hosted multi-machine AI token usage tracking (workspace root)"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+# The root depends on all members so a single `uv sync` installs the whole workspace.
+dependencies = [
+  "tokemetry-core",
+  "tokemetry-server",
+  "tokemetry-collector",
+]
+
+[tool.uv.workspace]
+members = ["apps/server", "apps/collector", "packages/core"]
+
+[tool.uv.sources]
+tokemetry-core = { workspace = true }
+tokemetry-server = { workspace = true }
+tokemetry-collector = { workspace = true }
+
+[dependency-groups]
+dev = [
+  "ruff>=0.9",
+  "mypy>=1.14",
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "pytest-asyncio>=0.25",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Broad selection per project quality gates; warnings are errors in CI.
+select = [
+  "E", "W",     # pycodestyle
+  "F",          # pyflakes
+  "I",          # isort
+  "N",          # pep8-naming
+  "UP",         # pyupgrade
+  "B",          # bugbear
+  "A",          # builtins shadowing
+  "C4",         # comprehensions
+  "DTZ",        # naive datetime misuse
+  "SIM",        # simplify
+  "PTH",        # pathlib
+  "RUF",        # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["DTZ001"]  # fixtures may build naive datetimes deliberately
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+warn_unreachable = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["apps/server/tests", "apps/collector/tests", "packages/core/tests"]
+addopts = "-ra"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+branch = true
+source = ["tokemetry_core", "tokemetry_server", "tokemetry_collector"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
