@@ -25,6 +25,8 @@ export interface Limit {
   resets_at: string | null;
   ts: string;
   provenance: string;
+  age_seconds: number;
+  derived_reset: boolean;
 }
 
 export interface Prediction {

@@ -41,6 +41,31 @@ export function timeUntil(iso: string | null, now: Date = new Date()): string {
   return `in ${hours}h ${minutes}m`;
 }
 
+/** Absolute date and time for an ISO timestamp ("Jul 12, 2:30 PM").
+ *
+ * Rendered in the browser's local timezone. Task 31 routes the timezone
+ * preference through here; callers do not change.
+ */
+export function formatDateTime(iso: string | null): string {
+  if (iso === null) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
+/** Compact humanized duration from seconds ("45s", "12m", "3h", "2d"). */
+export function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
 /** Map a utilization percentage to a status ramp key. */
 export function utilizationStatus(
   pct: number

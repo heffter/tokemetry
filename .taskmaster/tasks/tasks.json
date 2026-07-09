@@ -1524,12 +1524,13 @@
         "id": "30",
         "title": "Limits freshness, reset rollover, weekly absolute time",
         "description": "Attach snapshot age to limits payload; roll a past five_hour resets_at forward in 5h steps (mark derived); GaugeCard shows staleness badge and weekly absolute reset time.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "Backend: added analytics.roll_reset_forward(window_kind, resets_at, now) advancing a stale reset in whole periods (5h for five_hour, 7d for weekly) and flagging it derived; LimitOut gains age_seconds + derived_reset; _limit_out(now, roll_reset) computes both, history rows pass roll_reset=False; prediction resets_at also rolled. Frontend: formatDateTime + formatDuration in format.ts; Limit type extended; GaugeCard shows a stale badge (>=600s old) and weekly windows render the absolute reset date/time (countdown as tooltip) while five_hour keeps countdown primary. Tests: 7 rollover unit tests, 4 format tests; 110 server + 51 dashboard pass; all gates clean.",
+        "testStrategy": "Backend: Verify analytics.roll_reset_forward advances stale resets in whole periods and flags derived. Confirm LimitOut includes age_seconds and derived_reset. Validate _limit_out computes both correctly and history rows pass roll_reset=False. Check prediction resets_at is rolled. Frontend: Verify formatDateTime and formatDuration work in format.ts. Confirm Limit type extension. Test GaugeCard stale badge (>=600s) and weekly absolute reset date/time with countdown tooltip. Ensure five_hour keeps countdown primary. Run 7 rollover unit tests and 4 format tests. Validate 110 server and 51 dashboard tests pass with clean gates.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:32:01.215Z"
       },
       {
         "id": "31",
@@ -1611,9 +1612,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T20:21:33.445Z",
+      "lastModified": "2026-07-09T20:32:01.216Z",
       "taskCount": 37,
-      "completedCount": 29,
+      "completedCount": 30,
       "tags": [
         "master"
       ]

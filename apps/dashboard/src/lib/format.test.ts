@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   cacheReadShare,
   formatCost,
+  formatDateTime,
+  formatDuration,
   formatPct,
   formatTokens,
   modelLabel,
@@ -36,6 +38,29 @@ describe('formatCost', () => {
 describe('formatPct', () => {
   it('formats to one decimal', () => {
     expect(formatPct(42.5)).toBe('42.5%');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('renders null as a dash', () => {
+    expect(formatDateTime(null)).toBe('—');
+  });
+  it('renders invalid input as a dash', () => {
+    expect(formatDateTime('not-a-date')).toBe('—');
+  });
+  it('renders a valid ISO timestamp as a non-empty string', () => {
+    const out = formatDateTime('2026-07-12T14:30:00+00:00');
+    expect(out).not.toBe('—');
+    expect(out.length).toBeGreaterThan(0);
+  });
+});
+
+describe('formatDuration', () => {
+  it('scales seconds through days', () => {
+    expect(formatDuration(45)).toBe('45s');
+    expect(formatDuration(120)).toBe('2m');
+    expect(formatDuration(7200)).toBe('2h');
+    expect(formatDuration(172800)).toBe('2d');
   });
 });
 

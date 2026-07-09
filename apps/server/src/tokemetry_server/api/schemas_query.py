@@ -41,6 +41,12 @@ class LimitOut(BaseModel):
     resets_at: UtcDatetime | None
     ts: UtcDatetime
     provenance: str
+    #: Age of the underlying snapshot in seconds; large values mean the
+    #: collector has not reported recently and the reading may be stale.
+    age_seconds: int = 0
+    #: True when ``resets_at`` was rolled forward from a stale snapshot rather
+    #: than reported directly.
+    derived_reset: bool = False
 
 
 class PredictionOut(BaseModel):

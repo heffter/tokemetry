@@ -63,15 +63,32 @@ def _bucket_out(bucket: queries.UsageBucket) -> UsageBucketOut:
     )
 
 
-def _limit_out(snapshot: models.LimitSnapshot) -> LimitOut:
-    """Map a limit snapshot ORM row to its response schema."""
+def _limit_out(
+    snapshot: models.LimitSnapshot, now: datetime, *, roll_reset: bool = True
+) -> LimitOut:
+    """Map a limit snapshot ORM row to its response schema.
+
+    ``now`` anchors the snapshot-age and reset-rollover computations. History
+    rows pass ``roll_reset=False`` since their resets are points in the past,
+    not a live window to advance.
+    """
+    ts_aware = snapshot.ts if snapshot.ts.tzinfo else snapshot.ts.replace(tzinfo=UTC)
+    age = max(0, int((now - ts_aware).total_seconds()))
+    if roll_reset:
+        resets_at, derived = analytics.roll_reset_forward(
+            snapshot.window_kind, snapshot.resets_at, now
+        )
+    else:
+        resets_at, derived = snapshot.resets_at, False
     return LimitOut(
         provider=snapshot.provider,
         window_kind=snapshot.window_kind,
         utilization_pct=float(snapshot.utilization_pct),
-        resets_at=snapshot.resets_at,
+        resets_at=resets_at,
         ts=snapshot.ts,
         provenance=snapshot.provenance,
+        age_seconds=age,
+        derived_reset=derived,
     )
 
 
@@ -92,7 +109,7 @@ async def summary_now(
 
     return SummaryNow(
         now=now,
-        limits=[_limit_out(item) for item in limits],
+        limits=[_limit_out(item, now) for item in limits],
         token_burn_rate_per_min=burn,
         prediction=(
             PredictionOut(
@@ -100,7 +117,9 @@ async def summary_now(
                 utilization_pct=prediction.utilization_pct,
                 slope_pct_per_min=prediction.slope_pct_per_min,
                 predicted_exhaustion_at=prediction.predicted_exhaustion_at,
-                resets_at=prediction.resets_at,
+                resets_at=analytics.roll_reset_forward(
+                    prediction.window_kind, prediction.resets_at, now
+                )[0],
             )
             if prediction is not None
             else None
@@ -119,7 +138,8 @@ async def limits_current(
     _: str = Depends(require_token),
 ) -> list[LimitOut]:
     """Return the latest snapshot for each limit window."""
-    return [_limit_out(item) for item in await analytics.current_limits(session)]
+    now = datetime.now(UTC)
+    return [_limit_out(item, now) for item in await analytics.current_limits(session)]
 
 
 @router.get("/limits/history", response_model=list[LimitOut])
@@ -134,7 +154,7 @@ async def limits_history(
     snapshots = await analytics.limits_history(
         session, window_kind, now - timedelta(hours=hours), now
     )
-    return [_limit_out(item) for item in snapshots]
+    return [_limit_out(item, now, roll_reset=False) for item in snapshots]
 
 
 @router.get("/blocks", response_model=list[BlockOut])

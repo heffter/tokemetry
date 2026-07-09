@@ -5,6 +5,8 @@
 import { computed } from 'vue';
 import Sparkline from '@/components/Sparkline.vue';
 import {
+  formatDateTime,
+  formatDuration,
   formatPct,
   timeUntil,
   utilizationStatus,
@@ -21,9 +23,39 @@ const props = withDefaults(
   { history: () => [], projected: null }
 );
 
+// A snapshot older than this is flagged: the collector has not reported
+// recently so the reading (and its reset) may be behind the live window.
+const STALE_SECONDS = 600;
+
 const status = computed(() => utilizationStatus(props.limit.utilization_pct));
 const color = computed(() => `var(--status-${status.value})`);
 const width = computed(() => `${Math.min(100, props.limit.utilization_pct)}%`);
+
+// Weekly windows reset on a distant calendar date, so an absolute date reads
+// better than a long countdown; the 5-hour block keeps the countdown primary.
+const isWeekly = computed(() =>
+  props.limit.window_kind.startsWith('seven_day')
+);
+const isStale = computed(() => props.limit.age_seconds >= STALE_SECONDS);
+
+const resetText = computed(() => {
+  const resets = props.limit.resets_at;
+  if (resets === null) return 'resets —';
+  return isWeekly.value
+    ? `resets ${formatDateTime(resets)}`
+    : `resets ${timeUntil(resets)}`;
+});
+
+const resetTitle = computed(() => {
+  const resets = props.limit.resets_at;
+  if (resets === null) return '';
+  const complement = isWeekly.value
+    ? timeUntil(resets)
+    : formatDateTime(resets);
+  return props.limit.derived_reset
+    ? `${complement} · estimated from a ${formatDuration(props.limit.age_seconds)}-old snapshot`
+    : complement;
+});
 </script>
 
 <template>
@@ -44,8 +76,13 @@ const width = computed(() => `${Math.min(100, props.limit.utilization_pct)}%`);
       :color="color"
     />
     <div class="foot muted">
-      <span>{{ limit.provenance }}</span>
-      <span>resets {{ timeUntil(limit.resets_at) }}</span>
+      <span>
+        {{ limit.provenance }}
+        <span v-if="isStale" class="stale" :title="`snapshot age`">
+          · {{ formatDuration(limit.age_seconds) }} old
+        </span>
+      </span>
+      <span :title="resetTitle">{{ resetText }}</span>
     </div>
   </div>
 </template>
@@ -79,5 +116,9 @@ const width = computed(() => `${Math.min(100, props.limit.utilization_pct)}%`);
   display: flex;
   justify-content: space-between;
   font-size: 0.8rem;
+  gap: 0.5rem;
+}
+.stale {
+  color: var(--status-warning);
 }
 </style>
