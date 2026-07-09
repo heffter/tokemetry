@@ -122,3 +122,34 @@ def test_blocks(client: TestClient, auth: dict[str, str]) -> None:
     blocks = _get(client, auth, "/api/v1/blocks?hours=2400")
     assert isinstance(blocks, list)
     assert blocks and blocks[-1]["total_tokens"] > 0
+
+
+def _assert_aware(value: str) -> None:
+    """A serialized datetime must carry an explicit UTC offset."""
+    parsed = datetime.fromisoformat(value)
+    assert parsed.tzinfo is not None, f"naive datetime serialized: {value!r}"
+
+
+def test_response_datetimes_are_offset_aware(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    _seed_limits(client, auth)
+
+    summary = _get(client, auth, "/api/v1/summary/now")
+    _assert_aware(summary["now"])
+    for limit in summary["limits"]:
+        _assert_aware(limit["ts"])
+        if limit["resets_at"] is not None:
+            _assert_aware(limit["resets_at"])
+
+    for limit in _get(client, auth, "/api/v1/limits/current"):
+        _assert_aware(limit["ts"])
+        if limit["resets_at"] is not None:
+            _assert_aware(limit["resets_at"])
+
+    for session in _get(client, auth, "/api/v1/sessions"):
+        _assert_aware(session["started_at"])
+        _assert_aware(session["last_at"])
+
+    for block in _get(client, auth, "/api/v1/blocks?hours=2400"):
+        _assert_aware(block["start"])
+        _assert_aware(block["end"])

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from tokemetry_server.api.serialization import UtcDatetime
 
 
 class AlertRuleIn(BaseModel):
@@ -45,7 +46,7 @@ class AlertEventOut(BaseModel):
 
     id: int
     rule_id: int
-    ts: datetime
+    ts: UtcDatetime
     severity: str
     title: str
     body: str

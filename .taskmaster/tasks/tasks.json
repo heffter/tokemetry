@@ -1512,12 +1512,13 @@
         "id": "29",
         "title": "Fix naive datetime serialization across the API",
         "description": "Add a shared UtcDatetime Pydantic type with a field serializer stamping UTC on naive values; apply to every response schema so all datetime fields are offset-aware.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "Added shared UtcDatetime annotated type (PlainSerializer, when_used=json) in api/serialization.py. Applied to all response schemas in schemas_query.py (LimitOut, PredictionOut, SummaryNow, BlockOut, SessionOut, MachineOut, token schemas) and schemas_alerts.py (AlertEventOut). Naive DB datetimes now serialize offset-aware so browsers stop parsing them as local time. New test: test_response_datetimes_are_offset_aware. 103 server tests pass; ruff+mypy+trivy clean.",
+        "testStrategy": "Run test_response_datetimes_are_offset_aware to verify all datetime fields in response schemas are offset-aware. Validate that naive DB datetimes serialize with UTC offset. Confirm 103 server tests pass and code quality tools (ruff, mypy, trivy) report zero issues.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:21:33.444Z"
       },
       {
         "id": "30",
@@ -1610,9 +1611,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T20:15:09.947Z",
+      "lastModified": "2026-07-09T20:21:33.445Z",
       "taskCount": 37,
-      "completedCount": 28,
+      "completedCount": 29,
       "tags": [
         "master"
       ]

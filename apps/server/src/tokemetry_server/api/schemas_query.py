@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from tokemetry_server.api.serialization import UtcDatetime
 
 
 class UsageBucketOut(BaseModel):
@@ -36,8 +38,8 @@ class LimitOut(BaseModel):
     provider: str
     window_kind: str
     utilization_pct: float
-    resets_at: datetime | None
-    ts: datetime
+    resets_at: UtcDatetime | None
+    ts: UtcDatetime
     provenance: str
 
 
@@ -47,8 +49,8 @@ class PredictionOut(BaseModel):
     window_kind: str
     utilization_pct: float
     slope_pct_per_min: float
-    predicted_exhaustion_at: datetime | None
-    resets_at: datetime | None
+    predicted_exhaustion_at: UtcDatetime | None
+    resets_at: UtcDatetime | None
 
 
 class TodaySummary(BaseModel):
@@ -62,7 +64,7 @@ class TodaySummary(BaseModel):
 class SummaryNow(BaseModel):
     """The dashboard front-page summary."""
 
-    now: datetime
+    now: UtcDatetime
     limits: list[LimitOut]
     token_burn_rate_per_min: float
     prediction: PredictionOut | None
@@ -72,8 +74,8 @@ class SummaryNow(BaseModel):
 class BlockOut(BaseModel):
     """One reconstructed 5-hour usage block."""
 
-    start: datetime
-    end: datetime
+    start: UtcDatetime
+    end: UtcDatetime
     total_tokens: int
     cost_usd: Decimal | None
     peak_tokens_per_min: int
@@ -87,8 +89,8 @@ class SessionOut(BaseModel):
     provider: str
     machine: str | None
     project: str | None
-    started_at: datetime
-    last_at: datetime
+    started_at: UtcDatetime
+    last_at: UtcDatetime
     message_count: int
     total_tokens: int
     cost_usd: Decimal | None
@@ -99,7 +101,7 @@ class MachineOut(BaseModel):
 
     id: str
     platform: str | None
-    last_seen: datetime | None
+    last_seen: UtcDatetime | None
     collector_version: str | None
     total_tokens: int
     event_count: int
@@ -184,13 +186,13 @@ class TokenCreatedOut(BaseModel):
 
     label: str
     token: str
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 class TokenInfoOut(BaseModel):
     """Stored token metadata (never the secret)."""
 
     label: str
-    created_at: datetime
-    last_used: datetime | None
+    created_at: UtcDatetime
+    last_used: UtcDatetime | None
     revoked: bool
