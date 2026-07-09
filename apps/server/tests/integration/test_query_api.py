@@ -124,6 +124,53 @@ def test_blocks(client: TestClient, auth: dict[str, str]) -> None:
     assert blocks and blocks[-1]["total_tokens"] > 0
 
 
+def _seed_project_variants(client: TestClient, auth: dict[str, str]) -> None:
+    """Ingest events whose cwd variants all belong to one project 'Foo'."""
+    paths = [
+        r"C:\devel\Foo",
+        r"c:\devel\Foo",  # case-variant drive letter
+        r"C:\devel\Foo\.claude\worktrees\wt-1\apps",  # worktree subpath
+    ]
+    events = [
+        {
+            "event_id": f"proj_{i}",
+            "provider": "anthropic",
+            "native_model": "claude-opus-4-5",
+            "ts": _BASE.isoformat(),
+            "session_id": f"psess-{i}",
+            "project": path,
+            "input_tokens": 500,
+            "output_tokens": 50,
+        }
+        for i, path in enumerate(paths)
+    ]
+    response = client.post(
+        "/api/v1/ingest/events", json={"machine": _MACHINE, "events": events}, headers=auth
+    )
+    assert response.status_code == 200
+
+
+def test_project_grouping_folds_variants(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_project_variants(client, auth)
+    data = _get(client, auth, f"/api/v1/usage?group_by=project&{_WIDE_RANGE}")
+    foo = [b for b in data["buckets"] if b["key"] == "Foo"]
+    assert len(foo) == 1, data["buckets"]
+    assert foo[0]["total_tokens"] == 3 * 550
+    # Sessions expose the same normalized project label.
+    sessions = _get(client, auth, "/api/v1/sessions")
+    assert all(s["project"] == "Foo" for s in sessions if s["session_id"].startswith("psess"))
+
+
+def test_rebuild_rollups_endpoint(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_project_variants(client, auth)
+    response = client.post("/api/v1/admin/rebuild-rollups", headers=auth)
+    assert response.status_code == 200, response.text
+    assert response.json()["rollups_rebuilt"] >= 1
+    # Grouping still holds after a full rebuild.
+    data = _get(client, auth, f"/api/v1/usage?group_by=project&{_WIDE_RANGE}")
+    assert any(b["key"] == "Foo" for b in data["buckets"])
+
+
 def _assert_aware(value: str) -> None:
     """A serialized datetime must carry an explicit UTC offset."""
     parsed = datetime.fromisoformat(value)

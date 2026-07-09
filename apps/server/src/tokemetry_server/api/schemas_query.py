@@ -175,6 +175,12 @@ class RecomputeResult(BaseModel):
     rollups_refreshed: int
 
 
+class RebuildResult(BaseModel):
+    """Outcome of a full rollup rebuild (project regrouping)."""
+
+    rollups_rebuilt: int
+
+
 class SyncResult(BaseModel):
     """Outcome of a LiteLLM price sync."""
 

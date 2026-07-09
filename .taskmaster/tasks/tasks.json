@@ -1547,13 +1547,14 @@
       {
         "id": "32",
         "title": "Project grouping root-folder heuristic",
-        "description": "New tokemetry_core/projects.py project_group(path): strip worktree tail, case/sep normalize, group by segment after a root marker (TOKEMETRY_PROJECT_ROOTS default devel); apply in rollups + sessions query; admin rebuild.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "New tokemetry_core/projects.py project_group(path, roots): strips .claude/worktrees/<name> tails, drops drive letters, folds case/subfolder variants by the segment after a root marker (TOKEMETRY_PROJECT_ROOTS default 'devel'); empty->'(unattributed)'. rollups._aggregate_day now re-groups raw cwd into project groups and sums colliding rows; new rebuild_all_rollups deletes derived rollups and rebuilds full span; POST /api/v1/admin/rebuild-rollups exposes it. list_sessions normalizes project at read; ingest/recompute thread settings.project_root_markers. usage_events.project stays raw. Settings gets a 'Rebuild project groups' button. Tests: 16 core unit cases across all messy forms + 2 integration (fold + rebuild). 195 server/core + 51 dashboard pass; gates clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "",
+        "testStrategy": "16 core unit cases across all messy forms + 2 integration (fold + rebuild). 195 server/core + 51 dashboard pass; gates clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:57:17.393Z"
       },
       {
         "id": "33",
@@ -1613,9 +1614,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T20:42:12.464Z",
+      "lastModified": "2026-07-09T20:57:17.394Z",
       "taskCount": 37,
-      "completedCount": 31,
+      "completedCount": 32,
       "tags": [
         "master"
       ]

@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import require_token
@@ -24,6 +24,7 @@ from tokemetry_server.api.schemas_query import (
     PredictionOut,
     PricingOut,
     PunchCell,
+    RebuildResult,
     SessionOut,
     SummaryNow,
     TodaySummary,
@@ -32,7 +33,7 @@ from tokemetry_server.api.schemas_query import (
 )
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db import models
-from tokemetry_server.services import analytics, queries
+from tokemetry_server.services import analytics, queries, rollups
 
 router = APIRouter(prefix="/api/v1", tags=["query"])
 
@@ -208,6 +209,7 @@ async def usage(
 async def sessions(
     limit: int = Query(100, ge=1, le=1000),
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
     _: str = Depends(require_token),
 ) -> list[SessionOut]:
     """Return recent sessions, newest first."""
@@ -223,8 +225,28 @@ async def sessions(
             total_tokens=item.total_tokens,
             cost_usd=item.cost_usd,
         )
-        for item in await queries.list_sessions(session, limit)
+        for item in await queries.list_sessions(
+            session, limit, settings.project_root_markers
+        )
     ]
+
+
+@router.post("/admin/rebuild-rollups", response_model=RebuildResult)
+async def rebuild_rollups(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> RebuildResult:
+    """Delete derived rollups and rebuild them, re-applying project grouping.
+
+    Run after changing the project-grouping configuration so historical
+    breakdowns regroup (worktrees and case-variant paths fold together).
+    """
+    rebuilt = await rollups.rebuild_all_rollups(
+        session, request.app.state.dialect_name, settings.project_root_markers
+    )
+    return RebuildResult(rollups_rebuilt=rebuilt)
 
 
 @router.get("/machines", response_model=list[MachineOut])

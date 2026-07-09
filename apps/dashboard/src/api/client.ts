@@ -138,6 +138,14 @@ export class ApiClient {
     );
   }
 
+  rebuildRollups(): Promise<{ rollups_rebuilt: number }> {
+    return this.request<{ rollups_rebuilt: number }>(
+      '/api/v1/admin/rebuild-rollups',
+      'POST',
+      {}
+    );
+  }
+
   alertRules(): Promise<AlertRule[]> {
     return this.request<AlertRule[]>('/api/v1/alerts');
   }

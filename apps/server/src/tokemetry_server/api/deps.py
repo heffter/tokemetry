@@ -35,4 +35,5 @@ def get_ingest_service(
         session=session,
         dialect_name=request.app.state.dialect_name,
         cost_fn=request.app.state.cost_fn,
+        roots=request.app.state.settings.project_root_markers,
     )

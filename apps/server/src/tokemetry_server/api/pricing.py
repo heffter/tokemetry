@@ -113,7 +113,10 @@ async def recompute(
 
     updated = await recompute_costs(session, engine)
     refreshed = await refresh_rollups_for_days(
-        session, request.app.state.dialect_name, await _event_days(session)
+        session,
+        request.app.state.dialect_name,
+        await _event_days(session),
+        request.app.state.settings.project_root_markers,
     )
 
     request.app.state.cost_fn = engine.cost

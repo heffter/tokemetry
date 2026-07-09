@@ -100,6 +100,17 @@ async function syncLitellm(): Promise<void> {
   }
 }
 
+async function rebuildGroups(): Promise<void> {
+  priceStatus.value = 'rebuilding project groups…';
+  try {
+    const result = await useClient().rebuildRollups();
+    priceStatus.value = `rebuilt ${result.rollups_rebuilt} rollup rows`;
+    await load();
+  } catch (e) {
+    priceStatus.value = String(e);
+  }
+}
+
 async function recompute(): Promise<void> {
   priceStatus.value = 'recomputing…';
   try {
@@ -159,6 +170,7 @@ onMounted(load);
       <div class="toggle">
         <button @click="syncLitellm">Sync from LiteLLM</button>
         <button @click="recompute">Recompute costs</button>
+        <button @click="rebuildGroups">Rebuild project groups</button>
       </div>
     </div>
 

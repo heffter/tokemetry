@@ -16,6 +16,7 @@ from typing import Any
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tokemetry_core.projects import DEFAULT_ROOTS, project_group
 
 from tokemetry_server.db import models
 
@@ -278,9 +279,15 @@ class SessionSummary:
 
 
 async def list_sessions(
-    session: AsyncSession, limit: int = 100
+    session: AsyncSession,
+    limit: int = 100,
+    roots: Sequence[str] = DEFAULT_ROOTS,
 ) -> list[SessionSummary]:
-    """Return recent sessions aggregated from usage_events, newest first."""
+    """Return recent sessions aggregated from usage_events, newest first.
+
+    The raw ``cwd`` is folded to a project group so sessions display the same
+    project labels as the rollup-backed breakdowns.
+    """
     event = models.UsageEvent
     total = (
         event.input_tokens
@@ -314,7 +321,7 @@ async def list_sessions(
                 session_id=str(row[0]),
                 provider=str(row[1]),
                 machine=row[2],
-                project=row[3],
+                project=project_group(row[3], roots),
                 started_at=_as_utc(row[4]),
                 last_at=_as_utc(row[5]),
                 message_count=int(row[6]),

@@ -65,6 +65,15 @@ class Settings(BaseSettings):
     #: "Europe/Budapest"). Defaults to UTC; an unknown name falls back to UTC.
     timezone: str = Field(default="UTC")
 
+    #: Comma-separated development-root markers for project grouping: the path
+    #: segment after one of these is the project name (e.g. "devel,src,repos").
+    project_roots: str = Field(default="devel")
+
+    @property
+    def project_root_markers(self) -> tuple[str, ...]:
+        """Parse :attr:`project_roots` into a tuple of marker segments."""
+        return tuple(part.strip() for part in self.project_roots.split(",") if part.strip())
+
     # --- Notification channel settings (all optional; a channel is only
     # available when its required settings are present). Secrets stay here on
     # the server, never in the database alert rows. ---
