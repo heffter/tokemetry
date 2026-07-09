@@ -16,14 +16,31 @@ import {
   timeUntil,
 } from '@/lib/format';
 import { costIsTrustworthy, pricedCoverage } from '@/lib/coverage';
+import { throttle } from '@/lib/throttle';
 import type { CostResponse, StreamMessage } from '@/api/types';
 import type { SummaryNow } from '@/api/types';
+
+interface FeedRow {
+  id: number;
+  text: string;
+}
 
 const summary = ref<SummaryNow | null>(null);
 const cost = ref<CostResponse | null>(null);
 const error = ref('');
-const feed = ref<string[]>([]);
+const feed = ref<FeedRow[]>([]);
+const updatedAt = ref<number>(0);
+const tick = ref<number>(Date.now());
+let feedSeq = 0;
 let socket: WebSocket | null = null;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let tickTimer: ReturnType<typeof setInterval> | null = null;
+
+const updatedAgo = computed(() => {
+  if (updatedAt.value === 0) return '';
+  const secs = Math.max(0, Math.round((tick.value - updatedAt.value) / 1000));
+  return `updated ${secs}s ago`;
+});
 
 const modelChart = computed(() => {
   const models = summary.value?.today.by_model ?? [];
@@ -72,10 +89,15 @@ async function load(): Promise<void> {
     const client = useClient();
     summary.value = await client.summaryNow();
     cost.value = await client.cost();
+    updatedAt.value = Date.now();
   } catch (e) {
     error.value = String(e);
   }
 }
+
+// Coalesce a burst of ingest events into at most one summary refetch per 10s,
+// so the live stream never triggers a per-event refetch storm.
+const throttledLoad = throttle(() => void load(), 10000);
 
 function connectStream(): void {
   const { token } = useToken();
@@ -85,20 +107,29 @@ function connectStream(): void {
   );
   socket.onmessage = (event) => {
     const message = JSON.parse(event.data) as StreamMessage;
-    feed.value.unshift(
-      `${message.machine}: ${message.accepted} ${message.type}`
-    );
+    feed.value.unshift({
+      id: feedSeq++,
+      text: `${message.machine}: ${message.accepted} ${message.type}`,
+    });
     feed.value = feed.value.slice(0, 12);
-    void load();
+    throttledLoad();
   };
 }
 
 onMounted(() => {
   void load();
   connectStream();
+  // Fallback poll so numbers do not silently freeze on an idle or dropped
+  // socket, plus a 1s tick to keep the "updated Xs ago" indicator moving.
+  pollTimer = setInterval(() => void load(), 30000);
+  tickTimer = setInterval(() => (tick.value = Date.now()), 1000);
 });
 
-onBeforeUnmount(() => socket?.close());
+onBeforeUnmount(() => {
+  socket?.close();
+  if (pollTimer) clearInterval(pollTimer);
+  if (tickTimer) clearInterval(tickTimer);
+});
 </script>
 
 <template>
@@ -150,10 +181,13 @@ onBeforeUnmount(() => socket?.close());
     </section>
 
     <section class="card">
-      <h3>Live activity</h3>
+      <div class="head">
+        <h3>Live activity</h3>
+        <span class="muted small">{{ updatedAgo }}</span>
+      </div>
       <ul class="feed">
-        <li v-for="(line, index) in feed" :key="index" class="tabular">
-          {{ line }}
+        <li v-for="row in feed" :key="row.id" class="tabular">
+          {{ row.text }}
         </li>
         <li v-if="feed.length === 0" class="muted">Waiting for events…</li>
       </ul>
@@ -173,6 +207,17 @@ section {
 }
 h3 {
   margin: 0 0 1rem;
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.head h3 {
+  margin: 0 0 0.75rem;
+}
+.small {
+  font-size: 0.8rem;
 }
 .feed {
   list-style: none;

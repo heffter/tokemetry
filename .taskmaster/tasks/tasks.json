@@ -818,16 +818,78 @@
         "id": "18",
         "title": "Live Feed Throttle + Polling Fallback",
         "description": "Decouple live feed from fetch to eliminate WebSocket-driven refetch storm.",
-        "details": "Frontend (Now page): Throttle summary reloads to trailing ~10s cadence using debounce/throttle. Add ~30s polling fallback for idle/dropped sockets. Show 'updated Xs ago' indicator. Keep feed append-only. Test with vitest.",
-        "testStrategy": "vitest: Test throttle logic and polling fallback. Frontend: Verify 'updated Xs ago' indicator and feed behavior. Ensure quality gates pass.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           "15",
           "16",
           "17"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Frontend (NowView): Implemented lib/throttle.ts with trailing throttle (leading + guaranteed trailing, coalesces burst into one call per window; -Infinity init for correct leading edge), unit-tested with fake timers. WS onmessage now appends to feed (keyed by stable incrementing id, not array index) and calls throttledLoad (max one /summary/now refetch per 10s) instead of load() per event, killing per-event refetch storm. Added 30s polling fallback to prevent numbers freezing on idle/dropped socket. Added 'updated Xs ago' indicator (1s tick). All timers cleared on unmount. Gates: 28 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "Frontend: Verify 'updated Xs ago' indicator, feed append-only behavior (keyed by stable id), and throttledLoad limiting (max one refetch per 10s). Test polling fallback triggers on idle/dropped socket. Ensure all timers clear on unmount. Gates: 28 dashboard tests, build + eslint/prettier clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement lib/throttle.ts",
+            "description": "Implement lib/throttle.ts with trailing throttle (leading + guaranteed trailing, coalesces burst into one call per window; -Infinity init for correct leading edge).",
+            "dependencies": [],
+            "details": "Unit-tested with fake timers.",
+            "status": "done",
+            "testStrategy": "Unit test with fake timers.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Update WS onmessage handler",
+            "description": "Update WS onmessage in NowView to append to feed (keyed by stable incrementing id, not array index) and call throttledLoad (max one /summary/now refetch per 10s) instead of load() per event.",
+            "dependencies": [],
+            "details": "This kills the per-event refetch storm.",
+            "status": "done",
+            "testStrategy": "Verify no per-event refetch storm occurs.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add polling fallback",
+            "description": "Add 30s polling fallback to prevent numbers freezing on idle/dropped socket.",
+            "dependencies": [],
+            "details": "Ensure numbers do not freeze.",
+            "status": "done",
+            "testStrategy": "Test polling fallback triggers on idle/dropped socket.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add update indicator",
+            "description": "Add 'updated Xs ago' indicator with 1s tick.",
+            "dependencies": [],
+            "details": "Display time since last update.",
+            "status": "done",
+            "testStrategy": "Verify indicator updates every 1s.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Clear timers on unmount",
+            "description": "Ensure all timers are cleared on unmount.",
+            "dependencies": [],
+            "details": "Prevent memory leaks.",
+            "status": "done",
+            "testStrategy": "Test timer cleanup on unmount.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Verify quality gates",
+            "description": "Verify quality gates pass.",
+            "dependencies": [],
+            "details": "28 dashboard tests, build + eslint/prettier clean.",
+            "status": "done",
+            "testStrategy": "Run dashboard tests and check build/eslint/prettier.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T18:35:12.546Z"
       },
       {
         "id": "19",
@@ -1002,9 +1064,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T18:28:58.093Z",
+      "lastModified": "2026-07-09T18:35:12.548Z",
       "taskCount": 27,
-      "completedCount": 18,
+      "completedCount": 19,
       "tags": [
         "master"
       ]
