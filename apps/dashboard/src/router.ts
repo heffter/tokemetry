@@ -31,6 +31,11 @@ export const router = createRouter({
       component: () => import('@/views/MachinesView.vue'),
     },
     {
+      path: '/alerts',
+      name: 'alerts',
+      component: () => import('@/views/AlertsView.vue'),
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),

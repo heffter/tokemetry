@@ -499,15 +499,117 @@
         "id": "13",
         "title": "Alerting Rule Engine and Notification Channels",
         "description": "Implement the alerting rule engine evaluated on ingest and timer. Add notification channels (ntfy, Telegram, SMTP) with per-rule routing, cooldown windows, and quiet hours. Create alert configuration API and UI wiring.",
-        "details": "Create `apps/server/tokemetry_server/services/alerting.py`. Implement rule engine: 5-hour block at 80%/95%, weekly cap at 80%, predicted exhaustion before reset, burn-rate anomaly (>2x median), collector stale >30min, unknown model. Add notification channels: ntfy (primary), Telegram bot, SMTP email. Implement per-rule channel routing, cooldown windows, quiet hours. Create API endpoints: GET/PUT /alerts, GET /alerts/events. Wire UI in dashboard Alerts view. Add unit tests for rule evaluation and notification.",
-        "testStrategy": "Test rule evaluation with sample data. Verify notification routing and cooldown. Confirm API endpoints work. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "medium",
+        "status": "done",
         "dependencies": [
           "10",
           "11"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Implemented alerting (Task 13): services/alerting/notifiers.py (Notifier ABC + NtfyNotifier/TelegramNotifier via injected httpx, SmtpNotifier via asyncio.to_thread; is_configured gates delivery; secrets in server settings not DB), rules.py (5 evaluators: limit_pct, predicted_exhaustion, burn_rate, collector_stale, unknown_model; EVALUATORS registry; AlertFinding), engine.py (AlertEngine.run: enabled rules, quiet-hours skip with midnight wrap, per-rule cooldown, dispatch to channels, record alert_events even when undelivered). api/alerts.py (rule CRUD, /events history, /evaluate on-demand). Background asyncio loop in app lifespan (alerts_interval_seconds, cancellable) + httpx client + engine on app.state. Added channel + alert settings. Changed AlertRule.channels ORM annotation to Mapped[Any] (holds JSON list). Dashboard: AlertsView (create/delete rules, evaluate now, history) + client methods + route. Tests: rule evaluators, engine dispatch/cooldown/quiet/no-channel/disabled, notifiers (ntfy/telegram MockTransport, smtp config, registry), alerts API CRUD+evaluate+events. Docs: docs/alerting.md. Gates: 201 py tests + dashboard build/16 tests/lint, ruff/mypy strict/trivy clean.",
+        "testStrategy": "Test rule evaluation with sample data. Verify notification routing and cooldown. Confirm API endpoints work. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues. Gates: 201 py tests + dashboard build/16 tests/lint, ruff/mypy strict/trivy clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Notifier ABC and channel notifiers",
+            "description": "Implement Notifier ABC and NtfyNotifier/TelegramNotifier via injected httpx, SmtpNotifier via asyncio.to_thread; is_configured gates delivery; secrets in server settings not DB",
+            "dependencies": [],
+            "details": "services/alerting/notifiers.py",
+            "status": "done",
+            "testStrategy": "Test notifiers with MockTransport (ntfy/telegram) and smtp config; verify registry.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement rule evaluators",
+            "description": "Implement 5 rule evaluators: limit_pct, predicted_exhaustion, burn_rate, collector_stale, unknown_model; EVALUATORS registry; AlertFinding",
+            "dependencies": [],
+            "details": "rules.py with EVALUATORS registry",
+            "status": "done",
+            "testStrategy": "Test rule evaluators with sample data; verify registry.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Implement AlertEngine.run",
+            "description": "Implement AlertEngine.run: enabled rules, quiet-hours skip with midnight wrap, per-rule cooldown, dispatch to channels, record alert_events even when undelivered",
+            "dependencies": [],
+            "details": "engine.py with AlertEngine.run",
+            "status": "done",
+            "testStrategy": "Test engine dispatch/cooldown/quiet/no-channel/disabled scenarios.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Implement alerts API endpoints",
+            "description": "Implement API endpoints: rule CRUD, /events history, /evaluate on-demand",
+            "dependencies": [],
+            "details": "api/alerts.py with rule CRUD, /events, /evaluate",
+            "status": "done",
+            "testStrategy": "Test alerts API CRUD+evaluate+events endpoints.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement background asyncio loop and settings",
+            "description": "Implement background asyncio loop in app lifespan (alerts_interval_seconds, cancellable) + httpx client + engine on app.state; add channel + alert settings",
+            "dependencies": [],
+            "details": "Background loop in app lifespan; engine on app.state; channel/alert settings",
+            "status": "done",
+            "testStrategy": "Verify background loop starts/cancels; test engine on app.state.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Update AlertRule.channels ORM annotation",
+            "description": "Change AlertRule.channels ORM annotation to Mapped[Any] (holds JSON list)",
+            "dependencies": [],
+            "details": "AlertRule.channels ORM annotation change",
+            "status": "done",
+            "testStrategy": "Verify JSON list serialization/deserialization for channels.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Implement Dashboard AlertsView",
+            "description": "Implement Dashboard: AlertsView (create/delete rules, evaluate now, history) + client methods + route",
+            "dependencies": [],
+            "details": "Dashboard AlertsView with create/delete rules, evaluate now, history; client methods + route",
+            "status": "done",
+            "testStrategy": "Test dashboard build/16 tests; verify AlertsView functionality.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "Add unit tests",
+            "description": "Add unit tests for rule evaluators, engine dispatch/cooldown/quiet/no-channel/disabled, notifiers, alerts API CRUD+evaluate+events",
+            "dependencies": [],
+            "details": "Comprehensive unit tests for all components",
+            "status": "done",
+            "testStrategy": "Run pytest with coverage >= 80%; verify 201 py tests pass.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 9,
+            "title": "Write alerting documentation",
+            "description": "Write documentation: docs/alerting.md",
+            "dependencies": [],
+            "details": "docs/alerting.md with alerting overview and usage",
+            "status": "done",
+            "testStrategy": "Validate docs/alerting.md content and formatting.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 10,
+            "title": "Verify gates and quality metrics",
+            "description": "Verify gates: 201 py tests + dashboard build/16 tests/lint, ruff/mypy strict/trivy clean",
+            "dependencies": [],
+            "details": "Run full test suite, dashboard build, lint, ruff/mypy strict, trivy clean",
+            "status": "done",
+            "testStrategy": "Confirm all gates pass; verify test count and quality metrics.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T15:42:33.720Z"
       },
       {
         "id": "14",
@@ -528,9 +630,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T15:27:35.252Z",
+      "lastModified": "2026-07-09T15:42:33.721Z",
       "taskCount": 14,
-      "completedCount": 12,
+      "completedCount": 13,
       "tags": [
         "master"
       ]

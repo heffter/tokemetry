@@ -51,6 +51,26 @@ class Settings(BaseSettings):
     #: (equivalent API cost vs what the subscription costs). None hides it.
     subscription_monthly_usd: float | None = Field(default=None)
 
+    #: Run the periodic alert evaluation loop in the background.
+    alerts_enabled: bool = Field(default=True)
+    #: Seconds between background alert evaluations.
+    alerts_interval_seconds: float = Field(default=60.0, gt=0)
+
+    # --- Notification channel settings (all optional; a channel is only
+    # available when its required settings are present). Secrets stay here on
+    # the server, never in the database alert rows. ---
+    ntfy_url: str = Field(default="https://ntfy.sh")
+    ntfy_topic: str | None = Field(default=None)
+    telegram_bot_token: str | None = Field(default=None)
+    telegram_chat_id: str | None = Field(default=None)
+    smtp_host: str | None = Field(default=None)
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_user: str | None = Field(default=None)
+    smtp_password: str | None = Field(default=None)
+    smtp_from: str | None = Field(default=None)
+    smtp_to: str | None = Field(default=None)
+    smtp_use_tls: bool = Field(default=True)
+
     @property
     def sync_database_url(self) -> str:
         """Return the database URL with a synchronous driver for Alembic."""

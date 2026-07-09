@@ -112,6 +112,30 @@ export class ApiClient {
     return this.request<PricingRow[]>('/api/v1/pricing');
   }
 
+  alertRules(): Promise<AlertRule[]> {
+    return this.request<AlertRule[]>('/api/v1/alerts');
+  }
+
+  createAlertRule(rule: AlertRuleInput): Promise<AlertRule> {
+    return this.request<AlertRule>('/api/v1/alerts', 'POST', rule);
+  }
+
+  deleteAlertRule(id: number): Promise<void> {
+    return this.request<void>(`/api/v1/alerts/${id}`, 'DELETE');
+  }
+
+  alertEvents(limit = 100): Promise<AlertEvent[]> {
+    return this.request<AlertEvent[]>(`/api/v1/alerts/events?limit=${limit}`);
+  }
+
+  evaluateAlerts(): Promise<{ fired: AlertEvent[] }> {
+    return this.request<{ fired: AlertEvent[] }>(
+      '/api/v1/alerts/evaluate',
+      'POST',
+      {}
+    );
+  }
+
   listTokens(): Promise<TokenInfo[]> {
     return this.request<TokenInfo[]>('/api/v1/tokens');
   }
@@ -139,6 +163,40 @@ export interface CreatedToken {
   label: string;
   token: string;
   created_at: string;
+}
+
+export interface AlertRule {
+  id: number;
+  name: string;
+  kind: string;
+  threshold: string | null;
+  window_kind: string | null;
+  channels: string[];
+  cooldown_seconds: number;
+  quiet_hours: Record<string, unknown> | null;
+  enabled: boolean;
+  config: Record<string, unknown>;
+}
+
+export interface AlertRuleInput {
+  name: string;
+  kind: string;
+  threshold?: string | null;
+  window_kind?: string | null;
+  channels: string[];
+  cooldown_seconds: number;
+  enabled: boolean;
+}
+
+export interface AlertEvent {
+  id: number;
+  rule_id: number;
+  ts: string;
+  severity: string;
+  title: string;
+  body: string;
+  delivered: boolean;
+  context: Record<string, unknown>;
 }
 
 export function buildUsageParams(query: UsageQuery): string {

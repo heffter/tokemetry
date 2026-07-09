@@ -180,7 +180,8 @@ class AlertRule(Base):
     kind: Mapped[str] = mapped_column(String(50))
     threshold: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
     window_kind: Mapped[str | None] = mapped_column(String(50))
-    channels: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    # A JSON list of channel names (e.g. ["ntfy", "telegram"]).
+    channels: Mapped[Any] = mapped_column(JSONType, default=list)
     cooldown_seconds: Mapped[int] = mapped_column(Integer, default=3600)
     quiet_hours: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
