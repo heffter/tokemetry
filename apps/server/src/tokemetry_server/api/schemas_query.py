@@ -77,6 +77,22 @@ class SummaryNow(BaseModel):
     today: TodaySummary
 
 
+class OverviewOut(BaseModel):
+    """All-time totals for the dashboard summary strip."""
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+    session_count: int
+    machine_count: int
+    first_event: UtcDatetime | None
+    last_event: UtcDatetime | None
+
+
 class BlockOut(BaseModel):
     """One reconstructed 5-hour usage block."""
 

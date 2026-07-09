@@ -21,6 +21,7 @@ from tokemetry_server.api.schemas_query import (
     HeatmapResponse,
     LimitOut,
     MachineOut,
+    OverviewOut,
     PredictionOut,
     PricingOut,
     PunchCell,
@@ -130,6 +131,28 @@ async def summary_now(
             cost_usd=sum(costs, Decimal("0")) if costs else None,
             by_model=[_bucket_out(bucket) for bucket in by_model],
         ),
+    )
+
+
+@router.get("/summary/overview", response_model=OverviewOut)
+async def summary_overview(
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> OverviewOut:
+    """Return all-time token/cost totals and the activity span."""
+    data = await queries.overview(session)
+    return OverviewOut(
+        input_tokens=data.input_tokens,
+        output_tokens=data.output_tokens,
+        cache_read_tokens=data.cache_read_tokens,
+        cache_write_short_tokens=data.cache_write_short_tokens,
+        cache_write_long_tokens=data.cache_write_long_tokens,
+        total_tokens=data.total_tokens,
+        cost_usd=data.cost_usd,
+        session_count=data.session_count,
+        machine_count=data.machine_count,
+        first_event=data.first_event,
+        last_event=data.last_event,
     )
 
 

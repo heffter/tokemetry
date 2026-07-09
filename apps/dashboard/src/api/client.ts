@@ -10,6 +10,7 @@ import type {
   HeatmapResponse,
   Limit,
   MachineSummary,
+  Overview,
   PricingRow,
   SessionSummary,
   SummaryNow,
@@ -69,6 +70,10 @@ export class ApiClient {
 
   summaryNow(): Promise<SummaryNow> {
     return this.request<SummaryNow>('/api/v1/summary/now');
+  }
+
+  summaryOverview(): Promise<Overview> {
+    return this.request<Overview>('/api/v1/summary/overview');
   }
 
   limitsCurrent(): Promise<Limit[]> {

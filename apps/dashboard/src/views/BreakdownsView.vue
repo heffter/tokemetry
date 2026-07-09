@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from 'vue';
 import EChart from '@/components/EChart.vue';
 import ChartTable from '@/components/ChartTable.vue';
 import AsyncState from '@/components/AsyncState.vue';
+import FilterBar from '@/components/FilterBar.vue';
 import { useClient } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
 import {
@@ -20,6 +21,8 @@ import {
   formatTokens,
   modelLabel,
 } from '@/lib/format';
+import { presetRange } from '@/lib/filters';
+import type { UsageFilter } from '@/lib/filters';
 import type { HeatmapResponse, UsageBucket } from '@/api/types';
 
 const dimLabel = (b: UsageBucket): string => b.key || '(unattributed)';
@@ -29,6 +32,8 @@ const byModel = ref<UsageBucket[]>([]);
 const byMachine = ref<UsageBucket[]>([]);
 const byProject = ref<UsageBucket[]>([]);
 const heatmap = ref<HeatmapResponse | null>(null);
+const machines = ref<string[]>([]);
+const filter = ref<UsageFilter>(presetRange('30d'));
 
 const punchChart = computed(() =>
   punchCardOption(heatmap.value?.punch_card ?? [])
@@ -78,14 +83,17 @@ const cacheStats = computed(() => {
   return { read, hitRatio, reuse, share: cacheReadShare(byModel.value) };
 });
 
+const projects = ref<string[]>([]);
+
 async function load(): Promise<void> {
   await run(async () => {
     const client = useClient();
+    const f = filter.value;
     const [model, machine, project, heat] = await Promise.all([
-      client.usage({ groupBy: 'model' }),
-      client.usage({ groupBy: 'machine' }),
-      client.usage({ groupBy: 'project' }),
-      client.heatmap(),
+      client.usage({ groupBy: 'model', ...f }),
+      client.usage({ groupBy: 'machine', ...f }),
+      client.usage({ groupBy: 'project', ...f }),
+      client.heatmap(f.from, f.to),
     ]);
     byModel.value = model.buckets;
     byMachine.value = machine.buckets;
@@ -94,7 +102,24 @@ async function load(): Promise<void> {
   });
 }
 
-onMounted(load);
+async function loadOptions(): Promise<void> {
+  const client = useClient();
+  machines.value = (await client.machines()).map((m) => m.id);
+  const all = presetRange('all');
+  projects.value = (await client.usage({ groupBy: 'project', ...all })).buckets
+    .sort((a, b) => b.total_tokens - a.total_tokens)
+    .map((b) => b.key || '(unattributed)');
+}
+
+function onFilter(next: UsageFilter): void {
+  filter.value = next;
+  void load();
+}
+
+onMounted(() => {
+  void loadOptions();
+  void load();
+});
 </script>
 
 <template>
@@ -103,6 +128,7 @@ onMounted(load);
     :error="error"
     @retry="retry"
   >
+    <FilterBar :machines="machines" :projects="projects" @change="onFilter" />
     <section class="card">
       <h3>Cache</h3>
       <p>

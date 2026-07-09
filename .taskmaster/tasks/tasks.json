@@ -1559,13 +1559,87 @@
       {
         "id": "33",
         "title": "Global filters and all-time summary",
-        "description": "GET /api/v1/summary/overview (all-time totals); shared FilterBar (range presets + custom + machine/project) wired into Trends and Breakdowns; all-time stat strip on Trends.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "GET /api/v1/summary/overview (queries.overview): all-time token components, known cost, distinct session + machine counts, first/last event ts; shared FilterBar.vue (range presets today/7d/30d/90d/all + custom from/to, machine + project selects) wired into Trends and Breakdowns; Trends gains an all-time stat strip (tokens, cache share, cost, sessions/machines); Trends and Breakdowns pass from/to/machine/project through UsageQuery.",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "details": "New shared FilterBar.vue with range presets (today, 7d, 30d, 90d, all) and custom from/to inputs, plus machine and project selects. Trends and Breakdowns now pass from/to/machine/project through UsageQuery. Trends includes an all-time stat strip showing tokens, cache share, cost, and sessions/machines. New lib/filters.ts with presetRange function (unit-tested).",
+        "testStrategy": "Test overview endpoint with various query parameters. Test FilterBar component rendering and functionality. Test Trends and Breakdowns with FilterBar integration. Test Trends stat strip with all-time data. Run unit tests for presetRange function. Execute integration tests for overview + date-range-filter and 5 filter unit tests. Verify 56 dashboard + server tests pass with clean gates.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement overview endpoint",
+            "description": "Implement GET /api/v1/summary/overview endpoint returning queries.overview with all-time token components, known cost, distinct session + machine counts, and first/last event timestamps.",
+            "dependencies": [],
+            "details": "Endpoint should return all-time totals including token components, known cost, distinct sessions, distinct machines, and first/last event timestamps.",
+            "status": "pending",
+            "testStrategy": "Test overview endpoint with various query parameters. Verify response contains all required fields with correct data types.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Create FilterBar.vue component",
+            "description": "Create FilterBar.vue component with range presets (today, 7d, 30d, 90d, all) and custom from/to inputs, plus machine and project selects.",
+            "dependencies": [
+              1
+            ],
+            "details": "Component should include range presets, custom date inputs, and machine/project dropdowns. Must be reusable across Trends and Breakdowns views.",
+            "status": "pending",
+            "testStrategy": "Test FilterBar component rendering and functionality. Verify all presets work correctly and custom inputs accept valid dates.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Wire FilterBar into Trends and Breakdowns",
+            "description": "Wire FilterBar into Trends and Breakdowns views, ensuring from/to/machine/project parameters pass through UsageQuery.",
+            "dependencies": [
+              2
+            ],
+            "details": "Update Trends and Breakdowns to use FilterBar for date range and machine/project filtering. Ensure parameters flow correctly through UsageQuery.",
+            "status": "pending",
+            "testStrategy": "Test Trends and Breakdowns with FilterBar. Verify from/to/machine/project parameters are correctly passed and applied.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add all-time stat strip to Trends",
+            "description": "Add all-time stat strip to Trends view showing tokens, cache share, cost, and sessions/machines.",
+            "dependencies": [
+              3
+            ],
+            "details": "Stat strip should display all-time totals for tokens, cache share percentage, cost, and session/machine counts.",
+            "status": "pending",
+            "testStrategy": "Test Trends view stat strip. Verify all metrics display correctly with all-time data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement lib/filters.ts presetRange",
+            "description": "Implement lib/filters.ts with presetRange function and unit tests.",
+            "dependencies": [],
+            "details": "Create presetRange function in lib/filters.ts with comprehensive unit tests covering all range presets.",
+            "status": "pending",
+            "testStrategy": "Run unit tests for presetRange function. Verify all range presets return correct date ranges.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Run integration and unit tests",
+            "description": "Run integration tests for overview + date-range-filter and 5 filter unit tests. Verify 56 dashboard + server tests pass with clean gates.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Execute integration tests for overview endpoint combined with date-range filtering. Run 5 filter unit tests. Ensure all 56 dashboard and server tests pass with clean quality gates.",
+            "status": "pending",
+            "testStrategy": "Run integration tests for overview + date-range-filter. Execute 5 filter unit tests. Verify 56 dashboard + server tests pass with clean gates.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T21:06:45.626Z"
       },
       {
         "id": "34",
@@ -1614,9 +1688,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T20:57:17.394Z",
+      "lastModified": "2026-07-09T21:06:45.627Z",
       "taskCount": 37,
-      "completedCount": 32,
+      "completedCount": 33,
       "tags": [
         "master"
       ]

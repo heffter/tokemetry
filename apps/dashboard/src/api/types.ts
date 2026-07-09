@@ -51,6 +51,20 @@ export interface SummaryNow {
   today: TodaySummary;
 }
 
+export interface Overview {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_short_tokens: number;
+  cache_write_long_tokens: number;
+  total_tokens: number;
+  cost_usd: string | null;
+  session_count: number;
+  machine_count: number;
+  first_event: string | null;
+  last_event: string | null;
+}
+
 export interface Block {
   start: string;
   end: string;

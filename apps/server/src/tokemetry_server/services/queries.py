@@ -183,6 +183,68 @@ def _key_to_str(key: object) -> str:
     return str(key)
 
 
+@dataclass(frozen=True)
+class Overview:
+    """All-time totals for the dashboard summary strip."""
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+    session_count: int
+    machine_count: int
+    first_event: datetime | None
+    last_event: datetime | None
+
+
+async def overview(session: AsyncSession) -> Overview:
+    """Return all-time token/cost totals and activity span across every event."""
+    rollup = models.DailyRollup
+    totals = (
+        await session.execute(
+            select(
+                func.coalesce(func.sum(rollup.input_tokens), 0),
+                func.coalesce(func.sum(rollup.output_tokens), 0),
+                func.coalesce(func.sum(rollup.cache_read_tokens), 0),
+                func.coalesce(func.sum(rollup.cache_write_short_tokens), 0),
+                func.coalesce(func.sum(rollup.cache_write_long_tokens), 0),
+                func.coalesce(func.sum(rollup.total_tokens), 0),
+                func.sum(rollup.cost_usd),
+            )
+        )
+    ).one()
+
+    event = models.UsageEvent
+    sessions = (
+        await session.execute(
+            select(func.count(func.distinct(event.session_id))).where(
+                event.session_id.is_not(None)
+            )
+        )
+    ).scalar_one()
+    machines = (
+        await session.execute(select(func.count(func.distinct(event.machine))))
+    ).scalar_one()
+    span = (await session.execute(select(func.min(event.ts), func.max(event.ts)))).one()
+
+    return Overview(
+        input_tokens=int(totals[0] or 0),
+        output_tokens=int(totals[1] or 0),
+        cache_read_tokens=int(totals[2] or 0),
+        cache_write_short_tokens=int(totals[3] or 0),
+        cache_write_long_tokens=int(totals[4] or 0),
+        total_tokens=int(totals[5] or 0),
+        cost_usd=None if totals[6] is None else Decimal(str(totals[6])),
+        session_count=int(sessions or 0),
+        machine_count=int(machines or 0),
+        first_event=_as_utc(span[0]) if span[0] is not None else None,
+        last_event=_as_utc(span[1]) if span[1] is not None else None,
+    )
+
+
 async def total_cost(
     session: AsyncSession, start: date, end: date
 ) -> Decimal:

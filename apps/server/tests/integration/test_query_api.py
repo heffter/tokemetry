@@ -161,6 +161,26 @@ def test_project_grouping_folds_variants(client: TestClient, auth: dict[str, str
     assert all(s["project"] == "Foo" for s in sessions if s["session_id"].startswith("psess"))
 
 
+def test_summary_overview(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    data = _get(client, auth, "/api/v1/summary/overview")
+    assert data["total_tokens"] == 4 * 1100
+    assert data["session_count"] == 2
+    assert data["machine_count"] == 1
+    assert data["first_event"] is not None
+    _assert_aware(data["first_event"])
+    _assert_aware(data["last_event"])
+
+
+def test_usage_filters_by_date_range(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    # A future window excludes the (past) seeded events.
+    empty = _get(client, auth, "/api/v1/usage?group_by=model&from=2099-01-01&to=2099-12-31")
+    assert empty["buckets"] == []
+    full = _get(client, auth, f"/api/v1/usage?group_by=model&{_WIDE_RANGE}")
+    assert full["buckets"]
+
+
 def test_rebuild_rollups_endpoint(client: TestClient, auth: dict[str, str]) -> None:
     _seed_project_variants(client, auth)
     response = client.post("/api/v1/admin/rebuild-rollups", headers=auth)
