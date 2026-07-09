@@ -17,6 +17,7 @@ from decimal import Decimal
 
 import httpx
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tokemetry_core.models import UsageEvent
 
@@ -129,5 +130,14 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
     async def health() -> dict[str, str]:
         """Liveness probe (unauthenticated)."""
         return {"status": "ok"}
+
+    # Serve the built dashboard SPA when configured. Mounted last so API and
+    # WebSocket routes take precedence; html=True gives SPA-route fallback.
+    if resolved.static_dir is not None and resolved.static_dir.is_dir():
+        app.mount(
+            "/",
+            StaticFiles(directory=resolved.static_dir, html=True),
+            name="spa",
+        )
 
     return app

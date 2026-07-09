@@ -1,0 +1,17 @@
+[Unit]
+Description=tokemetry usage collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust the path to the installed collector and its config.
+ExecStart=%h/.local/bin/tokemetry-collector --config %h/.config/tokemetry/collector.toml
+Restart=on-failure
+RestartSec=15
+# The collector only reads ~/.claude and talks to the server; no elevated
+# privileges are needed.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

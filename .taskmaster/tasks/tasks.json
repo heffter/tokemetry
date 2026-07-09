@@ -614,25 +614,97 @@
       {
         "id": "14",
         "title": "Deployment Packaging and Operations Documentation",
-        "description": "Implement deployment and packaging: Docker Compose for VPS (server + Postgres bound to WireGuard), nightly pg_dump backup, collector service wrappers (Windows/systemd/launchd), and operations documentation (server install, collector enrollment, API token provisioning, Grafana datasource guide).",
-        "details": "Create `docker-compose.yml` for VPS: server app + Postgres, bound to WireGuard interface only. Add nightly `pg_dump` backup script. Create collector service wrappers: Windows Scheduled Task XML, systemd unit, launchd plist with installation docs. Write operations documentation: server install guide, collector enrollment (per machine), API token provisioning for third-party apps, Grafana datasource how-to. Add deployment tests with docker-compose.",
-        "testStrategy": "Test Docker Compose deployment with WireGuard. Verify nightly pg_dump backup. Confirm service wrappers install correctly. Validate documentation completeness. Run deployment tests with docker-compose.",
-        "priority": "medium",
+        "description": "Implement deployment and packaging: Docker Compose for VPS (server + Postgres16 bound to WireGuard), nightly pg_dump backup with retention, collector service units (Windows/systemd/launchd), and operations documentation (server install, collector enrollment, API token provisioning, Grafana datasource guide).",
+        "status": "done",
         "dependencies": [
           "8",
           "9",
           "12",
           "13"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Created `deploy/Dockerfile` (multi-stage: node builds dashboard, python+uv server image serving API+SPA, non-root user for trivy misconfig). Created `docker-compose.yml` (server+postgres16+nightly backup sidecar, port published only on WG_ADDRESS, healthchecks). Created `backup.sh` (POSIX sh, pg_dump gzip + retention prune, shellcheck-safe, VERIFIED end-to-end with stubbed pg_dump). Created `.env.example`. Created collector service units: systemd user service, launchd plist, Windows Register-Collector.ps1 (Scheduled Task). Server serves built SPA via StaticFiles when TOKEMETRY_STATIC_DIR set (API/WS take precedence, html fallback); added static_dir setting; test_spa_serving. Docs: docs/deployment/{server,collector,grafana,api-clients}.md + README deployment section. compose config validated, trivy incl misconfig clean (Dockerfile 0). Gates: 203 tests, ruff/mypy strict/trivy clean, backup.sh runs.",
+        "testStrategy": "Test Docker Compose deployment with WireGuard. Verify nightly pg_dump backup with retention. Confirm service wrappers install correctly on all 3 platforms. Validate documentation completeness. Run deployment tests with docker-compose. Ensure 203 tests pass with ruff/mypy strict/trivy clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create multi-stage deploy/Dockerfile",
+            "description": "Create multi-stage deploy/Dockerfile (node dashboard, python+uv server, non-root for trivy)",
+            "dependencies": [],
+            "details": "Implement multi-stage build: Stage 1 uses node to build dashboard; Stage 2 uses python+uv to build server image serving API+SPA; ensure non-root user for trivy misconfig scanning. Verify Dockerfile 0 misconfig issues.",
+            "status": "done",
+            "testStrategy": "Build Dockerfile and verify multi-stage layers. Run trivy misconfig scan and confirm 0 issues.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Create docker-compose.yml",
+            "description": "Create docker-compose.yml with server+postgres16+backup sidecar, WG_ADDRESS port publishing, healthchecks",
+            "dependencies": [],
+            "details": "Define services: server app, postgres16, nightly backup sidecar. Configure network to bind only to WireGuard interface (WG_ADDRESS). Publish port only on WG_ADDRESS. Add healthchecks for all services. Validate compose config.",
+            "status": "done",
+            "testStrategy": "Run docker-compose up and verify services start. Check port binding is only on WG_ADDRESS. Validate healthchecks pass.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Create backup.sh",
+            "description": "Create backup.sh (POSIX sh, pg_dump gzip, retention prune, shellcheck-safe, end-to-end verified)",
+            "dependencies": [],
+            "details": "Implement backup.sh using POSIX sh: pg_dump to gzip, retention pruning, shellcheck-safe. Verify end-to-end with stubbed pg_dump. Ensure backup.sh runs successfully in gates.",
+            "status": "done",
+            "testStrategy": "Execute backup.sh and verify gzip output. Test retention prune logic. Run shellcheck and confirm 0 issues. Verify end-to-end with stubbed pg_dump.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Create collector service units",
+            "description": "Create collector service units: systemd user service, launchd plist, Windows Register-Collector.ps1",
+            "dependencies": [],
+            "details": "Implement systemd user service, launchd plist, and Windows Register-Collector.ps1 (Scheduled Task). Provide installation docs for each platform. Confirm service wrappers install correctly.",
+            "status": "done",
+            "testStrategy": "Install each service unit on respective platform. Verify services start and run. Confirm installation docs are complete.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement SPA serving via StaticFiles",
+            "description": "Implement SPA serving via StaticFiles when TOKEMETRY_STATIC_DIR set, add static_dir setting, test_spa_serving",
+            "dependencies": [],
+            "details": "Server serves built SPA via StaticFiles when TOKEMETRY_STATIC_DIR is set. API/WS take precedence, html fallback. Add static_dir setting. Implement test_spa_serving to verify functionality.",
+            "status": "done",
+            "testStrategy": "Set TOKEMETRY_STATIC_DIR and verify SPA is served via StaticFiles. Confirm API/WS precedence. Run test_spa_serving and ensure it passes.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Write operations documentation",
+            "description": "Write operations documentation: docs/deployment/{server,collector,grafana,api-clients}.md + README deployment section",
+            "dependencies": [],
+            "details": "Create docs/deployment/server.md (server install guide), collector.md (collector enrollment per machine), grafana.md (Grafana datasource how-to), api-clients.md (API token provisioning for third-party apps). Add deployment section to README.",
+            "status": "done",
+            "testStrategy": "Review all documentation files for completeness. Validate server install, collector enrollment, API token provisioning, and Grafana datasource guides. Confirm README deployment section is present.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Validate compose config and run gates",
+            "description": "Validate compose config, ensure trivy misconfig clean (Dockerfile 0), run 203 tests with ruff/mypy strict/trivy clean",
+            "dependencies": [],
+            "details": "Validate docker-compose config. Run trivy misconfig scan and confirm Dockerfile has 0 issues. Execute 203 tests with ruff/mypy strict and trivy clean. Ensure backup.sh runs in gates.",
+            "status": "done",
+            "testStrategy": "Run compose config validation. Execute trivy misconfig scan and verify 0 issues. Run pytest with 203 tests and confirm ruff/mypy strict/trivy clean. Verify backup.sh runs.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T15:54:43.768Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T15:42:33.721Z",
+      "lastModified": "2026-07-09T15:54:43.770Z",
       "taskCount": 14,
-      "completedCount": 13,
+      "completedCount": 14,
       "tags": [
         "master"
       ]

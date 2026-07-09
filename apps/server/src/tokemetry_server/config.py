@@ -8,6 +8,7 @@ sync variant needed by Alembic is derived on demand.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,6 +47,10 @@ class Settings(BaseSettings):
     #: Run Alembic migrations to head on startup. Convenient for a
     #: single-node deployment; disable to manage migrations out of band.
     auto_migrate: bool = Field(default=True)
+
+    #: Directory of the built dashboard SPA to serve at the site root. When
+    #: unset the server is API-only (the dashboard runs from Vite in dev).
+    static_dir: Path | None = Field(default=None)
 
     #: Monthly subscription price in USD, used to show the "value multiple"
     #: (equivalent API cost vs what the subscription costs). None hides it.
