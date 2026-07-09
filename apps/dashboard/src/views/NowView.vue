@@ -112,7 +112,7 @@ const valueTile = computed(() => {
   if (c.value_multiple !== null) {
     return {
       value: `${c.value_multiple.toFixed(1)}x`,
-      sub: `vs $${c.subscription_monthly_usd}/mo · priced models only`,
+      sub: `vs $${c.subscription_monthly_usd}/mo · last 30d · priced only`,
     };
   }
   return {

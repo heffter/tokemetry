@@ -17,13 +17,15 @@ import {
 } from '@/lib/charts';
 import {
   cacheReadShare,
+  formatCost,
   formatPct,
   formatTokens,
   modelLabel,
 } from '@/lib/format';
+import { cacheSavingsUsd } from '@/lib/coverage';
 import { presetRange } from '@/lib/filters';
 import type { UsageFilter } from '@/lib/filters';
-import type { HeatmapResponse, UsageBucket } from '@/api/types';
+import type { HeatmapResponse, PricingRow, UsageBucket } from '@/api/types';
 
 const dimLabel = (b: UsageBucket): string => b.key || '(unattributed)';
 
@@ -33,7 +35,12 @@ const byMachine = ref<UsageBucket[]>([]);
 const byProject = ref<UsageBucket[]>([]);
 const heatmap = ref<HeatmapResponse | null>(null);
 const machines = ref<string[]>([]);
+const pricing = ref<PricingRow[]>([]);
 const filter = ref<UsageFilter>(presetRange('30d'));
+
+const cacheSavings = computed(() =>
+  cacheSavingsUsd(byModel.value, pricing.value)
+);
 
 const punchChart = computed(() =>
   punchCardOption(heatmap.value?.punch_card ?? [])
@@ -105,6 +112,7 @@ async function load(): Promise<void> {
 async function loadOptions(): Promise<void> {
   const client = useClient();
   machines.value = (await client.machines()).map((m) => m.id);
+  pricing.value = await client.pricing();
   const all = presetRange('all');
   projects.value = (await client.usage({ groupBy: 'project', ...all })).buckets
     .sort((a, b) => b.total_tokens - a.total_tokens)
@@ -140,6 +148,16 @@ onMounted(() => {
         of prompt tokens served from cache, each cached token reused
         <strong class="tabular">{{ cacheStats.reuse.toFixed(1) }}x</strong> on
         average.
+      </p>
+      <p v-if="cacheSavings > 0" class="savings">
+        Caching saved about
+        <strong class="tabular">{{ formatCost(String(cacheSavings)) }}</strong>
+        versus paying the full input price for those reads.
+      </p>
+      <p class="muted note">
+        A high cache-read share (often ~95%) is normal, not waste — Claude Code
+        re-reads the cached system prompt and conversation on every turn, and
+        cache reads are billed at a fraction of fresh input tokens.
       </p>
     </section>
     <section class="card">
@@ -186,5 +204,12 @@ section {
 }
 h3 {
   margin: 0 0 1rem;
+}
+.savings {
+  color: var(--status-good);
+}
+.note {
+  font-size: 0.85rem;
+  margin-bottom: 0;
 }
 </style>

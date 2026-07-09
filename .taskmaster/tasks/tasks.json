@@ -1680,20 +1680,21 @@
       {
         "id": "37",
         "title": "Cache framing and plan-value polish",
-        "description": "Breakdowns cache card reassurance copy (~95% cache-read is normal) + caching-saved figure; Now value tile labels its window explicitly.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "Frontend-only polish. Added pure cacheSavingsUsd(buckets, prices) to lib/coverage.ts summing cache_read x (input_rate - cache_read_rate)/1e6 over priced models (latest rate per model); unit-tested. Breakdowns cache card now shows 'Caching saved ~$X' (from pricing() + byModel) plus reassurance copy that a ~95% cache-read share is normal (Claude Code re-reads cached context each turn, billed at a fraction of input). Now-page Plan value tile labels its window ('last 30d'). 59 dashboard tests pass; build+lint clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
-        "subtasks": []
+        "details": "1. Implement `cacheSavingsUsd(buckets, prices)` in `lib/coverage.ts`:\n   - Sum `cache_read * (input_rate - cache_read_rate) / 1e6` over priced models.\n   - Use latest rate per model.\n   - Unit-test the function.\n2. Update Breakdowns cache card:\n   - Display 'Caching saved ~$X' using `pricing()` + `byModel`.\n   - Add reassurance copy: '~95% cache-read share is normal' (explain Claude Code re-reads cached context each turn, billed at a fraction of input).\n3. Update Now-page Plan value tile:\n   - Label its window as 'last 30d'.\n4. Validation:\n   - Ensure 59 dashboard tests pass.\n   - Confirm build+lint are clean.",
+        "testStrategy": "1. Unit-test `cacheSavingsUsd(buckets, prices)` with sample data covering multiple models and rate variations.\n2. Verify Breakdowns cache card displays correct 'Caching saved ~$X' value and reassurance copy.\n3. Confirm Now-page Plan value tile labels window as 'last 30d'.\n4. Run 59 dashboard tests; ensure all pass.\n5. Validate build+lint are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T21:48:24.445Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T21:43:20.129Z",
+      "lastModified": "2026-07-09T21:48:24.446Z",
       "taskCount": 37,
-      "completedCount": 36,
+      "completedCount": 37,
       "tags": [
         "master"
       ]

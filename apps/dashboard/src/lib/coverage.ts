@@ -40,6 +40,43 @@ export function pricedCoverage(buckets: CostBucket[]): Coverage {
   };
 }
 
+interface CacheBucket {
+  key: string;
+  cache_read_tokens: number;
+}
+
+interface PriceRate {
+  model: string;
+  input_per_mtok: string;
+  cache_read_per_mtok: string;
+}
+
+/** Estimated USD saved by cache reads vs paying the input price for them.
+ *
+ * Per priced model: cache_read_tokens x (input_rate - cache_read_rate). Prices
+ * must be ordered by effective_date ascending (as the API returns them) so the
+ * latest rate per model wins. Unpriced models contribute nothing.
+ */
+export function cacheSavingsUsd(
+  buckets: CacheBucket[],
+  prices: PriceRate[]
+): number {
+  const rate = new Map<string, { input: number; cacheRead: number }>();
+  for (const price of prices) {
+    rate.set(price.model, {
+      input: Number(price.input_per_mtok),
+      cacheRead: Number(price.cache_read_per_mtok),
+    });
+  }
+  let saved = 0;
+  for (const bucket of buckets) {
+    const r = rate.get(bucket.key);
+    if (!r) continue;
+    saved += (bucket.cache_read_tokens * (r.input - r.cacheRead)) / 1_000_000;
+  }
+  return saved;
+}
+
 /** Coverage below this ratio means a cost total should not be presented bare. */
 export const COVERAGE_THRESHOLD = 0.9;
 

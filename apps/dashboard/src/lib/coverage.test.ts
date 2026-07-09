@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { costIsTrustworthy, pricedCoverage } from './coverage';
+import { cacheSavingsUsd, costIsTrustworthy, pricedCoverage } from './coverage';
 
 describe('pricedCoverage', () => {
   it('is fully covered when all buckets are priced', () => {
@@ -37,5 +37,39 @@ describe('pricedCoverage', () => {
     ]);
     expect(c.ratio).toBeCloseTo(0.9);
     expect(costIsTrustworthy(c)).toBe(true);
+  });
+});
+
+describe('cacheSavingsUsd', () => {
+  const prices = [
+    { model: 'opus', input_per_mtok: '15', cache_read_per_mtok: '1.5' },
+  ];
+
+  it('sums cache_read x (input - cache_read) per priced model', () => {
+    // 1M cache-read tokens at (15 - 1.5)/MTok = $13.50 saved.
+    const saved = cacheSavingsUsd(
+      [{ key: 'opus', cache_read_tokens: 1_000_000 }],
+      prices
+    );
+    expect(saved).toBeCloseTo(13.5);
+  });
+
+  it('ignores models without a price', () => {
+    const saved = cacheSavingsUsd(
+      [{ key: 'unknown', cache_read_tokens: 5_000_000 }],
+      prices
+    );
+    expect(saved).toBe(0);
+  });
+
+  it('uses the latest rate when a model has several', () => {
+    const saved = cacheSavingsUsd(
+      [{ key: 'opus', cache_read_tokens: 1_000_000 }],
+      [
+        { model: 'opus', input_per_mtok: '10', cache_read_per_mtok: '1' },
+        { model: 'opus', input_per_mtok: '20', cache_read_per_mtok: '2' },
+      ]
+    );
+    expect(saved).toBeCloseTo(18);
   });
 });
