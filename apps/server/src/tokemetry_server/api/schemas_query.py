@@ -118,6 +118,41 @@ class SessionOut(BaseModel):
     cost_usd: Decimal | None
 
 
+class SessionEventOut(BaseModel):
+    """One usage event in a session drill-down (metadata only)."""
+
+    ts: UtcDatetime
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+
+
+class SessionStatsOut(BaseModel):
+    """Derived efficiency signals for a session."""
+
+    tokens_per_turn: float
+    cache_hit_rate: float
+    context_growth: float
+    inflection_index: int | None
+
+
+class SessionDetailOut(BaseModel):
+    """A session's ordered event series and derived stats."""
+
+    session_id: str
+    project: str | None
+    machine: str | None
+    message_count: int
+    total_tokens: int
+    events: list[SessionEventOut]
+    stats: SessionStatsOut
+
+
 class MachineOut(BaseModel):
     """Fleet-view machine summary."""
 

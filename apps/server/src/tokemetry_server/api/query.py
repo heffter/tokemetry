@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import require_token
@@ -26,7 +26,10 @@ from tokemetry_server.api.schemas_query import (
     PricingOut,
     PunchCell,
     RebuildResult,
+    SessionDetailOut,
+    SessionEventOut,
     SessionOut,
+    SessionStatsOut,
     SummaryNow,
     TodaySummary,
     UsageBucketOut,
@@ -252,6 +255,48 @@ async def sessions(
             session, limit, settings.project_root_markers
         )
     ]
+
+
+@router.get("/sessions/{session_id}", response_model=SessionDetailOut)
+async def session_detail(
+    session_id: str,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> SessionDetailOut:
+    """Return one session's event series and efficiency stats (metadata only)."""
+    detail = await queries.session_detail(
+        session, session_id, settings.project_root_markers
+    )
+    if detail is None:
+        raise HTTPException(status_code=404, detail="unknown session")
+    return SessionDetailOut(
+        session_id=detail.session_id,
+        project=detail.project,
+        machine=detail.machine,
+        message_count=len(detail.events),
+        total_tokens=sum(e.total_tokens for e in detail.events),
+        events=[
+            SessionEventOut(
+                ts=e.ts,
+                model=e.model,
+                input_tokens=e.input_tokens,
+                output_tokens=e.output_tokens,
+                cache_read_tokens=e.cache_read_tokens,
+                cache_write_short_tokens=e.cache_write_short_tokens,
+                cache_write_long_tokens=e.cache_write_long_tokens,
+                total_tokens=e.total_tokens,
+                cost_usd=e.cost_usd,
+            )
+            for e in detail.events
+        ],
+        stats=SessionStatsOut(
+            tokens_per_turn=detail.stats.tokens_per_turn,
+            cache_hit_rate=detail.stats.cache_hit_rate,
+            context_growth=detail.stats.context_growth,
+            inflection_index=detail.stats.inflection_index,
+        ),
+    )
 
 
 @router.post("/admin/rebuild-rollups", response_model=RebuildResult)

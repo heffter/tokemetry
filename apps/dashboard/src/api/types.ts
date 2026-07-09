@@ -86,6 +86,35 @@ export interface SessionSummary {
   cost_usd: string | null;
 }
 
+export interface SessionEvent {
+  ts: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_short_tokens: number;
+  cache_write_long_tokens: number;
+  total_tokens: number;
+  cost_usd: string | null;
+}
+
+export interface SessionStats {
+  tokens_per_turn: number;
+  cache_hit_rate: number;
+  context_growth: number;
+  inflection_index: number | null;
+}
+
+export interface SessionDetail {
+  session_id: string;
+  project: string | null;
+  machine: string | null;
+  message_count: number;
+  total_tokens: number;
+  events: SessionEvent[];
+  stats: SessionStats;
+}
+
 export interface MachineSummary {
   id: string;
   platform: string | null;

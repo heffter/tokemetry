@@ -12,6 +12,7 @@ const props = withDefaults(
     color?: string;
     width?: number;
     height?: number;
+    markerIndex?: number | null;
   }>(),
   {
     max: 100,
@@ -19,6 +20,7 @@ const props = withDefaults(
     color: 'var(--text-muted)',
     width: 220,
     height: 34,
+    markerIndex: null,
   }
 );
 
@@ -31,6 +33,15 @@ const geo = computed(() =>
     props.projected
   )
 );
+
+// A vertical guide at a notable index (e.g. a session's inflection turn).
+const markerX = computed(() => {
+  const index = props.markerIndex;
+  if (index === null || index === undefined || props.values.length < 2) {
+    return null;
+  }
+  return (index / (props.values.length - 1)) * props.width;
+});
 </script>
 
 <template>
@@ -58,6 +69,16 @@ const geo = computed(() =>
       stroke-width="2"
       stroke-dasharray="3 3"
       opacity="0.7"
+    />
+    <line
+      v-if="markerX !== null"
+      :x1="markerX"
+      :y1="0"
+      :x2="markerX"
+      :y2="height"
+      stroke="var(--status-warning)"
+      stroke-width="1.5"
+      stroke-dasharray="2 2"
     />
     <circle :cx="geo.last[0]" :cy="geo.last[1]" r="2.5" :fill="color" />
   </svg>

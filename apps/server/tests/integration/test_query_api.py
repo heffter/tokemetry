@@ -161,6 +161,21 @@ def test_project_grouping_folds_variants(client: TestClient, auth: dict[str, str
     assert all(s["project"] == "Foo" for s in sessions if s["session_id"].startswith("psess"))
 
 
+def test_session_detail(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    detail = _get(client, auth, "/api/v1/sessions/sess-0")
+    assert detail["session_id"] == "sess-0"
+    assert detail["message_count"] >= 1
+    assert len(detail["events"]) == detail["message_count"]
+    _assert_aware(detail["events"][0]["ts"])
+    assert "tokens_per_turn" in detail["stats"]
+    assert "inflection_index" in detail["stats"]
+
+
+def test_session_detail_unknown_is_404(client: TestClient, auth: dict[str, str]) -> None:
+    assert client.get("/api/v1/sessions/nope", headers=auth).status_code == 404
+
+
 def test_summary_overview(client: TestClient, auth: dict[str, str]) -> None:
     _seed_events(client, auth)
     data = _get(client, auth, "/api/v1/summary/overview")

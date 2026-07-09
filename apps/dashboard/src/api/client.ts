@@ -12,6 +12,7 @@ import type {
   MachineSummary,
   Overview,
   PricingRow,
+  SessionDetail,
   SessionSummary,
   SummaryNow,
   UsageResponse,
@@ -100,6 +101,12 @@ export class ApiClient {
 
   sessions(limit = 100): Promise<SessionSummary[]> {
     return this.request<SessionSummary[]>(`/api/v1/sessions?limit=${limit}`);
+  }
+
+  sessionDetail(id: string): Promise<SessionDetail> {
+    return this.request<SessionDetail>(
+      `/api/v1/sessions/${encodeURIComponent(id)}`
+    );
   }
 
   machines(): Promise<MachineSummary[]> {

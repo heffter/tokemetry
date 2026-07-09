@@ -1656,13 +1656,14 @@
       {
         "id": "35",
         "title": "Per-session drill-down and efficiency stats",
-        "description": "GET /api/v1/sessions/{id}: per-event series + tokens/turn, cache hit rate, context growth, inflection point (>2x median). SessionsView expandable row with cumulative sparkline. Metadata only.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "GET /api/v1/sessions/{id}: ordered per-event series (ts, model, 5 token components, cost) + efficiency stats via new pure services/session_stats.py compute_session_stats: tokens/turn, cache hit rate (read/(read+input)), context growth (late-half vs early-half mean turn size), inflection index (first turn > 2x session median, needs >=4 turns). queries.session_detail assembles it (project normalized, no message text). Sessions rows now expand to a cumulative-tokens Sparkline (extended with a markerIndex vertical guide at the inflection turn) plus stat chips including 'consider /clear at turn N'. Metadata only.",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "details": "",
+        "testStrategy": "Tests: 6 stats units + detail/404 integration. 215 server/core + 56 dashboard pass; gates clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T21:34:51.391Z"
       },
       {
         "id": "36",
@@ -1689,9 +1690,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T21:24:46.694Z",
+      "lastModified": "2026-07-09T21:34:51.392Z",
       "taskCount": 37,
-      "completedCount": 34,
+      "completedCount": 35,
       "tags": [
         "master"
       ]

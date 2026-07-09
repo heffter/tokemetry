@@ -6,20 +6,49 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import EChart from '@/components/EChart.vue';
 import AsyncState from '@/components/AsyncState.vue';
+import Sparkline from '@/components/Sparkline.vue';
 import { useClient } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
 import { barOption } from '@/lib/charts';
 import {
   formatCost,
   formatDateTime,
+  formatPct,
   formatTokens,
   timeAgo,
 } from '@/lib/format';
-import type { SessionSummary } from '@/api/types';
+import type { SessionDetail, SessionSummary } from '@/api/types';
 
 const route = useRoute();
 const { loading, error, run, retry } = useAsync();
 const sessions = ref<SessionSummary[]>([]);
+
+const expandedId = ref<string | null>(null);
+const detail = ref<SessionDetail | null>(null);
+const detailLoading = ref(false);
+
+// Running cumulative token total per turn, for the drill-down sparkline.
+const detailCumulative = computed(() => {
+  if (!detail.value) return [];
+  let sum = 0;
+  return detail.value.events.map((e) => (sum += e.total_tokens));
+});
+
+async function toggleDetail(id: string): Promise<void> {
+  if (expandedId.value === id) {
+    expandedId.value = null;
+    detail.value = null;
+    return;
+  }
+  expandedId.value = id;
+  detail.value = null;
+  detailLoading.value = true;
+  try {
+    detail.value = await useClient().sessionDetail(id);
+  } finally {
+    detailLoading.value = false;
+  }
+}
 
 const machineFilter = ref<string>((route.query.machine as string) ?? '');
 const projectFilter = ref<string>('');
@@ -162,35 +191,77 @@ onMounted(load);
           </tr>
         </thead>
         <tbody>
-          <tr v-for="s in sorted" :key="s.session_id">
-            <td class="mono" :title="s.session_id">
-              {{ s.session_id.slice(0, 8) }}
-            </td>
-            <td>{{ s.project ?? '—' }}</td>
-            <td>{{ s.machine ?? '—' }}</td>
-            <td class="num tabular">{{ s.message_count }}</td>
-            <td class="num tabular">
-              <div class="magnitude">
-                <div
-                  class="mbar"
-                  :style="{ width: `${(s.total_tokens / maxTokens) * 100}%` }"
-                ></div>
-                <span>{{ formatTokens(s.total_tokens) }}</span>
-              </div>
-            </td>
-            <td class="num tabular">
-              <span
-                v-if="s.cost_usd === null"
-                class="unpriced"
-                title="No price for this model — add it in Settings"
-                >unpriced</span
-              >
-              <template v-else>{{ formatCost(s.cost_usd) }}</template>
-            </td>
-            <td :title="formatDateTime(s.last_at)">
-              {{ timeAgo(s.last_at) }}
-            </td>
-          </tr>
+          <template v-for="s in sorted" :key="s.session_id">
+            <tr class="clickable" @click="toggleDetail(s.session_id)">
+              <td class="mono" :title="s.session_id">
+                {{ expandedId === s.session_id ? '▾' : '▸' }}
+                {{ s.session_id.slice(0, 8) }}
+              </td>
+              <td>{{ s.project ?? '—' }}</td>
+              <td>{{ s.machine ?? '—' }}</td>
+              <td class="num tabular">{{ s.message_count }}</td>
+              <td class="num tabular">
+                <div class="magnitude">
+                  <div
+                    class="mbar"
+                    :style="{ width: `${(s.total_tokens / maxTokens) * 100}%` }"
+                  ></div>
+                  <span>{{ formatTokens(s.total_tokens) }}</span>
+                </div>
+              </td>
+              <td class="num tabular">
+                <span
+                  v-if="s.cost_usd === null"
+                  class="unpriced"
+                  title="No price for this model — add it in Settings"
+                  >unpriced</span
+                >
+                <template v-else>{{ formatCost(s.cost_usd) }}</template>
+              </td>
+              <td :title="formatDateTime(s.last_at)">
+                {{ timeAgo(s.last_at) }}
+              </td>
+            </tr>
+            <tr v-if="expandedId === s.session_id" class="detail-row">
+              <td :colspan="7">
+                <div v-if="detailLoading" class="muted">loading…</div>
+                <div v-else-if="detail" class="detail">
+                  <div class="chips">
+                    <span class="chip">
+                      {{
+                        formatTokens(Math.round(detail.stats.tokens_per_turn))
+                      }}
+                      /turn
+                    </span>
+                    <span class="chip">
+                      {{ formatPct(detail.stats.cache_hit_rate * 100) }} cache
+                      hit
+                    </span>
+                    <span class="chip">
+                      context {{ detail.stats.context_growth.toFixed(1) }}x
+                    </span>
+                    <span
+                      v-if="detail.stats.inflection_index !== null"
+                      class="chip warn"
+                    >
+                      consider /clear at turn
+                      {{ detail.stats.inflection_index + 1 }}
+                    </span>
+                  </div>
+                  <Sparkline
+                    v-if="detailCumulative.length > 1"
+                    :values="detailCumulative"
+                    :max="detailCumulative[detailCumulative.length - 1]"
+                    :marker-index="detail.stats.inflection_index"
+                    color="var(--series-1, #2a78d6)"
+                    :width="360"
+                    :height="48"
+                  />
+                  <span class="muted small">cumulative tokens over turns</span>
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
         <tfoot>
           <tr>
@@ -252,6 +323,40 @@ td {
 }
 .sortable:hover {
   color: var(--text-primary);
+}
+.clickable {
+  cursor: pointer;
+}
+.clickable:hover td {
+  background: color-mix(in srgb, var(--gridline) 40%, transparent);
+}
+.detail-row td {
+  background: var(--page);
+}
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+.chips {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.chip {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.chip.warn {
+  color: var(--status-warning);
+  border-color: var(--status-warning);
+}
+.small {
+  font-size: 0.75rem;
 }
 tfoot td {
   font-weight: 600;

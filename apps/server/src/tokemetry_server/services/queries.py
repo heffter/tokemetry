@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.projects import DEFAULT_ROOTS, project_group
 
 from tokemetry_server.db import models
+from tokemetry_server.services.session_stats import SessionStats, compute_session_stats
 
 #: Group-by dimensions backed by the daily_rollups table.
 _ROLLUP_DIMENSIONS = {
@@ -397,6 +398,86 @@ async def list_sessions(
 def _as_utc(value: datetime) -> datetime:
     """Ensure a datetime read from the DB is timezone-aware (UTC)."""
     return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+@dataclass(frozen=True)
+class SessionEvent:
+    """One usage event within a session drill-down (metadata only)."""
+
+    ts: datetime
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+
+
+@dataclass(frozen=True)
+class SessionDetail:
+    """A session's ordered event series and derived efficiency stats."""
+
+    session_id: str
+    project: str | None
+    machine: str | None
+    events: list[SessionEvent]
+    stats: SessionStats
+
+
+async def session_detail(
+    session: AsyncSession, session_id: str, roots: Sequence[str] = DEFAULT_ROOTS
+) -> SessionDetail | None:
+    """Return one session's ordered events and stats, or None if unknown.
+
+    No message text is read or returned; only token/cost metadata.
+    """
+    event = models.UsageEvent
+    rows = list(
+        (
+            await session.execute(
+                select(event).where(event.session_id == session_id).order_by(event.ts)
+            )
+        ).scalars()
+    )
+    if not rows:
+        return None
+
+    events: list[SessionEvent] = []
+    for row in rows:
+        total = (
+            row.input_tokens
+            + row.output_tokens
+            + row.cache_read_tokens
+            + row.cache_write_short_tokens
+            + row.cache_write_long_tokens
+        )
+        events.append(
+            SessionEvent(
+                ts=_as_utc(row.ts),
+                model=row.model,
+                input_tokens=row.input_tokens,
+                output_tokens=row.output_tokens,
+                cache_read_tokens=row.cache_read_tokens,
+                cache_write_short_tokens=row.cache_write_short_tokens,
+                cache_write_long_tokens=row.cache_write_long_tokens,
+                total_tokens=total,
+                cost_usd=row.cost_usd,
+            )
+        )
+    stats = compute_session_stats(
+        [e.total_tokens for e in events],
+        [e.cache_read_tokens for e in events],
+        [e.input_tokens for e in events],
+    )
+    return SessionDetail(
+        session_id=session_id,
+        project=project_group(rows[0].project, roots),
+        machine=rows[0].machine,
+        events=events,
+        stats=stats,
+    )
 
 
 @dataclass(frozen=True)
