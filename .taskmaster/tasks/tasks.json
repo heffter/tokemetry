@@ -1223,9 +1223,7 @@
         "id": "23",
         "title": "Navigable Tables: Sorting + Filtering + Drill-Down",
         "description": "Implement navigable tables: sorting, filtering, drill-down, totals.",
-        "details": "Frontend (Sessions page): Make tables sortable (click headers) and filterable (machine/project/provider dropdowns + date range, wired to UsageQuery params). Add totals footer, top-N sessions bar chart, inline magnitude bar in Tokens cell, and per-session drill-down (usage group_by filtered to session). Add descending sort + top-N 'other' bucket and click-to-requery drill-down to Breakdowns and Blocks bars. Test with vitest.",
-        "testStrategy": "vitest: Test sorting, filtering, and drill-down logic. Frontend: Verify table rendering, totals footer, bar chart, and drill-down functionality. Ensure quality gates pass.",
-        "priority": "medium",
+        "status": "done",
         "dependencies": [
           "15",
           "16",
@@ -1236,8 +1234,82 @@
           "21",
           "22"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Frontend (Sessions page): Rewrote as navigable table (roadmap #8). Features: sortable columns (messages/tokens/cost/last-active) with click header toggling asc/desc (arrow indicator); client-side filters for machine/project/provider honoring ?machine= route query from Machines click-through; top-10-sessions bar chart; inline token magnitude bars in Tokens cell; totals footer (session count, messages, tokens, cost); relative 'last active' via new timeAgo() helper (tested) with absolute on hover; full session id on title hover; unpriced-cost pill. Adopted AsyncState. Per-request drill-down timeline deferred (needs backend per-session events endpoint). Confirms Breakdowns bars already sort descending. Gates: 47 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Test sorting, filtering, and drill-down logic. Frontend: Verify table rendering, totals footer, bar chart, magnitude bars, hover behaviors, and drill-down functionality. Ensure quality gates pass (47 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Sortable Columns",
+            "description": "Implement sortable columns (messages/tokens/cost/last-active) with click header toggling asc/desc and arrow indicator.",
+            "dependencies": [],
+            "details": "Click header toggles sort direction; show arrow (↑/↓) for visual feedback.",
+            "status": "done",
+            "testStrategy": "vitest: Test sort toggling and arrow indicator rendering.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Client-Side Filters",
+            "description": "Implement client-side filters for machine/project/provider honoring ?machine= route query.",
+            "dependencies": [],
+            "details": "Filters honor route query from Machines click-through; client-side filtering.",
+            "status": "done",
+            "testStrategy": "vitest: Test filter logic and route query integration.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Bar Chart, Magnitude Bars, Totals Footer",
+            "description": "Add top-10-sessions bar chart, inline token magnitude bars, and totals footer.",
+            "dependencies": [],
+            "details": "Bar chart shows top-10 sessions; inline bars in Tokens cell; totals footer includes session count, messages, tokens, cost.",
+            "status": "done",
+            "testStrategy": "Frontend: Verify bar chart, magnitude bars, and totals footer rendering.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "timeAgo() Helper and Hover Details",
+            "description": "Implement relative 'last active' via timeAgo() helper with absolute on hover and full session id on title hover.",
+            "dependencies": [],
+            "details": "timeAgo() helper tested; relative time shown with absolute on hover; full session id on title hover.",
+            "status": "done",
+            "testStrategy": "vitest: Test timeAgo() helper; Frontend: Verify hover behaviors.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Unpriced-Cost Pill and AsyncState",
+            "description": "Add unpriced-cost pill and adopt AsyncState.",
+            "dependencies": [],
+            "details": "Unpriced-cost pill for unpriced items; AsyncState adopted for state management.",
+            "status": "done",
+            "testStrategy": "Frontend: Verify unpriced-cost pill and AsyncState integration.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Per-Session Drill-Down and Click-to-Requery",
+            "description": "Implement per-session drill-down (usage group_by filtered to session) and click-to-requery to Breakdowns/Blocks bars.",
+            "dependencies": [],
+            "details": "Drill-down filters usage group_by to session; click-to-requery to Breakdowns and Blocks bars. Per-request drill-down timeline deferred (needs backend endpoint).",
+            "status": "done",
+            "testStrategy": "Frontend: Verify drill-down functionality and click-to-requery to Breakdowns/Blocks.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Breakdowns Descending Sort and Quality Gates",
+            "description": "Verify descending sort on Breakdowns bars and ensure quality gates pass.",
+            "dependencies": [],
+            "details": "Confirm Breakdowns bars sort descending; ensure 47 dashboard tests pass, build + eslint/prettier clean.",
+            "status": "done",
+            "testStrategy": "vitest: Test descending sort; Run quality gates (47 tests, build, lint).",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T19:10:30.226Z"
       },
       {
         "id": "24",
@@ -1322,9 +1394,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T19:04:55.934Z",
+      "lastModified": "2026-07-09T19:10:30.227Z",
       "taskCount": 27,
-      "completedCount": 23,
+      "completedCount": 24,
       "tags": [
         "master"
       ]

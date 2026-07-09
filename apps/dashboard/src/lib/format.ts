@@ -62,6 +62,15 @@ export function windowLabel(kind: string): string {
   return WINDOW_LABELS[kind] ?? kind;
 }
 
+/** Compact relative-past time ("3m ago", "2h ago", "5d ago"). */
+export function timeAgo(iso: string, now: Date = new Date()): string {
+  const mins = Math.max(0, (now.getTime() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${Math.round(mins)}m ago`;
+  if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
+  return `${Math.floor(mins / 1440)}d ago`;
+}
+
 /** Humanize a model id ("claude-opus-4-8-20260101" -> "Opus 4.8"). */
 export function modelLabel(id: string): string {
   let s = id.replace(/^.*anthropic\./, '').replace(/^claude-/, '');

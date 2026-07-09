@@ -5,6 +5,7 @@ import {
   formatPct,
   formatTokens,
   modelLabel,
+  timeAgo,
   timeUntil,
   utilizationStatus,
   windowLabel,
@@ -49,6 +50,16 @@ describe('timeUntil', () => {
   });
   it('handles null', () => {
     expect(timeUntil(null)).toBe('—');
+  });
+});
+
+describe('timeAgo', () => {
+  const now = new Date('2026-07-09T12:00:00Z');
+  it('formats past times compactly', () => {
+    expect(timeAgo('2026-07-09T11:45:00Z', now)).toBe('15m ago');
+    expect(timeAgo('2026-07-09T10:00:00Z', now)).toBe('2h ago');
+    expect(timeAgo('2026-07-07T12:00:00Z', now)).toBe('2d ago');
+    expect(timeAgo('2026-07-09T11:59:50Z', now)).toBe('just now');
   });
 });
 
