@@ -1462,9 +1462,7 @@
         "id": "26",
         "title": "Alerts Page: Kind-Aware Thresholds + Live Sparkline",
         "description": "Fix Alerts page: kind-aware threshold control and live sparkline.",
-        "details": "Frontend (Alerts page): Make threshold control kind-aware (0-100 slider with % for limit_pct, tokens/min for burn_rate, duration for predicted_exhaustion, hidden for collector_stale/unknown_model). Set against live /limits/history sparkline. Show live current-vs-threshold per rule from summaryNow. Render event.ts as relative time with absolute tooltip, sort newest-first, and make events expandable (body + context). Add enable/disable toggle (not destructive delete) and confirm before delete. Surface evaluate() { fired } result. Add window_kind selector for window-scoped kinds. Test with vitest.",
-        "testStrategy": "vitest: Test kind-aware threshold logic and event rendering. Frontend: Verify sparkline, expandable events, enable/disable toggle, and confirm delete. Ensure quality gates pass.",
-        "priority": "low",
+        "status": "done",
         "dependencies": [
           "15",
           "16",
@@ -1478,8 +1476,11 @@
           "24",
           "25"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "low",
+        "details": "Frontend (Alerts page): Rewrote with kind-aware threshold control (0-100 range slider with % for limit_pct, number+tok/min for burn_rate, number+min for collector_stale, hidden for predicted_exhaustion/unknown_model; threshold resets to kind default on kind change). Set against live /limits/history sparkline for selected window so limit_pct thresholds are set against live utilization. Rule list is now a status board: shows human kind label, live current-vs-threshold (utilization or burn from summaryNow), channels, enable/disable toggle (PUT via new client.updateAlertRule, not destructive-only), and delete-with-confirm. Events show relative time (timeAgo) + absolute on hover, and expand to reveal body + context JSON. 'Evaluate now' surfaces its {fired} result ('N rule(s) fired' / 'nothing fired'). window_kind selector shown only for window-scoped kinds. Adopted AsyncState. Gates: 47 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Test kind-aware threshold logic and event rendering. Frontend: Verify sparkline, expandable events, enable/disable toggle, and confirm delete. Ensure quality gates pass (47 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T19:25:34.554Z"
       },
       {
         "id": "27",
@@ -1498,9 +1499,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T19:20:09.317Z",
+      "lastModified": "2026-07-09T19:25:34.555Z",
       "taskCount": 27,
-      "completedCount": 26,
+      "completedCount": 27,
       "tags": [
         "master"
       ]

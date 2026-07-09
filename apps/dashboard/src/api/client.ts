@@ -146,6 +146,10 @@ export class ApiClient {
     return this.request<AlertRule>('/api/v1/alerts', 'POST', rule);
   }
 
+  updateAlertRule(id: number, rule: AlertRuleInput): Promise<AlertRule> {
+    return this.request<AlertRule>(`/api/v1/alerts/${id}`, 'PUT', rule);
+  }
+
   deleteAlertRule(id: number): Promise<void> {
     return this.request<void>(`/api/v1/alerts/${id}`, 'DELETE');
   }
