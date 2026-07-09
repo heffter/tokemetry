@@ -227,15 +227,67 @@
         "id": "7",
         "title": "Daily Rollups Refresh on Ingest",
         "description": "Implement daily rollups refresh on ingest for fast history queries. Create the daily_rollups table update logic triggered after ingest/events.",
-        "details": "Create `apps/server/tokemetry_server/services/rollups.py`. After `ingest/events`, aggregate tokens and cost_usd by date, provider, model into `daily_rollups`. Use SQLAlchemy aggregate queries. Add unit tests for rollup aggregation.",
-        "testStrategy": "Test rollup aggregation with sample data. Verify daily_rollups table updates correctly. Run pytest with coverage >= 80%. Validate ruff/mypy strict zero issues.",
-        "priority": "medium",
+        "status": "done",
         "dependencies": [
           "4",
           "5"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Create `apps/server/tokemetry_server/services/rollups.py`. Implement `refresh_rollups_for_days` to recompute affected days from `usage_events` grouped by `(provider, coalesce(machine,''), model, coalesce(project,''))` using a portable ts-range filter (no dialect date() fn). Upsert results into `daily_rollups` with `provenance='derived'`. Wire into `IngestService.ingest_events` where `affected_days` are derived from deduped events. Rename `bootstrap_rollups_upsert` to `daily_rollups_upsert` (shared by bootstrap + derived). Whole-day recompute is correct under keep-max and idempotent on re-ingest. Add unit tests for rollup aggregation.",
+        "testStrategy": "Test rollup aggregation with sample data. Verify daily_rollups table updates correctly with `provenance='derived'`. Run pytest with coverage >= 80% (actual: 108 tests). Validate ruff/mypy strict/trivy clean. Confirm rollup created, split by grain, reflects keep-max update (not sum), idempotent on reingest, cost aggregated.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Verify refresh_rollups_for_days logic",
+            "description": "Verify `refresh_rollups_for_days` correctly recomputes affected days from deduped events grouped by grain.",
+            "dependencies": [],
+            "details": "Test that affected_days are derived from deduped events and that grouping uses `(provider, coalesce(machine,''), model, coalesce(project,''))`. Ensure portable ts-range filter is used (no dialect date() fn).",
+            "status": "pending",
+            "testStrategy": "Run pytest with sample deduped events. Verify affected_days match expected days. Confirm grouping grain is correct.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Verify upsert idempotency and provenance",
+            "description": "Ensure upsert into `daily_rollups` uses `provenance='derived'` and is idempotent on re-ingest.",
+            "dependencies": [],
+            "details": "Test that upsert correctly handles keep-max semantics and is idempotent when events are re-ingested. Verify `provenance='derived'` is set.",
+            "status": "pending",
+            "testStrategy": "Run pytest with re-ingested events. Verify idempotency and provenance tagging. Confirm keep-max behavior (not sum).",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Rename bootstrap_rollups_upsert to daily_rollups_upsert",
+            "description": "Rename `bootstrap_rollups_upsert` to `daily_rollups_upsert` and ensure it is shared by bootstrap + derived flows.",
+            "dependencies": [],
+            "details": "Update function name and ensure it is correctly called by both bootstrap and derived rollup flows.",
+            "status": "pending",
+            "testStrategy": "Run pytest to confirm function rename and shared usage. Verify no broken references.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add unit tests for rollup aggregation",
+            "description": "Add unit tests for rollup aggregation with sample data.",
+            "dependencies": [],
+            "details": "Test rollup creation, splitting by grain, and reflection of keep-max updates. Ensure cost is aggregated correctly.",
+            "status": "pending",
+            "testStrategy": "Run pytest with coverage >= 80%. Validate ruff/mypy strict/trivy clean. Test rollup created, split by grain, reflects keep-max update (not sum), idempotent on reingest, cost aggregated.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Update documentation",
+            "description": "Update documentation in `docs/architecture/database.md` to reflect new rollup logic.",
+            "dependencies": [],
+            "details": "Document `refresh_rollups_for_days`, grouping grain, portable ts-range filter, provenance tagging, and idempotency behavior.",
+            "status": "pending",
+            "testStrategy": "Review updated docs for clarity and completeness. Ensure all key concepts are documented.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T14:16:29.789Z"
       },
       {
         "id": "8",
@@ -339,9 +391,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T14:11:17.271Z",
+      "lastModified": "2026-07-09T14:16:29.791Z",
       "taskCount": 14,
-      "completedCount": 6,
+      "completedCount": 7,
       "tags": [
         "master"
       ]

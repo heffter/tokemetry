@@ -38,3 +38,14 @@ and compares columns against `Base.metadata`.
 `db/session.py` builds the async engine and session factory. `session_scope`
 yields a session that commits on success and rolls back on error, used as
 the FastAPI dependency and in background tasks.
+
+## Daily rollups
+
+`services/rollups.py` keeps `daily_rollups` current. After each event batch
+is upserted, `refresh_rollups_for_days` recomputes the touched days from
+`usage_events` (grouped by `(provider, machine, model, project)` with `''`
+sentinels for nulls) and upserts them with `provenance='derived'`. Whole
+days are recomputed rather than applying deltas, so the rollup always
+reflects keep-max updates and re-ingestion is idempotent. Bootstrap imports
+write the same table with `provenance='stats_cache'`; a derived refresh for
+a day supersedes any bootstrap estimate on the same grain.

@@ -19,10 +19,11 @@ from tokemetry_core.models import DailyAggregate, LimitSnapshot, UsageEvent
 from tokemetry_server.api.schemas import IngestResult, MachineInfo
 from tokemetry_server.db import models
 from tokemetry_server.db.upsert import (
-    bootstrap_rollups_upsert,
+    daily_rollups_upsert,
     machine_upsert,
     usage_events_upsert,
 )
+from tokemetry_server.services.rollups import refresh_rollups_for_days
 from tokemetry_server.services.validation import validate_event, validate_limit
 
 #: Callable computing an event's USD cost, or None when no price is known.
@@ -80,6 +81,11 @@ class IngestService:
         rows = [self._event_row(event, machine.name) for event in deduped]
         stmt = usage_events_upsert(self._dialect, models.UsageEvent.__table__, rows)
         await self._session.execute(stmt)
+
+        # Recompute the touched days' rollups from the now-current events.
+        affected_days = {event.ts.date() for event in deduped}
+        await refresh_rollups_for_days(self._session, self._dialect, affected_days)
+
         return IngestResult(
             accepted=len(deduped),
             duplicates_merged=len(events) - len(deduped),
@@ -114,7 +120,7 @@ class IngestService:
         """Upsert bootstrap daily aggregates into the rollup table."""
         await self._touch_machine(machine)
         rows = [self._rollup_row(aggregate, machine.name) for aggregate in aggregates]
-        stmt = bootstrap_rollups_upsert(self._dialect, models.DailyRollup.__table__, rows)
+        stmt = daily_rollups_upsert(self._dialect, models.DailyRollup.__table__, rows)
         await self._session.execute(stmt)
         return IngestResult(accepted=len(aggregates))
 

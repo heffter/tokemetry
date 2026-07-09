@@ -88,13 +88,14 @@ def usage_events_upsert(
     )
 
 
-def bootstrap_rollups_upsert(
+def daily_rollups_upsert(
     dialect_name: str, table: Any, rows: list[dict[str, Any]]
 ) -> DialectInsert:
-    """Build an idempotent replace-upsert for bootstrap daily rollups.
+    """Build an idempotent replace-upsert for daily rollups.
 
-    Re-importing the same aggregate cache overwrites (not accumulates) the
-    grain, so repeated bootstraps converge to the same totals.
+    Used for both bootstrap imports and event-derived refreshes: the grain
+    ``(day, provider, machine, model, project)`` is overwritten (not
+    accumulated), so recomputing a day converges to the same totals.
     """
     stmt = _insert(dialect_name, table).values(rows)
     excluded = stmt.excluded
