@@ -1,0 +1,20 @@
+{
+  "name": "@tokemetry/website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run sync:brand && astro dev",
+    "build": "npm run sync:brand && astro build",
+    "preview": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "sync:brand": "node scripts/sync-brand-assets.mjs",
+    "check": "astro check && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "astro": "^7.0.7",
+    "typescript": "~5.9.3",
+    "wrangler": "^4.107.1"
+  }
+}

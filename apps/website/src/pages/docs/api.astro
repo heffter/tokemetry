@@ -1,0 +1,20 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="API-first design" description="tokemetry treats the dashboard as one API consumer, not the only way to read usage telemetry.">
+  <h2>API surfaces</h2>
+  <p>
+    The server API is planned around ingest, rollups, limit windows, pricing, burn-rate forecasts, alert state, and machine/provider metadata.
+  </p>
+
+  <h2>Integration posture</h2>
+  <p>
+    REST endpoints should expose the same normalized values used by the dashboard. WebSocket streams can support live dashboard updates and external tools that watch current subscription-window status.
+  </p>
+
+  <h2>Provenance</h2>
+  <p>
+    Every aggregate should be explainable. API responses are expected to preserve whether a value came from local logs, stats cache bootstrap, OAuth limit signals, pricing tables, or derived rollups.
+  </p>
+</DocsLayout>

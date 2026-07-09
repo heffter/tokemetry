@@ -1,0 +1,18 @@
+<div class="flow" aria-label="tokemetry data flow">
+  <div class="flow-node">
+    <strong>Claude Code metadata</strong>
+    <span>JSONL history, stats cache, and local limit signals.</span>
+  </div>
+  <div class="flow-node">
+    <strong>Collector daemon</strong>
+    <span>Normalizes counters and queues events offline in SQLite.</span>
+  </div>
+  <div class="flow-node">
+    <strong>Private server</strong>
+    <span>Deduplicates, prices, rolls up, and predicts burn-rate.</span>
+  </div>
+  <div class="flow-node">
+    <strong>Dashboard and API</strong>
+    <span>Limit gauges, history, alerts, REST, and WebSocket feeds.</span>
+  </div>
+</div>

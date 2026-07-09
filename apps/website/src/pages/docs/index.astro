@@ -1,0 +1,26 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+
+const docs = [
+  ["Architecture", "/docs/architecture", "How collectors, core models, server APIs, and the dashboard fit together."],
+  ["Security", "/docs/security", "The privacy boundary, token handling model, and self-hosting assumptions."],
+  ["Deployment", "/docs/deployment", "The intended first self-hosted topology for collectors and the private server."],
+  ["API", "/docs/api", "The API-first design for ingest, analytics, alerts, and integrations."],
+];
+---
+
+<DocsLayout title="Documentation" description="Concise technical notes for the first tokemetry self-hosted release.">
+  <div class="doc-grid">
+    {docs.map(([title, href, copy]) => (
+      <a class="doc-card" href={href}>
+        <h3>{title}</h3>
+        <p>{copy}</p>
+      </a>
+    ))}
+  </div>
+
+  <h2>Project status</h2>
+  <p>
+    tokemetry is in early implementation. The public site describes the intended product architecture and launch direction, while the repository evolves toward the collector, server, dashboard, and deployment packages.
+  </p>
+</DocsLayout>

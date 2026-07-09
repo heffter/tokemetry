@@ -1,0 +1,25 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="Privacy and security" description="tokemetry is designed so usage telemetry can be centralized without centralizing conversation content.">
+  <h2>Privacy boundary</h2>
+  <p>
+    Conversation content, prompts, responses, and source code are not part of the website's v1 telemetry model. The collector uploads usage metadata and normalized counters needed for limit windows, burn-rate, history, and API analytics.
+  </p>
+
+  <h2>Credential handling</h2>
+  <p>
+    OAuth tokens remain on the collector machine. Server API tokens are expected to use bearer authentication and hashed storage. The production server should run on infrastructure controlled by the user.
+  </p>
+
+  <h2>Network posture</h2>
+  <p>
+    The default deployment posture is private-first: a server reachable over WireGuard or a similarly restricted network path, with HTTPS at the edge where appropriate.
+  </p>
+
+  <h2>Website collection</h2>
+  <p>
+    The public website does not add analytics, cookies, account systems, or data collection by default.
+  </p>
+</DocsLayout>

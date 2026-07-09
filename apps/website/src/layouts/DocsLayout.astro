@@ -1,0 +1,29 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<BaseLayout title={`${title} - tokemetry`} description={description} bodyClass="content-page">
+  <SiteHeader />
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <p class="eyebrow">tokemetry docs</p>
+        <h1>{title}</h1>
+        <p class="hero-copy">{description}</p>
+      </div>
+    </section>
+    <article class="container prose">
+      <slot />
+    </article>
+  </main>
+  <SiteFooter />
+</BaseLayout>

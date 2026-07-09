@@ -1,0 +1,132 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import DashboardMock from "../components/DashboardMock.astro";
+import ArchitectureDiagram from "../components/ArchitectureDiagram.astro";
+
+const features = [
+  ["Multi-machine aggregation", "One private server receives normalized usage from every development machine."],
+  ["Limit-window visibility", "Track 5-hour blocks, weekly caps, reset countdowns, and exhaustion risk."],
+  ["Burn-rate prediction", "Turn raw counters into practical pacing signals before a cap surprise."],
+  ["Provenance-tagged numbers", "Every stored number can identify whether it came from logs, cache, OAuth, or pricing tables."],
+  ["Privacy-first collection", "Conversation content stays local; tokemetry moves usage metadata and counters."],
+  ["API-first architecture", "The dashboard uses the same REST and WebSocket surfaces available to integrations."],
+  ["Multi-provider design", "Claude Code first, with provider abstractions ready for future adapters."],
+  ["Self-hosted alerts", "Route limit and burn-rate notifications through ntfy, Telegram, SMTP, or your own tooling."],
+];
+
+const problems = [
+  ["Local history is fragile", "Claude Code usage evidence is machine-local and can disappear before it becomes useful history."],
+  ["Multiple machines hide totals", "A desktop, laptop, and remote box can each look fine while the subscription window is burning fast."],
+  ["Costs are not the only signal", "Subscription users need limit-centric telemetry: caps, windows, resets, and pacing."],
+];
+
+const roadmap = ["Core + ingest", "Collector", "Analytics API", "Dashboard", "Alerting", "Deployment packaging"];
+---
+
+<BaseLayout>
+  <SiteHeader />
+  <main>
+    <section class="hero">
+      <div class="container hero-inner">
+        <div>
+          <p class="eyebrow">Self-hosted AI token telemetry</p>
+          <h1>tokemetry</h1>
+          <p class="hero-copy">
+            Track Claude Code usage across every machine, monitor subscription limits, and predict burn-rate before you hit the wall.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/heffter/tokemetry">View on GitHub</a>
+            <a class="button" href="/docs/architecture">Read the architecture</a>
+          </div>
+        </div>
+        <DashboardMock />
+      </div>
+    </section>
+
+    <section id="product" class="section light">
+      <div class="container">
+        <div class="section-header">
+          <h2>Built for Claude Code power users.</h2>
+          <p>tokemetry treats AI coding usage as operational telemetry, not a generic analytics dashboard.</p>
+        </div>
+        <div class="problem-grid">
+          {problems.map(([title, copy]) => (
+            <article class="problem-card">
+              <h3>{title}</h3>
+              <p>{copy}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Collectors normalize usage. Your server owns the history.</h2>
+          <p>
+            Collectors parse local usage metadata, queue offline-safe events, and upload normalized counters to a private server behind HTTPS or WireGuard.
+          </p>
+        </div>
+        <ArchitectureDiagram />
+      </div>
+    </section>
+
+    <section class="section alt">
+      <div class="container">
+        <div class="section-header">
+          <h2>Signals developers actually need.</h2>
+          <p>Short cards, durable data, and provider boundaries that leave room for the product to grow.</p>
+        </div>
+        <div class="feature-grid">
+          {features.map(([title, copy]) => (
+            <article class="feature-card">
+              <h3>{title}</h3>
+              <p>{copy}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Conversation content never leaves the machine.</h2>
+          <p>The collector is designed to upload usage metadata and counters, not prompts, responses, or source code.</p>
+        </div>
+        <ul class="privacy-list">
+          <li>OAuth tokens remain on the collector machine.</li>
+          <li>The server is intended to run privately, commonly behind WireGuard.</li>
+          <li>API tokens are bearer-token authenticated and stored hashed.</li>
+          <li>Stored telemetry keeps provenance attached to the number.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section light">
+      <div class="container">
+        <div class="section-header">
+          <h2>Infrastructure, not a toy script.</h2>
+          <p>Python 3.12, FastAPI, Postgres, provider adapters, strict quality gates, and a dashboard designed for repeated operational use.</p>
+        </div>
+        <div class="roadmap">
+          {roadmap.map((item) => <div class="roadmap-item">{item}</div>)}
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta">
+      <div class="container">
+        <h2>Follow the project while the first self-hosted release takes shape.</h2>
+        <div class="cta-row">
+          <a class="button primary" href="https://github.com/heffter/tokemetry">Star on GitHub</a>
+          <a class="button" href="/docs">Read the docs</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <SiteFooter />
+</BaseLayout>

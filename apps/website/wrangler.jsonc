@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "tokemetry-website",
+  "main": "./src/worker.ts",
+  "compatibility_date": "2026-07-09",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  }
+}

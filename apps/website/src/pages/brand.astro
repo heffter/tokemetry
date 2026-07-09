@@ -1,0 +1,29 @@
+---
+import DocsLayout from "../layouts/DocsLayout.astro";
+
+const assets = [
+  ["Horizontal dark", "tokemetry-logo-horizontal-dark.svg", true],
+  ["Horizontal light", "tokemetry-logo-horizontal-light.svg", false],
+  ["Vertical dark", "tokemetry-logo-vertical-dark.svg", true],
+  ["Vertical light", "tokemetry-logo-vertical-light.svg", false],
+  ["Icon dark", "tokemetry-icon-dark.svg", true],
+  ["Icon light", "tokemetry-icon-light.svg", false],
+  ["Monochrome dark", "tokemetry-logo-monochrome-dark.svg", true],
+  ["Favicon", "favicon.svg", true],
+];
+---
+
+<DocsLayout title="Brand assets" description="Production SVG assets synced from the canonical brand source in the repository.">
+  <p>
+    The source of truth is <code>assets/brand</code>. The website copies these SVGs into <code>public/brand</code> during development and build.
+  </p>
+  <div class="brand-grid">
+    {assets.map(([label, file, dark]) => (
+      <article class={`brand-tile ${dark ? "dark" : ""}`}>
+        <img src={`/brand/${file}`} alt={`${label} tokemetry asset`} />
+        <h3>{label}</h3>
+        <p><code>{file}</code></p>
+      </article>
+    ))}
+  </div>
+</DocsLayout>

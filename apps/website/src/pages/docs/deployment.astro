@@ -1,0 +1,24 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="Self-hosting deployment" description="The first deployment target is a private tokemetry server with collectors on every development machine.">
+  <h2>Expected topology</h2>
+  <p>
+    Run the server on a VPS, homelab host, or private cloud node. Place it behind WireGuard when possible. Install collectors on Windows, macOS, Linux, and remote development boxes that use Claude Code.
+  </p>
+
+  <h2>Planned components</h2>
+  <ul>
+    <li>FastAPI ingest and analytics service.</li>
+    <li>Postgres for durable normalized telemetry.</li>
+    <li>SQLite queue on each collector machine.</li>
+    <li>Vue dashboard served by the tokemetry server.</li>
+    <li>Optional alert delivery through ntfy, Telegram, SMTP, or custom webhooks.</li>
+  </ul>
+
+  <h2>Packaging roadmap</h2>
+  <p>
+    Docker Compose, service units, and collector install guides are planned after core ingest, analytics, and dashboard behavior are stable.
+  </p>
+</DocsLayout>

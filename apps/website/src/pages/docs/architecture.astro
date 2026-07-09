@@ -1,0 +1,28 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="Architecture" description="tokemetry is a self-hosted telemetry path from local Claude Code usage evidence to private server analytics.">
+  <h2>Runtime model</h2>
+  <p>
+    Collectors run on each development machine. They read local usage metadata, normalize counters, queue events when offline, and send idempotent ingest requests to a private server.
+  </p>
+
+  <pre class="code-block"><code>Claude Code JSONL / stats cache / OAuth limit source
+        |
+Collector daemon + local SQLite queue
+        | WireGuard or HTTPS
+FastAPI server + Postgres
+        |
+Dashboard / REST API / WebSocket / alerts</code></pre>
+
+  <h2>Repository boundaries</h2>
+  <p>
+    Shared models and provider abstractions live in <code>packages/core</code>. The collector belongs in <code>apps/collector</code>, ingest and analytics in <code>apps/server</code>, the product dashboard in <code>apps/dashboard</code>, and this public website in <code>apps/website</code>.
+  </p>
+
+  <h2>Provider strategy</h2>
+  <p>
+    Claude Code is the first target because subscription-window visibility is the immediate need. Provider abstractions keep pricing, provenance, and collection logic from becoming Claude-specific throughout the core.
+  </p>
+</DocsLayout>

@@ -26,6 +26,11 @@ coverage.xml
 # Node / dashboard
 node_modules/
 apps/dashboard/dist/
+apps/website/.astro/
+apps/website/.wrangler/
+apps/website/dist/
+apps/website/public/brand/
+apps/website/public/favicon.svg
 *.tsbuildinfo
 
 # Logs and local state

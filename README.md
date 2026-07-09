@@ -40,6 +40,7 @@ Machine A/B/C (Win/Linux/macOS)          Server (VPN-only)
 | `apps/server` | FastAPI service: ingest, query API, engines, alerting |
 | `apps/collector` | Cross-platform usage collector daemon |
 | `apps/dashboard` | Vue 3 + TypeScript + ECharts web dashboard |
+| `apps/website` | Astro public website and lightweight docs |
 | `packages/core` | Shared models, provider abstractions, pricing |
 | `deploy` | Docker Compose, systemd/launchd/Scheduled Task units |
 | `docs` | Architecture, API, and operations documentation |
