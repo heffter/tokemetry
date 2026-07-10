@@ -1717,12 +1717,13 @@
         "id": "40",
         "title": "Theme tokens and status contrast",
         "description": "Define --series-* tokens (or use seriesColor) so dark mode stops using hardcoded light blue (Machines/Sessions/Alerts); fix light-mode --status-warning contrast (~1.8:1); status-word/badge helper.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "theme.css: defined --series-1..5 (mirroring lib/palette.ts) in light + both dark blocks, so var(--series-1) usages (Machines share bar, Sessions sparkline, Alerts sparkline) resolve to the correct per-mode color instead of the hardcoded light-blue fallback; fixed the one remaining hardcoded #2a78d6 in Sessions .mbar. Darkened light-mode status colors so status TEXT clears WCAG AA (warning #fab219->#b45309 ~4.9:1, good/critical likewise) while adding bright variants back in the dark blocks. Added global .badge/.badge-good/-warning/-critical/-muted filled-pill classes so state reads as a badge not color-alone text. 63 tests, build+lint clean.",
+        "testStrategy": "Verify theme tokens and contrast: 1) var(--series-1) resolves to correct per-mode color in Machines share bar, Sessions sparkline, Alerts sparkline (no hardcoded light-blue fallback); 2) Sessions .mbar uses resolved color instead of hardcoded #2a78d6; 3) light-mode status TEXT meets WCAG AA (warning ~4.9:1, good/critical likewise); 4) dark blocks include bright status variants; 5) .badge/.badge-good/-warning/-critical/-muted classes render as filled-pill badges; 6) 63 tests pass, build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:30:56.212Z"
       },
       {
         "id": "41",
@@ -1826,9 +1827,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T09:23:31.635Z",
+      "lastModified": "2026-07-10T09:30:56.213Z",
       "taskCount": 49,
-      "completedCount": 39,
+      "completedCount": 40,
       "tags": [
         "master"
       ]

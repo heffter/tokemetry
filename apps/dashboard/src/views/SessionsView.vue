@@ -464,7 +464,7 @@ tfoot td {
 .mbar {
   height: 8px;
   border-radius: 4px;
-  background: #2a78d6;
+  background: var(--series-1);
   max-width: 80px;
   flex: 1;
 }
