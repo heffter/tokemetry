@@ -14,6 +14,7 @@ const links = [
   { to: '/breakdowns', label: 'Breakdowns' },
   { to: '/sessions', label: 'Sessions' },
   { to: '/machines', label: 'Machines' },
+  { to: '/report', label: 'Report' },
   { to: '/alerts', label: 'Alerts' },
   { to: '/settings', label: 'Settings' },
 ];

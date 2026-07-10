@@ -13,6 +13,7 @@ import type {
   MachineSummary,
   Overview,
   PricingRow,
+  Report,
   SessionDetail,
   SessionSummary,
   SummaryNow,
@@ -124,6 +125,10 @@ export class ApiClient {
 
   insightsAnomalies(): Promise<AnomalyReport> {
     return this.request<AnomalyReport>('/api/v1/insights/anomalies');
+  }
+
+  report(from?: string, to?: string): Promise<Report> {
+    return this.request<Report>(`/api/v1/report?${rangeParams(from, to)}`);
   }
 
   machines(): Promise<MachineSummary[]> {

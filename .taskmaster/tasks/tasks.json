@@ -2141,10 +2141,11 @@
         "description": "Report view + nav: range filter, exec summary tiles, scorecard with r/y/g badges, ranked recommendations table, per-project + per-machine tables with drift callouts.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:40:12.709Z"
       },
       {
         "id": "57",
@@ -2182,9 +2183,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T20:32:14.152Z",
+      "lastModified": "2026-07-10T20:40:12.709Z",
       "taskCount": 59,
-      "completedCount": 55,
+      "completedCount": 56,
       "tags": [
         "master"
       ]
