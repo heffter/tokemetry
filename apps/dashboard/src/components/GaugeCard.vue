@@ -75,6 +75,7 @@ const resetTitle = computed(() => {
       :projected="projected"
       :color="color"
     />
+    <div v-else class="muted spark-empty">collecting trend…</div>
     <div class="foot muted">
       <span>
         {{ limit.provenance }}
@@ -120,5 +121,11 @@ const resetTitle = computed(() => {
 }
 .stale {
   color: var(--status-warning);
+}
+.spark-empty {
+  font-size: 0.78rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
 }
 </style>

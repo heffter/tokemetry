@@ -1741,12 +1741,13 @@
         "id": "42",
         "title": "Now page representation fixes",
         "description": "Banner checks snapshot age and degrades stale headlines + status words; empty state on today-by-model; single-point sparkline fallback; guard 0.0% cache tile on no usage; adopt normalized composition.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "at-risk banner now checks the top limit's age_seconds and, when stale, says 'Limit data is Xh old ... live utilization unknown' instead of asserting current risk; added a status-word badge (OK/Warning/Critical/Stale) so state is not color-alone. today-by-model chart switched to normalized composition (100% bars) with the ChartTable carrying magnitudes, and gained a 'No usage yet today' empty state. Cache-reads tile guards the no-usage case ('—'/'no usage yet') instead of a fake 0.0%. GaugeCard shows a 'collecting trend...' placeholder when history has <=1 point instead of silently omitting the sparkline. 65 tests, build+lint clean.",
+        "testStrategy": "Verify banner displays 'Limit data is Xh old ... live utilization unknown' when age_seconds is stale; confirm status-word badge shows OK/Warning/Critical/Stale independent of color; validate today-by-model chart uses 100% normalized bars with ChartTable magnitudes and shows 'No usage yet today' empty state; ensure Cache-reads tile displays '—' or 'no usage yet' instead of 0.0%; check GaugeCard shows 'collecting trend...' placeholder when history <=1 point; run 65 tests and confirm build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:45:19.633Z"
       },
       {
         "id": "43",
@@ -1828,9 +1829,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T09:38:17.621Z",
+      "lastModified": "2026-07-10T09:45:19.635Z",
       "taskCount": 49,
-      "completedCount": 41,
+      "completedCount": 42,
       "tags": [
         "master"
       ]

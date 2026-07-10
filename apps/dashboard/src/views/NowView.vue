@@ -17,6 +17,7 @@ import {
 import {
   cacheReadShare,
   formatCost,
+  formatDuration,
   formatPct,
   formatTokens,
   modelLabel,
@@ -24,6 +25,14 @@ import {
   utilizationStatus,
   windowLabel,
 } from '@/lib/format';
+
+// A limit snapshot older than this is treated as stale (collector not polling).
+const STALE_SECONDS = 600;
+const STATUS_WORD: Record<string, string> = {
+  good: 'OK',
+  warning: 'Warning',
+  critical: 'Critical',
+};
 import { costIsTrustworthy, pricedCoverage } from '@/lib/coverage';
 import { throttle } from '@/lib/throttle';
 import type { CostResponse, StreamMessage } from '@/api/types';
@@ -40,7 +49,8 @@ const cost = ref<CostResponse | null>(null);
 const histories = ref<Record<string, number[]>>({});
 const feed = ref<FeedRow[]>([]);
 
-// The single most-at-risk window, promoted to a headline banner.
+// The single most-at-risk window, promoted to a headline banner. Stale limit
+// data is called out as stale rather than asserted as current risk.
 const atRisk = computed(() => {
   const s = summary.value;
   if (!s || s.limits.length === 0) return null;
@@ -48,14 +58,24 @@ const atRisk = computed(() => {
   if (p && p.predicted_exhaustion_at) {
     return {
       level: 'critical',
+      label: 'Critical',
       text: `You will hit your ${windowLabel(p.window_kind)} in ${timeUntil(p.predicted_exhaustion_at)} — ${p.utilization_pct.toFixed(0)}%, climbing ${p.slope_pct_per_min.toFixed(1)}%/min`,
     };
   }
   const top = [...s.limits].sort(
     (a, b) => b.utilization_pct - a.utilization_pct
   )[0];
+  if (top.age_seconds >= STALE_SECONDS) {
+    return {
+      level: 'warning',
+      label: 'Stale',
+      text: `Limit data is ${formatDuration(top.age_seconds)} old — the collector last reported then, so live utilization is unknown.`,
+    };
+  }
+  const level = utilizationStatus(top.utilization_pct);
   return {
-    level: utilizationStatus(top.utilization_pct),
+    level,
+    label: STATUS_WORD[level],
     text: `${windowLabel(top.window_kind)} at ${formatPct(top.utilization_pct)} — resets ${timeUntil(top.resets_at)}`,
   };
 });
@@ -79,17 +99,31 @@ const updatedAgo = computed(() => {
   return `updated ${secs}s ago`;
 });
 
+// Composition (normalized) so cache-read dominance does not crush the other
+// components; the ChartTable below carries the absolute magnitudes.
 const modelChart = computed(() => {
   const models = summary.value?.today.by_model ?? [];
   return stackedTokenBarOption(
     models.map((m) => modelLabel(m.key)),
-    models
+    models,
+    { normalized: true }
   );
 });
 
 const cacheShare = computed(() =>
   cacheReadShare(summary.value?.today.by_model ?? [])
 );
+
+// Guard the cache tile so a no-usage day reads "no usage yet", not a fake 0.0%.
+const cacheTile = computed(() => {
+  const models = summary.value?.today.by_model ?? [];
+  const total = models.reduce((sum, m) => sum + m.total_tokens, 0);
+  if (total === 0) return { value: '—', sub: 'no usage yet today' };
+  return {
+    value: formatPct(cacheShare.value * 100),
+    sub: "of today's tokens served from cache",
+  };
+});
 
 // Coverage of today's cost: never present a bare dollar figure derived from
 // a price table that does not price every model in use.
@@ -179,6 +213,9 @@ onBeforeUnmount(() => {
   <AsyncState :loading="loading && !summary" :error="error" @retry="retry">
     <template v-if="summary">
       <div v-if="atRisk" class="banner" :class="atRisk.level">
+        <span class="badge" :class="`badge-${atRisk.level}`">{{
+          atRisk.label
+        }}</span>
         {{ atRisk.text }}
       </div>
 
@@ -213,8 +250,8 @@ onBeforeUnmount(() => {
         />
         <StatTile
           label="Cache reads"
-          :value="formatPct(cacheShare * 100)"
-          sub="of today's tokens served from cache"
+          :value="cacheTile.value"
+          :sub="cacheTile.sub"
         />
         <StatTile
           v-if="summary.prediction"
@@ -226,14 +263,18 @@ onBeforeUnmount(() => {
 
       <section class="card">
         <h3>Today by model (token composition)</h3>
-        <EChart :option="modelChart" height="320px" />
-        <ChartTable
-          caption="Today's tokens by model and token type"
-          :columns="['Model', ...TOKEN_TABLE_HEADERS]"
-          :rows="
-            tokenTableRows(summary.today.by_model, (b) => modelLabel(b.key))
-          "
-        />
+        <template v-if="summary.today.by_model.length">
+          <EChart :option="modelChart" height="320px" />
+          <p class="muted small">Bars show composition (each model = 100%).</p>
+          <ChartTable
+            caption="Today's tokens by model and token type"
+            :columns="['Model', ...TOKEN_TABLE_HEADERS]"
+            :rows="
+              tokenTableRows(summary.today.by_model, (b) => modelLabel(b.key))
+            "
+          />
+        </template>
+        <p v-else class="muted">No usage yet today.</p>
       </section>
 
       <section class="card">
@@ -262,6 +303,10 @@ section {
   margin-bottom: 1.25rem;
   font-weight: 600;
   border: 1px solid var(--border);
+}
+.banner .badge {
+  margin-right: 0.5rem;
+  vertical-align: middle;
 }
 .banner.good {
   background: color-mix(in srgb, var(--status-good) 12%, transparent);
