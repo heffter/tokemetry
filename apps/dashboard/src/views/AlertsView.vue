@@ -14,7 +14,12 @@ import {
   timeAgo,
   windowLabel,
 } from '@/lib/format';
-import type { AlertEvent, AlertRule, AlertRuleInput } from '@/api/client';
+import type {
+  AlertEvent,
+  AlertRule,
+  AlertRuleInput,
+  Channel,
+} from '@/api/client';
 import type { Limit, MachineSummary, SummaryNow } from '@/api/types';
 
 const { loading, error, run, retry } = useAsync();
@@ -166,6 +171,50 @@ async function testChannel(channel: string): Promise<void> {
     : `${channel}: not configured or failed`;
 }
 
+const channels = ref<Channel[]>([]);
+const channelDrafts = ref<Record<string, Record<string, string>>>({});
+const channelStatus = ref<Record<string, string>>({});
+
+function fieldLabel(name: string): string {
+  return name.replace(/^(ntfy|telegram|smtp)_/, '').replace(/_/g, ' ');
+}
+
+async function loadChannels(): Promise<void> {
+  const report = await useClient().getChannels();
+  channels.value = report.channels;
+  const drafts: Record<string, Record<string, string>> = {};
+  for (const ch of report.channels) {
+    drafts[ch.name] = {};
+    for (const f of ch.fields) {
+      // Secrets start blank (their placeholder shows the masked saved value);
+      // non-secrets are pre-filled and editable.
+      drafts[ch.name][f.name] = f.is_secret ? '' : f.value;
+    }
+  }
+  channelDrafts.value = drafts;
+}
+
+async function saveChannel(name: string): Promise<void> {
+  channelStatus.value = { ...channelStatus.value, [name]: 'saving…' };
+  const ch = channels.value.find((c) => c.name === name);
+  const draft = channelDrafts.value[name] ?? {};
+  const payload: Record<string, string> = {};
+  for (const f of ch?.fields ?? []) {
+    const value = draft[f.name] ?? '';
+    // A blank secret means "leave unchanged" (omit); everything else is sent,
+    // including an empty non-secret which clears back to the env default.
+    if (f.is_secret && value === '') continue;
+    payload[f.name] = value;
+  }
+  try {
+    await useClient().putChannel(name, payload);
+    await loadChannels();
+    channelStatus.value = { ...channelStatus.value, [name]: 'saved' };
+  } catch (e) {
+    channelStatus.value = { ...channelStatus.value, [name]: String(e) };
+  }
+}
+
 async function loadRules(): Promise<void> {
   const client = useClient();
   rules.value = await client.alertRules();
@@ -178,6 +227,7 @@ async function load(): Promise<void> {
     summary.value = await client.summaryNow();
     machines.value = await client.machines();
     await loadRules();
+    await loadChannels();
   });
 }
 
@@ -381,6 +431,40 @@ onMounted(() => {
     </section>
 
     <section class="card">
+      <h3>Notification channels</h3>
+      <div v-for="ch in channels" :key="ch.name" class="channel">
+        <div class="channel-head">
+          <strong>{{ ch.name }}</strong>
+          <span
+            class="badge"
+            :class="ch.configured ? 'badge-good' : 'badge-muted'"
+          >
+            {{ ch.configured ? 'configured' : 'not set' }}
+          </span>
+        </div>
+        <div class="channel-fields">
+          <label v-for="f in ch.fields" :key="f.name" class="field">
+            <span class="muted small">{{ fieldLabel(f.name) }}</span>
+            <input
+              v-model="channelDrafts[ch.name][f.name]"
+              :type="f.is_secret ? 'password' : 'text'"
+              :placeholder="
+                f.is_secret ? (f.is_set ? `saved (${f.value})` : 'not set') : ''
+              "
+            />
+          </label>
+        </div>
+        <div class="channel-actions">
+          <button @click="saveChannel(ch.name)">Save</button>
+          <button class="ghost" @click="testChannel(ch.name)">Test</button>
+          <span v-if="channelStatus[ch.name]" class="muted small">{{
+            channelStatus[ch.name]
+          }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
       <h3>Recent alerts</h3>
       <ul class="events">
         <li v-for="event in events" :key="event.id">
@@ -552,5 +636,38 @@ button {
   padding: 0.5rem;
   overflow-x: auto;
   font-size: 0.8rem;
+}
+.channel {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.channel:last-child {
+  border-bottom: none;
+}
+.channel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  text-transform: capitalize;
+}
+.channel-fields {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.field input {
+  width: 180px;
+}
+.channel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 </style>

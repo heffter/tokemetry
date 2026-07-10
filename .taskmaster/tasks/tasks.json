@@ -2031,13 +2031,97 @@
       {
         "id": "54",
         "title": "Alert channel settings UI",
-        "description": "Channels card on Alerts page: per-channel forms (ntfy/telegram/smtp), masked placeholders, save-then-test, configured badge; client get/put methods.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "Alerts page gains a Notification channels card: per-channel (ntfy/telegram/smtp) field forms with humanized labels, secrets shown as password inputs with a 'saved (...last4)' placeholder (blank = leave unchanged), non-secrets pre-filled, a configured/not-set badge, Save + Test buttons, and per-channel status. saveChannel omits blank secrets (unchanged) and sends the rest (empty non-secret clears to env), then reloads. client.ts getChannels/putChannel + Channel/ChannelField types. 70 dashboard tests; build+lint clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "details": "",
+        "testStrategy": "Dashboard: verify Notification channels card renders with per-channel forms (ntfy/telegram/smtp), humanized labels, password inputs for secrets with 'saved (...last4)' placeholder, blank secrets leave unchanged, non-secrets pre-fill, configured/not-set badge, per-channel status, Save + Test buttons work with save-then-test flow (blank secrets omitted, empty non-secrets clear to env, reloads). Backend integration: test getChannels/putChannel via client.ts. Run 70 dashboard tests; confirm build+lint clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Notification channels card UI structure",
+            "description": "Implement Notification channels card on Alerts page with per-channel forms for ntfy/telegram/smtp",
+            "dependencies": [],
+            "details": "Forms must include humanized labels for all fields",
+            "status": "pending",
+            "testStrategy": "Verify card renders with three channel form sections and humanized labels appear correctly",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Secret masking and placeholder logic",
+            "description": "Implement password inputs for secrets with 'saved (...last4)' placeholder and blank = leave unchanged behavior",
+            "dependencies": [
+              1
+            ],
+            "details": "Non-secrets must be pre-filled from existing values",
+            "status": "pending",
+            "testStrategy": "Test that secrets show as password inputs with last4 placeholder, blank input leaves unchanged, non-secrets pre-fill correctly",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Channel status badges",
+            "description": "Add configured/not-set badge and per-channel status indicators",
+            "dependencies": [
+              2
+            ],
+            "details": "Badge reflects whether channel is configured in DB",
+            "status": "pending",
+            "testStrategy": "Verify badge shows 'configured' when DB has values, 'not-set' otherwise; status indicator updates correctly",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Save and test button functionality",
+            "description": "Implement Save + Test buttons with save-then-test flow",
+            "dependencies": [
+              3
+            ],
+            "details": "saveChannel omits blank secrets, sends rest (empty non-secret clears to env), then reloads channels",
+            "status": "pending",
+            "testStrategy": "Test save-then-test flow: blank secrets omitted, empty non-secrets clear to env, channels reload after save",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Client API methods and types",
+            "description": "Add client.ts getChannels/putChannel methods and Channel/ChannelField types",
+            "dependencies": [
+              4
+            ],
+            "details": "Types must match backend Channel/ChannelField schema from Task 53",
+            "status": "pending",
+            "testStrategy": "Verify getChannels returns Channel array, putChannel sends ChannelField correctly, types match backend",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Dashboard test coverage",
+            "description": "Write 70 dashboard tests for Notification channels card",
+            "dependencies": [
+              5
+            ],
+            "details": "Cover all UI states, save/test flow, secret masking, badge logic",
+            "status": "pending",
+            "testStrategy": "Run 70 dashboard tests covering card rendering, form interactions, save/test, secret masking, badges",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Build and lint cleanup",
+            "description": "Ensure build and lint are clean",
+            "dependencies": [
+              6
+            ],
+            "details": "No TypeScript errors, ESLint warnings, or formatting issues",
+            "status": "pending",
+            "testStrategy": "Run build and lint commands, verify zero errors/warnings",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-10T20:22:25.439Z"
       },
       {
         "id": "55",
@@ -2097,9 +2181,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T20:16:18.985Z",
+      "lastModified": "2026-07-10T20:22:25.440Z",
       "taskCount": 59,
-      "completedCount": 53,
+      "completedCount": 54,
       "tags": [
         "master"
       ]

@@ -221,6 +221,21 @@ export class ApiClient {
     );
   }
 
+  getChannels(): Promise<ChannelsResponse> {
+    return this.request<ChannelsResponse>('/api/v1/alerts/channels');
+  }
+
+  putChannel(
+    name: string,
+    fields: Record<string, string>
+  ): Promise<ChannelsResponse> {
+    return this.request<ChannelsResponse>(
+      `/api/v1/alerts/channels/${encodeURIComponent(name)}`,
+      'PUT',
+      fields
+    );
+  }
+
   listTokens(): Promise<TokenInfo[]> {
     return this.request<TokenInfo[]>('/api/v1/tokens');
   }
@@ -277,6 +292,23 @@ export interface AlertRuleInput {
   channels: string[];
   cooldown_seconds: number;
   enabled: boolean;
+}
+
+export interface ChannelField {
+  name: string;
+  value: string;
+  is_secret: boolean;
+  is_set: boolean;
+}
+
+export interface Channel {
+  name: string;
+  configured: boolean;
+  fields: ChannelField[];
+}
+
+export interface ChannelsResponse {
+  channels: Channel[];
 }
 
 export interface AlertEvent {
