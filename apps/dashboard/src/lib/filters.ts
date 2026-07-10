@@ -24,6 +24,30 @@ export function isoDay(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Inclusive list of YYYY-MM-DD days from ``from`` to ``to`` (capped at 800).
+ *
+ * Used to gap-fill a daily chart so calendar days with no usage render as zero
+ * rather than being silently spliced out of a category axis.
+ */
+export function enumerateDays(from: string, to: string): string[] {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    start > end
+  ) {
+    return [];
+  }
+  const days: string[] = [];
+  const cursor = new Date(start);
+  while (cursor <= end && days.length < 800) {
+    days.push(isoDay(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return days;
+}
+
 const DAYS_BACK: Record<string, number> = {
   today: 0,
   '7d': 6,

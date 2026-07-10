@@ -21,9 +21,34 @@ import {
   formatTokens,
   modelLabel,
 } from '@/lib/format';
-import { presetRange } from '@/lib/filters';
+import { enumerateDays, presetRange } from '@/lib/filters';
 import type { UsageFilter } from '@/lib/filters';
 import type { Overview, UsageBucket } from '@/api/types';
+
+function zeroBucket(key: string): UsageBucket {
+  return {
+    key,
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_short_tokens: 0,
+    cache_write_long_tokens: 0,
+    total_tokens: 0,
+    cost_usd: null,
+  };
+}
+
+/** "2026-06-01" -> "Jun 1" (UTC), for a compact day axis label. */
+function shortDay(key: string): string {
+  const date = new Date(`${key}T00:00:00Z`);
+  return Number.isNaN(date.getTime())
+    ? key
+    : date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC',
+      });
+}
 
 const { loading, error, run, retry } = useAsync();
 const dimension = ref<'model' | 'machine' | 'project'>('model');
@@ -36,20 +61,30 @@ const projects = ref<string[]>([]);
 // Default matches the FilterBar's initial 30d preset until it emits.
 const filter = ref<UsageFilter>(presetRange('30d'));
 
-const option = computed(() =>
-  stackedAreaOption(
-    dayBuckets.value.map((b) => b.key),
+// Gap-fill the daily series over its own span so days with no usage render as
+// zero instead of being silently collapsed out of the axis.
+const option = computed(() => {
+  const buckets = dayBuckets.value;
+  if (buckets.length === 0) return stackedAreaOption([], []);
+  const byKey = new Map(buckets.map((b) => [b.key, b]));
+  const keys = [...byKey.keys()].sort();
+  const days = enumerateDays(keys[0], keys[keys.length - 1]);
+  const filled = days.map((d) => byKey.get(d) ?? zeroBucket(d));
+  return stackedAreaOption(
+    days.map(shortDay),
     TOKEN_COMPONENTS.map((component) => ({
       name: component.label,
-      values: dayBuckets.value.map(component.get),
+      values: filled.map(component.get),
     }))
-  )
-);
+  );
+});
 
 const dimSorted = computed(() =>
   [...dimBuckets.value].sort((a, b) => b.total_tokens - a.total_tokens)
 );
 
+// Normalized so composition is comparable across categories despite the ~1000x
+// magnitude spread and cache-read dominance.
 const dimChart = computed(() =>
   stackedTokenBarOption(
     dimSorted.value.map((b) =>
@@ -57,7 +92,8 @@ const dimChart = computed(() =>
         ? modelLabel(b.key)
         : b.key || '(unattributed)'
     ),
-    dimSorted.value
+    dimSorted.value,
+    { normalized: true }
   )
 );
 
@@ -94,13 +130,24 @@ async function loadAll(): Promise<void> {
 }
 
 async function loadStatic(): Promise<void> {
-  const client = useClient();
-  overview.value = await client.summaryOverview();
-  machines.value = (await client.machines()).map((m) => m.id);
-  const all = presetRange('all');
-  projects.value = (await client.usage({ groupBy: 'project', ...all })).buckets
-    .sort((a, b) => b.total_tokens - a.total_tokens)
-    .map((b) => b.key || '(unattributed)');
+  // Filter options and the summary strip are non-critical chrome; a failure
+  // here must not blank the page, so swallow and leave them empty.
+  try {
+    const client = useClient();
+    overview.value = await client.summaryOverview();
+    machines.value = (await client.machines()).map((m) => m.id);
+    const all = presetRange('all');
+    projects.value = (
+      await client.usage({ groupBy: 'project', ...all })
+    ).buckets
+      // Drop the empty (unattributed/bootstrap) key: it has no project to
+      // filter by, and sending its label as the value matched nothing.
+      .filter((b) => b.key)
+      .sort((a, b) => b.total_tokens - a.total_tokens)
+      .map((b) => b.key);
+  } catch {
+    projects.value = [];
+  }
 }
 
 function setDimension(next: 'model' | 'machine' | 'project'): void {
@@ -120,11 +167,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <AsyncState
-    :loading="loading && dayBuckets.length === 0"
-    :error="error"
-    @retry="retry"
-  >
+  <div>
+    <!-- Summary strip and filters live outside AsyncState so a chart-load
+         error never removes the controls the user needs to recover. -->
     <section v-if="overview" class="grid tiles">
       <StatTile
         label="All-time tokens"
@@ -150,28 +195,34 @@ onMounted(() => {
 
     <FilterBar :machines="machines" :projects="projects" @change="onFilter" />
 
-    <section class="card">
-      <h3>Daily tokens</h3>
-      <EChart :option="option" height="320px" />
-      <p class="muted note">Days are bucketed in UTC.</p>
-    </section>
-    <section class="card">
-      <div class="toolbar">
-        <h3>By {{ dimension }}</h3>
-        <div class="toggle">
-          <button
-            v-for="d in dims"
-            :key="d"
-            :class="{ active: dimension === d }"
-            @click="setDimension(d)"
-          >
-            {{ d }}
-          </button>
+    <AsyncState
+      :loading="loading && dayBuckets.length === 0"
+      :error="error"
+      @retry="retry"
+    >
+      <section class="card">
+        <h3>Daily tokens</h3>
+        <EChart :option="option" height="320px" />
+        <p class="muted note">Days are bucketed in UTC; gaps show as zero.</p>
+      </section>
+      <section class="card">
+        <div class="toolbar">
+          <h3>By {{ dimension }} (composition)</h3>
+          <div class="toggle">
+            <button
+              v-for="d in dims"
+              :key="d"
+              :class="{ active: dimension === d }"
+              @click="setDimension(d)"
+            >
+              {{ d }}
+            </button>
+          </div>
         </div>
-      </div>
-      <EChart :option="dimChart" height="320px" />
-    </section>
-  </AsyncState>
+        <EChart :option="dimChart" height="320px" />
+      </section>
+    </AsyncState>
+  </div>
 </template>
 
 <style scoped>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isoDay, presetRange } from './filters';
+import { enumerateDays, isoDay, presetRange } from './filters';
 
 describe('presetRange', () => {
   const now = new Date('2026-07-09T12:00:00Z');
@@ -34,5 +34,23 @@ describe('presetRange', () => {
 describe('isoDay', () => {
   it('formats the UTC calendar day', () => {
     expect(isoDay(new Date('2026-01-02T23:30:00Z'))).toBe('2026-01-02');
+  });
+});
+
+describe('enumerateDays', () => {
+  it('lists every day inclusive, filling gaps', () => {
+    expect(enumerateDays('2026-06-01', '2026-06-04')).toEqual([
+      '2026-06-01',
+      '2026-06-02',
+      '2026-06-03',
+      '2026-06-04',
+    ]);
+  });
+  it('returns a single day when from equals to', () => {
+    expect(enumerateDays('2026-06-01', '2026-06-01')).toEqual(['2026-06-01']);
+  });
+  it('returns empty for an inverted or invalid range', () => {
+    expect(enumerateDays('2026-06-04', '2026-06-01')).toEqual([]);
+    expect(enumerateDays('nope', '2026-06-01')).toEqual([]);
   });
 });
