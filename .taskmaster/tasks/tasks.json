@@ -1814,10 +1814,11 @@
         "description": "Distinguish idle/no-active-block from live (stop labeling stale block 'Current'); extend chart to now so trailing gap shows; encode true block duration as bar width; footer total cost; drop/relocate all-null End-util column; latest block first.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-07-10T10:21:46.340Z"
       },
       {
         "id": "48",
@@ -1844,9 +1845,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T10:15:08.177Z",
+      "lastModified": "2026-07-10T10:21:46.342Z",
       "taskCount": 49,
-      "completedCount": 46,
+      "completedCount": 47,
       "tags": [
         "master"
       ]

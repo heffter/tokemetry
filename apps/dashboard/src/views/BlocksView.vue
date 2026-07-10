@@ -20,42 +20,65 @@ import type { Block } from '@/api/types';
 const { loading, error, run, retry } = useAsync();
 const blocks = ref<Block[]>([]);
 const hours = ref(48);
+const nowMs = ref(Date.now());
 const ranges = [
   { label: '48h', hours: 48 },
   { label: '7d', hours: 168 },
   { label: '30d', hours: 720 },
 ];
 
-// The current block contains "now"; otherwise the most recent one.
-const current = computed<Block | null>(() => {
-  const nowMs = Date.now();
+// The block containing "now" is live; otherwise the most recent one is shown
+// but flagged as not in progress, so a long-idle block is never called
+// "current" at a stale utilization.
+const currentInfo = computed<{ block: Block | null; live: boolean }>(() => {
   const inProgress = blocks.value.find(
     (b) =>
-      new Date(b.start).getTime() <= nowMs && nowMs < new Date(b.end).getTime()
+      new Date(b.start).getTime() <= nowMs.value &&
+      nowMs.value < new Date(b.end).getTime()
   );
-  return inProgress ?? blocks.value[blocks.value.length - 1] ?? null;
+  if (inProgress) return { block: inProgress, live: true };
+  return { block: blocks.value[blocks.value.length - 1] ?? null, live: false };
 });
+const current = computed(() => currentInfo.value.block);
+const isLive = computed(() => currentInfo.value.live);
 
 const currentStatus = computed(() =>
-  current.value?.end_utilization_pct != null
+  isLive.value && current.value?.end_utilization_pct != null
     ? utilizationStatus(current.value.end_utilization_pct)
     : 'good'
 );
 
+// Anchor the right edge to "now" so the trailing idle gap since the last block
+// is visible rather than the axis stopping at the last bar.
 const chart = computed(() =>
   timeBarOption(
     blocks.value.map((b) => [new Date(b.start).getTime(), b.total_tokens]),
-    'tokens'
+    'tokens',
+    { axisMax: nowMs.value }
   )
 );
 
-const totals = computed(() => ({
-  tokens: blocks.value.reduce((s, b) => s + b.total_tokens, 0),
-  peak: Math.max(0, ...blocks.value.map((b) => b.peak_tokens_per_min)),
-}));
+// Latest block first: the row you care about should not be buried at the bottom.
+const tableBlocks = computed(() => [...blocks.value].reverse());
+
+const rangeLabel = computed(
+  () => ranges.find((r) => r.hours === hours.value)?.label ?? ''
+);
+
+const totals = computed(() => {
+  const priced = blocks.value.filter((b) => b.cost_usd !== null);
+  return {
+    tokens: blocks.value.reduce((s, b) => s + b.total_tokens, 0),
+    peak: Math.max(0, ...blocks.value.map((b) => b.peak_tokens_per_min)),
+    cost: priced.length
+      ? priced.reduce((s, b) => s + Number(b.cost_usd), 0)
+      : null,
+  };
+});
 
 async function load(): Promise<void> {
   await run(async () => {
+    nowMs.value = Date.now();
     blocks.value = await useClient().blocks(hours.value);
   });
 }
@@ -73,11 +96,15 @@ onMounted(load);
     :loading="loading && blocks.length === 0"
     :error="error"
     :empty="!loading && blocks.length === 0"
-    empty-text="No blocks in this range."
+    :empty-text="`No blocks in the last ${rangeLabel}.`"
     @retry="retry"
   >
     <section v-if="current" class="card hero" :class="currentStatus">
-      <div class="muted label">Current 5-hour block</div>
+      <div class="muted label">
+        {{
+          isLive ? 'Current 5-hour block' : 'Last block — no active block now'
+        }}
+      </div>
       <div class="row">
         <div class="metric">
           <div class="big tabular">
@@ -97,7 +124,7 @@ onMounted(load);
         </div>
         <div class="metric">
           <div class="big tabular">{{ timeUntil(current.end) }}</div>
-          <div class="muted">until reset</div>
+          <div class="muted">{{ isLive ? 'until reset' : 'ended' }}</div>
         </div>
         <div class="metric">
           <div class="big tabular">
@@ -133,29 +160,16 @@ onMounted(load);
             <th class="num">Tokens</th>
             <th class="num">Peak (tok/min)</th>
             <th class="num">Cost</th>
-            <th class="num">End util</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="block in blocks" :key="block.start">
+          <tr v-for="block in tableBlocks" :key="block.start">
             <td>{{ formatDateTime(block.start) }}</td>
             <td class="num tabular">{{ formatTokens(block.total_tokens) }}</td>
             <td class="num tabular">
               {{ formatTokens(block.peak_tokens_per_min) }}
             </td>
-            <td class="num tabular">
-              <span v-if="block.cost_usd === null" class="muted">—</span>
-              <template v-else>{{ formatCost(block.cost_usd) }}</template>
-            </td>
-            <td class="num tabular">
-              <span
-                v-if="block.end_utilization_pct !== null"
-                :class="`util ${utilizationStatus(block.end_utilization_pct)}`"
-              >
-                {{ formatPct(block.end_utilization_pct) }}
-              </span>
-              <span v-else class="muted">—</span>
-            </td>
+            <td class="num tabular">{{ formatCost(block.cost_usd) }}</td>
           </tr>
         </tbody>
         <tfoot>
@@ -163,7 +177,9 @@ onMounted(load);
             <td>{{ blocks.length }} blocks</td>
             <td class="num tabular">{{ formatTokens(totals.tokens) }}</td>
             <td class="num tabular">{{ formatTokens(totals.peak) }}</td>
-            <td colspan="2"></td>
+            <td class="num tabular">
+              {{ totals.cost === null ? '—' : formatCost(String(totals.cost)) }}
+            </td>
           </tr>
         </tfoot>
       </table>
