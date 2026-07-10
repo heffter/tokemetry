@@ -225,3 +225,18 @@ class ApiToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_used: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class AppSetting(Base):
+    """A runtime key/value setting (e.g. UI-editable alert channel config).
+
+    Values are stored as strings and coerced on read. Editable channel secrets
+    live here so they can be changed from the UI; env settings remain the
+    fallback when a key is absent or blank.
+    """
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(String(2000), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

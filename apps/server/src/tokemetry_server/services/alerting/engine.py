@@ -57,6 +57,10 @@ class AlertEngine:
         self._notifiers = notifiers
         self._tz = _resolve_zone(timezone)
 
+    def reconfigure(self, notifiers: dict[str, Notifier]) -> None:
+        """Swap the notifier registry (after channel settings change)."""
+        self._notifiers = notifiers
+
     async def run(
         self, session: AsyncSession, now: datetime | None = None
     ) -> list[FiredAlert]:

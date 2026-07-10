@@ -2018,14 +2018,15 @@
       },
       {
         "id": "53",
-        "title": "Alert channel settings backend (DB-stored, env fallback)",
-        "description": "app_settings KV table + migration; channel_config service merging DB over env (DB wins when set); notifier reconfigure without restart; GET/PUT /alerts/channels with masked secrets. Update secrets-in-env docstrings. Tests: masking, precedence, reconfigure, clear-to-env.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "title": "Alert channel settings backend (DB-stored, env fallback), ",
+        "description": "Alert channel settings now DB-editable with env fallback. Migration 0003 adds an app_settings KV table and AppSetting model. services/channel_config.py: resolve_channel_settings merges non-empty channel.* DB values over env Settings (model_copy), coercing port->int/tls->bool. channel_views returns per-channel configured state + masked secrets (last-4). save_channel_config upserts (absent field = unchanged, '' = clear to env). AlertEngine.reconfigure hot-swaps notifiers. app.py resolves channel settings at startup; PUT rebuilds+reconfigutes without restart. API: GET /api/v1/alerts/channels + PUT /channels/{name} beside the test endpoint. Updated secrets-in-env docstrings. Tests (7): precedence, clear-to-env, masking, port coercion, API get/put+hot-swap, unknown-channel 404. 145 server tests; ruff/mypy/trivy clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "Implementation complete:\n- Migration 0003: app_settings KV table + AppSetting model\n- services/channel_config.py: resolve_channel_settings (DB over env, model_copy, port->int/tls->bool coercion)\n- channel_views: per-channel state + masked secrets (last-4)\n- save_channel_config: upsert logic (absent=unchanged, ''=clear to env)\n- AlertEngine.reconfigure: hot-swap notifiers\n- app.py: startup resolution + PUT rebuild/reconfigure without restart\n- API endpoints: GET /api/v1/alerts/channels, PUT /channels/{name}\n- Documentation: updated secrets-in-env docstrings\n- Tests: 7 tests covering precedence, clear-to-env, masking, port coercion, API get/put+hot-swap, unknown-channel 404\n- Quality: 145 server tests; ruff/mypy/trivy clean",
+        "testStrategy": "Test precedence (DB wins when set), clear-to-env ('' clears to env), secret masking (last-4 visible), port/tls coercion (port->int, tls->bool), API get/put with hot-swap reconfigure, unknown-channel 404. Run pytest with coverage >= 80%. Validate ruff/mypy strict/trivy zero issues. Verify 145 server tests pass.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:16:18.983Z"
       },
       {
         "id": "54",
@@ -2096,9 +2097,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T20:05:07.887Z",
+      "lastModified": "2026-07-10T20:16:18.985Z",
       "taskCount": 59,
-      "completedCount": 52,
+      "completedCount": 53,
       "tags": [
         "master"
       ]
