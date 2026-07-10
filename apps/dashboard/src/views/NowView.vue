@@ -34,6 +34,7 @@ const STATUS_WORD: Record<string, string> = {
   critical: 'Critical',
 };
 import { costIsTrustworthy, pricedCoverage } from '@/lib/coverage';
+import { loadSelection, saveSelection } from '@/composables/useSettings';
 import { throttle } from '@/lib/throttle';
 import type { CostResponse, StreamMessage } from '@/api/types';
 import type { SummaryNow } from '@/api/types';
@@ -100,13 +101,20 @@ const updatedAgo = computed(() => {
 });
 
 // Composition (normalized) so cache-read dominance does not crush the other
-// components; the ChartTable below carries the absolute magnitudes.
+// components; the ChartTable below carries the absolute magnitudes. Cache-read
+// is deselected by default (it dominates and is misleading in a composition);
+// hiding it re-normalizes the rest to 100%.
+const selection = ref(loadSelection('now-model', { 'cache read': false }));
+function onLegend(sel: Record<string, boolean>): void {
+  selection.value = sel;
+  saveSelection('now-model', sel);
+}
 const modelChart = computed(() => {
   const models = summary.value?.today.by_model ?? [];
   return stackedTokenBarOption(
     models.map((m) => modelLabel(m.key)),
     models,
-    { normalized: true }
+    { normalized: true, selected: selection.value }
   );
 });
 
@@ -264,7 +272,11 @@ onBeforeUnmount(() => {
       <section class="card">
         <h3>Today by model (token composition)</h3>
         <template v-if="summary.today.by_model.length">
-          <EChart :option="modelChart" height="320px" />
+          <EChart
+            :option="modelChart"
+            height="320px"
+            @legend-select="onLegend"
+          />
           <p class="muted small">Bars show composition (each model = 100%).</p>
           <ChartTable
             caption="Today's tokens by model and token type"

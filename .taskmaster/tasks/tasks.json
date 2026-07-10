@@ -1930,13 +1930,79 @@
       {
         "id": "51",
         "title": "Cache-read off by default, selection-aware percent, sticky selection",
-        "description": "EChart emits legendselectchanged; stacked builders accept a selected map, set legend.selected, normalize percent over selected components only; views default cache-read off, persist selection, survive auto-refresh. Unit tests.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "EChart emits legendselectchanged (chart.on 'legendselectchanged') because notMerge wipes selection each render. stackedTokenBarOption/stackedAreaOption accept a selected map → set legend.selected AND compute the normalized denominator from only visible components, so hiding cache-read re-normalizes the rest to 100%. Views hold a selection ref (default {'cache read': false}), feed it to builders (auto-refresh preserves it), update from the legend event, and persist per-view via loadSelection/saveSelection in useSettings (localStorage). Cache-read is OFF by default on every composition chart (Now model, Trends daily+dimension, Breakdowns 3 stacks). Unit test covers the re-normalize math. 70 dashboard tests pass; build+lint clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "Implementation: 1) Set cache-read OFF by default on all composition charts. 2) Wire EChart legendselectchanged event to update view selection ref. 3) Pass selected map to stacked builders; builders set legend.selected and compute normalized percent over visible components only. 4) Views persist selection per-view using loadSelection/saveSelection in useSettings (localStorage). 5) Auto-refresh feeds existing selection ref to builders. 6) Unit test validates re-normalize math. Verification: 70 dashboard tests pass; build+lint+format clean.",
+        "testStrategy": "Unit test: validate re-normalize math (hiding cache-read → rest re-normalizes to 100%). Dashboard: 70 tests pass. Build/lint: clean. Verify: cache-read OFF by default on all composition charts; legend event updates selection; selection persists via localStorage; auto-refresh preserves selection.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Default cache-read OFF",
+            "description": "Set cache-read OFF by default on all composition charts (Now model, Trends daily+dimension, Breakdowns 3 stacks).",
+            "dependencies": [],
+            "details": "Update chart builder defaults to disable cache-read across composition chart types.",
+            "status": "done",
+            "testStrategy": "Verify default cache-read is false in chart options for Now, Trends, and Breakdowns composition charts.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Wire legend event + persist selection",
+            "description": "Wire EChart legendselectchanged event to update view selection ref and persist via localStorage.",
+            "dependencies": [
+              1
+            ],
+            "details": "Add chart.on('legendselectchanged') handler in views; update selection ref; call loadSelection/saveSelection in useSettings.",
+            "status": "done",
+            "testStrategy": "Test that legend selection updates view selection ref and persists across reloads via localStorage.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Selection-aware percent normalization",
+            "description": "Implement selection-aware percent normalization in stacked builders.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "stackedTokenBarOption/stackedAreaOption accept selected map → set legend.selected AND compute normalized denominator from visible components only.",
+            "status": "done",
+            "testStrategy": "Unit test covers re-normalize math: hiding cache-read re-normalizes rest to 100%.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Auto-refresh preserves selection",
+            "description": "Ensure auto-refresh preserves selection by feeding selection ref to builders.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Views hold selection ref; auto-refresh passes it to builders so selection survives refresh.",
+            "status": "done",
+            "testStrategy": "Verify selection persists after auto-refresh without user re-interaction.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Unit test + dashboard tests",
+            "description": "Write unit test for re-normalize math and run 70 dashboard tests.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Unit test validates that hiding cache-read re-normalizes visible components to 100%. Run full dashboard test suite.",
+            "status": "done",
+            "testStrategy": "Unit test: re-normalize math. Dashboard: 70 tests pass; build+lint+format clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-10T19:58:40.817Z"
       },
       {
         "id": "52",
@@ -2029,9 +2095,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T19:48:12.565Z",
+      "lastModified": "2026-07-10T19:58:40.818Z",
       "taskCount": 59,
-      "completedCount": 50,
+      "completedCount": 51,
       "tags": [
         "master"
       ]

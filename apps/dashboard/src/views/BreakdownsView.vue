@@ -23,6 +23,7 @@ import {
   modelLabel,
 } from '@/lib/format';
 import { cacheSavingsUsd } from '@/lib/coverage';
+import { loadSelection, saveSelection } from '@/composables/useSettings';
 import { presetRange } from '@/lib/filters';
 import type { UsageFilter } from '@/lib/filters';
 import type { HeatmapResponse, PricingRow, UsageBucket } from '@/api/types';
@@ -40,7 +41,16 @@ const filter = ref<UsageFilter>(presetRange('30d'));
 // Absolute magnitude vs normalized composition (100% bars); the latter keeps
 // small components legible under cache-read dominance.
 const mode = ref<'absolute' | 'percent'>('absolute');
-const stackOpts = computed(() => ({ normalized: mode.value === 'percent' }));
+// Cache-read deselected by default; hiding it re-normalizes the rest to 100%.
+const selection = ref(loadSelection('breakdowns', { 'cache read': false }));
+function onLegend(sel: Record<string, boolean>): void {
+  selection.value = sel;
+  saveSelection('breakdowns', sel);
+}
+const stackOpts = computed(() => ({
+  normalized: mode.value === 'percent',
+  selected: selection.value,
+}));
 
 const cacheSavings = computed(() =>
   cacheSavingsUsd(byModel.value, pricing.value)
@@ -205,7 +215,7 @@ onMounted(() => {
       </section>
       <section class="card">
         <h3>By model</h3>
-        <EChart :option="modelChart" height="300px" />
+        <EChart :option="modelChart" height="300px" @legend-select="onLegend" />
         <ChartTable
           caption="Tokens by model and token type"
           :columns="['Model', ...TOKEN_TABLE_HEADERS]"
@@ -214,7 +224,11 @@ onMounted(() => {
       </section>
       <section class="card">
         <h3>By machine</h3>
-        <EChart :option="machineChart" height="300px" />
+        <EChart
+          :option="machineChart"
+          height="300px"
+          @legend-select="onLegend"
+        />
         <ChartTable
           caption="Tokens by machine and token type"
           :columns="['Machine', ...TOKEN_TABLE_HEADERS]"
@@ -223,7 +237,11 @@ onMounted(() => {
       </section>
       <section class="card">
         <h3>By project</h3>
-        <EChart :option="projectChart" height="300px" />
+        <EChart
+          :option="projectChart"
+          height="300px"
+          @legend-select="onLegend"
+        />
         <ChartTable
           caption="Tokens by project and token type"
           :columns="['Project', ...TOKEN_TABLE_HEADERS]"
