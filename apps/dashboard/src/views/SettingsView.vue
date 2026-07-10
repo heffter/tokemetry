@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Settings: theme, API token management, and pricing management (the screen
 // that fixes the app-wide "cost n/a" problem).
-import { onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
   applyTheme,
   storedTheme,
@@ -31,10 +31,46 @@ const unpricedModels = ref<string[]>([]);
 const newLabel = ref('');
 const minted = ref<CreatedToken | null>(null);
 const priceStatus = ref('');
+const tokenStatus = ref('');
 const { error, run } = useAsync();
 const { clearToken } = useToken();
 
 const today = new Date().toISOString().slice(0, 10);
+
+interface ActivePrice extends PricingRow {
+  historyCount: number;
+}
+
+// One row per model showing the price active today (latest effective date not
+// in the future) plus how many historical rows exist, so the table answers
+// "what am I paying now" instead of dumping every superseded price.
+const activePricing = computed<ActivePrice[]>(() => {
+  const byModel = new Map<string, PricingRow[]>();
+  for (const row of pricing.value) {
+    byModel.set(row.model, [...(byModel.get(row.model) ?? []), row]);
+  }
+  const rows: ActivePrice[] = [];
+  for (const list of byModel.values()) {
+    const byDateDesc = [...list].sort((a, b) =>
+      a.effective_date < b.effective_date ? 1 : -1
+    );
+    const active =
+      byDateDesc.find((r) => r.effective_date <= today) ?? byDateDesc[0];
+    rows.push({ ...active, historyCount: list.length });
+  }
+  return rows.sort((a, b) => (a.model < b.model ? -1 : 1));
+});
+
+// Timezone options grouped by region (continent) so the ~400-entry list is a
+// set of small groups rather than one flat wall.
+const timezoneGroups = computed(() => {
+  const groups = new Map<string, string[]>();
+  for (const zone of timezones) {
+    const region = zone.includes('/') ? zone.split('/')[0] : 'Other';
+    groups.set(region, [...(groups.get(region) ?? []), zone]);
+  }
+  return [...groups.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+});
 const priceForm = ref<PriceRowInput>(blankPrice());
 
 function blankPrice(): PriceRowInput {
@@ -123,18 +159,57 @@ async function recompute(): Promise<void> {
 }
 
 async function mint(): Promise<void> {
+  tokenStatus.value = '';
   if (!newLabel.value.trim()) return;
-  minted.value = await useClient().createToken(newLabel.value.trim());
-  newLabel.value = '';
-  await load();
+  try {
+    minted.value = await useClient().createToken(newLabel.value.trim());
+    newLabel.value = '';
+    await load();
+  } catch (e) {
+    tokenStatus.value = String(e);
+  }
 }
 
 async function revoke(label: string): Promise<void> {
+  if (
+    !window.confirm(
+      `Revoke token "${label}"? Any client using it will stop working.`
+    )
+  ) {
+    return;
+  }
+  tokenStatus.value = '';
+  try {
+    await doRevoke(label);
+  } catch (e) {
+    tokenStatus.value = String(e);
+  }
+}
+
+async function doRevoke(label: string): Promise<void> {
   await useClient().revokeToken(label);
   await load();
 }
 
-onMounted(load);
+function disconnect(): void {
+  if (window.confirm('Disconnect and forget the API token on this device?')) {
+    clearToken();
+  }
+}
+
+let previewTimer: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  void load();
+  // Keep the "now" preview live so it is not frozen at page-load time.
+  previewTimer = setInterval(() => {
+    nowPreview.value = new Date().toISOString();
+  }, 30000);
+});
+
+onBeforeUnmount(() => {
+  if (previewTimer) clearInterval(previewTimer);
+});
 </script>
 
 <template>
@@ -158,7 +233,13 @@ onMounted(load);
         @change="setTimezone(($event.target as HTMLSelectElement).value)"
       >
         <option value="">Auto — browser ({{ browserTimezone() }})</option>
-        <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
+        <optgroup
+          v-for="[region, zones] in timezoneGroups"
+          :key="region"
+          :label="region"
+        >
+          <option v-for="tz in zones" :key="tz" :value="tz">{{ tz }}</option>
+        </optgroup>
       </select>
       <span class="muted">now: {{ formatDateTime(nowPreview) }}</span>
     </div>
@@ -176,15 +257,16 @@ onMounted(load);
 
     <div v-if="unpricedModels.length" class="banner">
       <strong>{{ unpricedModels.length }}</strong> model(s) in use have no price
-      (cost shows as unpriced):
-      <span
+      (cost shows as unpriced) — click to prefill:
+      <button
         v-for="m in unpricedModels"
         :key="m"
+        type="button"
         class="chip"
         @click="prefill(m)"
       >
-        {{ modelLabel(m) }} — add price
-      </span>
+        {{ modelLabel(m) }}
+      </button>
     </div>
 
     <div class="form">
@@ -207,11 +289,14 @@ onMounted(load);
     </div>
     <div v-if="priceStatus" class="muted status">{{ priceStatus }}</div>
 
+    <p class="muted status">
+      Active price per model (latest effective date). All prices are per million
+      tokens (/MTok).
+    </p>
     <div class="scroll">
       <table>
         <thead>
           <tr>
-            <th>Provider</th>
             <th>Model</th>
             <th>Effective</th>
             <th class="num">Input</th>
@@ -223,13 +308,21 @@ onMounted(load);
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="row in pricing"
-            :key="`${row.provider}-${row.model}-${row.effective_date}`"
-          >
-            <td>{{ row.provider }}</td>
-            <td>{{ modelLabel(row.model) }}</td>
-            <td class="tabular">{{ row.effective_date }}</td>
+          <tr v-for="row in activePricing" :key="row.model">
+            <td>
+              <span :title="row.model">{{ modelLabel(row.model) }}</span>
+              <span
+                v-if="row.historyCount > 1"
+                class="muted small"
+                :title="`${row.historyCount} price rows on record`"
+              >
+                · {{ row.historyCount }} versions</span
+              >
+            </td>
+            <td class="tabular">
+              {{ row.effective_date }}
+              <span class="badge badge-good current">current</span>
+            </td>
             <td class="num tabular">{{ formatCost(row.input_per_mtok) }}</td>
             <td class="num tabular">{{ formatCost(row.output_per_mtok) }}</td>
             <td class="num tabular">
@@ -251,6 +344,7 @@ onMounted(load);
   <section class="card">
     <h3>API tokens</h3>
     <div v-if="error" class="muted">{{ error }}</div>
+    <div v-if="tokenStatus" class="token-error">{{ tokenStatus }}</div>
     <div class="mint">
       <input v-model="newLabel" placeholder="label (e.g. openclaw)" />
       <button @click="mint">Create</button>
@@ -271,7 +365,7 @@ onMounted(load);
   </section>
 
   <section class="card">
-    <button class="danger" @click="clearToken">
+    <button class="danger" @click="disconnect">
       Disconnect (forget token)
     </button>
   </section>
@@ -358,9 +452,22 @@ input.wide {
   border-radius: 999px;
   cursor: pointer;
   background: var(--surface);
+  font: inherit;
+  color: var(--text-primary);
 }
 .status {
   font-size: 0.85rem;
+}
+.small {
+  font-size: 0.8rem;
+}
+.current {
+  margin-left: 0.4rem;
+}
+.token-error {
+  color: var(--status-critical);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
 }
 .minted code {
   word-break: break-all;

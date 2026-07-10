@@ -1835,20 +1835,92 @@
       {
         "id": "49",
         "title": "Settings page representation fixes",
-        "description": "Pricing table: current-active-price indicator + sort + collapse superseded rows; timezone picker region grouping + UTC offset; confirm revoke/disconnect; accessible banner buttons; surface API error detail; tick now preview; label add-price inputs with units.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "Pricing table collapses to one active-price row per model (latest effective date <= today) with a 'current' badge and a '• N versions' note, sorted by model, dropping the redundant all-anthropic Provider column and the wall of superseded rows; model id shown as a title tooltip to disambiguate collapsed labels. Timezone picker groups its ~400 options into <optgroup> by region. Revoke and Disconnect now confirm before acting. Unpriced-banner chips are real <button>s (keyboard/SR accessible). client.request() reads the server's error detail into ApiError; mint/revoke wrapped with a token-error surface. 'now' preview ticks every 30s instead of freezing at load. 68 dashboard tests; build+lint clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "details": "",
+        "testStrategy": "Dashboard: verify pricing table collapse, timezone grouping, confirmation dialogs, accessible buttons, API error surfacing, and 'now' preview ticking. Backend: test client.request() error detail extraction and token-error wrapping. Run 68 dashboard tests; confirm build+lint clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Collapse pricing table to active rows",
+            "description": "Pricing table: collapse to one active-price row per model (latest effective date <= today) with 'current' badge and '• N versions' note; sort by model; drop Provider column; drop superseded rows; show model id as title tooltip.",
+            "dependencies": [],
+            "details": "Implement collapse logic to select the latest effective price per model where effective_date <= today. Add badge and version count note. Remove Provider column and all superseded rows. Ensure model id is visible via tooltip for disambiguation.",
+            "status": "done",
+            "testStrategy": "Verify pricing table shows exactly one row per model with correct badge and version count. Confirm Provider column is removed and no superseded rows appear. Check tooltip displays model id.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Group timezone options by region",
+            "description": "Timezone picker: group ~400 options into <optgroup> by region.",
+            "dependencies": [],
+            "details": "Refactor timezone <select> to use <optgroup> elements grouped by geographic region for better navigation.",
+            "status": "done",
+            "testStrategy": "Confirm timezone picker displays options grouped by region using <optgroup>. Verify all ~400 options are present and correctly grouped.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add confirmation for Revoke/Disconnect",
+            "description": "Revoke/Disconnect: add confirmation before acting.",
+            "dependencies": [],
+            "details": "Add modal confirmation step before executing Revoke or Disconnect actions to prevent accidental clicks.",
+            "status": "done",
+            "testStrategy": "Trigger Revoke and Disconnect actions and verify confirmation modal appears. Confirm action only proceeds after user confirmation.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Make banner chips accessible buttons",
+            "description": "Unpriced-banner chips: convert to real <button>s for keyboard/SR accessibility.",
+            "dependencies": [],
+            "details": "Replace unpriced-banner chips with native <button> elements to ensure keyboard navigation and screen reader accessibility.",
+            "status": "done",
+            "testStrategy": "Verify unpriced-banner chips are <button> elements. Test keyboard navigation and screen reader access.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Surface API error detail",
+            "description": "API error detail: client.request() reads server error detail into ApiError; wrap mint/revoke with token-error surface.",
+            "dependencies": [],
+            "details": "Update client.request() to extract server error detail and populate ApiError. Add token-error surface wrapping for mint/revoke operations.",
+            "status": "done",
+            "testStrategy": "Simulate API error and confirm client.request() populates ApiError with server detail. Verify mint/revoke operations show token-error surface.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Make 'now' preview tick every 30s",
+            "description": "'now' preview: tick every 30s instead of freezing at load.",
+            "dependencies": [],
+            "details": "Implement 30-second interval timer for 'now' preview to update live instead of freezing at initial load.",
+            "status": "done",
+            "testStrategy": "Verify 'now' preview updates every 30 seconds. Confirm it does not freeze at load time.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Add dashboard tests and clean build/lint",
+            "description": "Add 68 dashboard tests and ensure build+lint clean.",
+            "dependencies": [],
+            "details": "Write 68 new dashboard tests covering the updated functionality. Ensure build and lint processes pass without errors.",
+            "status": "done",
+            "testStrategy": "Run dashboard test suite and confirm 68 tests pass. Execute build and lint commands to verify clean output.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-10T10:42:51.784Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T10:32:51.508Z",
+      "lastModified": "2026-07-10T10:42:51.790Z",
       "taskCount": 49,
-      "completedCount": 48,
+      "completedCount": 49,
       "tags": [
         "master"
       ]

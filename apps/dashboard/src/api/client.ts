@@ -64,7 +64,19 @@ export class ApiClient {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!response.ok) {
-      throw new ApiError(response.status, `request failed: ${response.status}`);
+      // Surface the server's error detail (FastAPI returns {detail: ...}) so
+      // callers can show why a request failed, not just the status code.
+      let detail = '';
+      try {
+        const body = (await response.json()) as { detail?: unknown };
+        if (typeof body?.detail === 'string') detail = `: ${body.detail}`;
+      } catch {
+        // Non-JSON error body; the status alone will have to do.
+      }
+      throw new ApiError(
+        response.status,
+        `request failed (${response.status})${detail}`
+      );
     }
     if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
