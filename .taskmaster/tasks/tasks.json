@@ -1914,13 +1914,124 @@
           }
         ],
         "updatedAt": "2026-07-10T10:42:51.784Z"
+      },
+      {
+        "id": "50",
+        "title": "Gauge trend readability (fix slider-lookalike)",
+        "description": "GaugeCard: render sparkline only with >=4 points (else show 'collecting 24h trend…'), add '24h trend' caption, thin stroke (2→1.75px), and pass filled area wash + no end dot via new Sparkline props (endDot default true, area default false; other usages unchanged) so it reads as a chart not a slider.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "The 'extra control' under the gauge bars was the 24h sparkline: 3 near-flat points rendered as a thin line + end dot looked like a slider thumb. GaugeCard now renders the sparkline only with >=4 points, adds a '24h trend' caption, and passes a filled area wash + no end dot via new Sparkline props. Line thinned from 2px to 1.75px. 68 dashboard tests passed; build+lint clean.",
+        "testStrategy": "Verify sparkline is hidden and shows 'collecting 24h trend…' when points < 4; confirm sparkline renders with >=4 points. Validate '24h trend' caption appears. Check stroke width is 1.75px, filled area wash is applied, and end dot is absent. Run 68 dashboard tests; ensure build and lint are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T19:48:12.563Z"
+      },
+      {
+        "id": "51",
+        "title": "Cache-read off by default, selection-aware percent, sticky selection",
+        "description": "EChart emits legendselectchanged; stacked builders accept a selected map, set legend.selected, normalize percent over selected components only; views default cache-read off, persist selection, survive auto-refresh. Unit tests.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "52",
+        "title": "Brand assets on the dashboard",
+        "description": "Add public/ with brand SVGs; wire favicon in index.html; replace text brand in App.vue header + gate with icon+wordmark, light/dark variants.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "53",
+        "title": "Alert channel settings backend (DB-stored, env fallback)",
+        "description": "app_settings KV table + migration; channel_config service merging DB over env (DB wins when set); notifier reconfigure without restart; GET/PUT /alerts/channels with masked secrets. Update secrets-in-env docstrings. Tests: masking, precedence, reconfigure, clear-to-env.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "54",
+        "title": "Alert channel settings UI",
+        "description": "Channels card on Alerts page: per-channel forms (ntfy/telegram/smtp), masked placeholders, save-then-test, configured badge; client get/put methods.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "55",
+        "title": "Optimization report backend",
+        "description": "report service: global scorecard (cache-hit, tokens/turn, verbosity, model mix, sidechain/unattributed share, session-length dist, inflection freq, tokens/day), per-project + per-machine tables + config drift; rule engine (threshold->recommendation+estimated impact tokens/week and % cap); GET /api/v1/report. Unit-test rules.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "56",
+        "title": "Optimization report dashboard page",
+        "description": "Report view + nav: range filter, exec summary tiles, scorecard with r/y/g badges, ranked recommendations table, per-project + per-machine tables with drift callouts.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "57",
+        "title": "LLM-ready optimization export",
+        "description": "GET /api/v1/report/export: self-contained markdown with embedded analysis prompt (Max framing + requested output structure), data dictionary, compact aggregated tables; compact/full sizes; export buttons on Report page. Size-budget test.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "58",
+        "title": "Service packaging and per-platform docs",
+        "description": "Native systemd unit for the server; polish collector units (Win Scheduled Task + NSSM note, launchd, systemd); per-platform collector docs (Windows/Linux/macOS) + native server doc; README links; shellcheck new scripts.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "59",
+        "title": "Data retention documentation",
+        "description": "Document that every usage event is retained indefinitely (no pruning) and only backup dumps are pruned, so the report relies on full history. docs/architecture/retention.md; no code change.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T10:42:51.790Z",
-      "taskCount": 49,
-      "completedCount": 49,
+      "lastModified": "2026-07-10T19:48:12.565Z",
+      "taskCount": 59,
+      "completedCount": 50,
       "tags": [
         "master"
       ]

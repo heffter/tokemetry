@@ -13,6 +13,10 @@ const props = withDefaults(
     width?: number;
     height?: number;
     markerIndex?: number | null;
+    // A filled wash under the line, and the end dot, both help a flat series
+    // read as a chart rather than a slider track with a thumb.
+    endDot?: boolean;
+    area?: boolean;
   }>(),
   {
     max: 100,
@@ -21,6 +25,8 @@ const props = withDefaults(
     width: 220,
     height: 34,
     markerIndex: null,
+    endDot: true,
+    area: false,
   }
 );
 
@@ -32,6 +38,13 @@ const geo = computed(() =>
     props.max,
     props.projected
   )
+);
+
+// Close the line down to the baseline corners for a filled area wash.
+const areaPoints = computed(() =>
+  geo.value.last
+    ? `${geo.value.points} ${props.width},${props.height} 0,${props.height}`
+    : ''
 );
 
 // A vertical guide at a notable index (e.g. a session's inflection turn).
@@ -54,11 +67,12 @@ const markerX = computed(() => {
     preserveAspectRatio="none"
     aria-hidden="true"
   >
+    <polygon v-if="area" :points="areaPoints" :fill="color" opacity="0.12" />
     <polyline
       :points="geo.points"
       fill="none"
       :stroke="color"
-      stroke-width="2"
+      stroke-width="1.75"
       stroke-linejoin="round"
     />
     <polyline
@@ -80,7 +94,13 @@ const markerX = computed(() => {
       stroke-width="1.5"
       stroke-dasharray="2 2"
     />
-    <circle :cx="geo.last[0]" :cy="geo.last[1]" r="2.5" :fill="color" />
+    <circle
+      v-if="endDot"
+      :cx="geo.last[0]"
+      :cy="geo.last[1]"
+      r="2.5"
+      :fill="color"
+    />
   </svg>
 </template>
 
