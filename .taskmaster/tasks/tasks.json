@@ -2007,13 +2007,14 @@
       {
         "id": "52",
         "title": "Brand assets on the dashboard",
-        "description": "Add public/ with brand SVGs; wire favicon in index.html; replace text brand in App.vue header + gate with icon+wordmark, light/dark variants.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "Brand assets wired: copied favicon.svg + horizontal/vertical logo SVGs (light+dark bg variants) into apps/dashboard/public/; index.html wired with <link rel=icon type=image/svg+xml href=/favicon.svg>; App.vue header displays horizontal logo (RouterLink to home) and token gate displays vertical logo; light/dark variants switch via global .brand-logo rules in theme.css matching prefers-color-scheme + data-theme mechanism. 70 dashboard tests; build+lint clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "details": "Implementation completed:\n- Copied favicon.svg and horizontal/vertical logo SVGs (light+dark variants) to apps/dashboard/public/\n- Vite serves assets at root; confirmed copied to dist\n- index.html: added <link rel=icon type=image/svg+xml href=/favicon.svg>\n- App.vue header: horizontal logo with RouterLink to home\n- Token gate: vertical logo\n- theme.css: global .brand-logo rules handle light/dark switching via prefers-color-scheme + data-theme\n- 70 dashboard tests passing\n- Build and lint clean",
+        "testStrategy": "Verify favicon appears in browser tab. Confirm horizontal logo in App.vue header links to home. Confirm vertical logo appears in token gate. Test light/dark variant switching by toggling prefers-color-scheme and data-theme. Run dashboard tests (70 tests). Validate build and lint pass with zero issues.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:05:07.886Z"
       },
       {
         "id": "53",
@@ -2095,9 +2096,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T19:58:40.818Z",
+      "lastModified": "2026-07-10T20:05:07.887Z",
       "taskCount": 59,
-      "completedCount": 51,
+      "completedCount": 52,
       "tags": [
         "master"
       ]

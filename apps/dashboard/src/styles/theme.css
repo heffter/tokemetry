@@ -156,3 +156,29 @@ a {
   color: var(--text-muted);
   background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 }
+
+/* Brand logo variants: show the light-background lockup by default, the
+   dark-background one when the effective theme is dark (system or explicit). */
+.brand-logo.dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  .brand-logo.light {
+    display: none;
+  }
+  .brand-logo.dark {
+    display: block;
+  }
+}
+:root[data-theme='dark'] .brand-logo.light {
+  display: none;
+}
+:root[data-theme='dark'] .brand-logo.dark {
+  display: block;
+}
+:root[data-theme='light'] .brand-logo.light {
+  display: block;
+}
+:root[data-theme='light'] .brand-logo.dark {
+  display: none;
+}

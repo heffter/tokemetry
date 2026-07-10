@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="tokemetry favicon">
+  <defs>
+    <linearGradient id="tokemetry-accent" x1="56" y1="98" x2="238" y2="158" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#27D8F3"/><stop offset="1" stop-color="#45E08D"/></linearGradient>
+    <linearGradient id="tokemetry-frame" x1="46" y1="30" x2="218" y2="226" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2E8391"/><stop offset="1" stop-color="#256D78"/></linearGradient>
+  </defs>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M132 30 L218 80 L218 176 L132 226 L46 176 L46 80 Z" fill="none" stroke="url(#tokemetry-frame)" stroke-width="14" opacity="0.9"/>
+    <polygon points="93.32,136 76,146 58.68,136 58.68,116 76,106 93.32,116" fill="url(#tokemetry-accent)"/>
+    <path d="M98 126 C126 126 145 126 164 126 L174 104 L186 152 L198 112 L211 132 L226 126" fill="none" stroke="url(#tokemetry-accent)" stroke-width="12"/>
+    <path d="M234 90 Q240 90 240 96 L240 160 Q240 166 234 166" fill="none" stroke="url(#tokemetry-accent)" stroke-width="10" opacity="0.96"/>
+  </g>
+</svg>

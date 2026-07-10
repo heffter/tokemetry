@@ -28,7 +28,18 @@ function saveToken(): void {
 <template>
   <div v-if="!token" class="gate">
     <div class="card gate-card">
-      <h1>tokemetry</h1>
+      <div class="gate-logo">
+        <img
+          class="brand-logo light"
+          src="/logo-vertical-light.svg"
+          alt="tokemetry"
+        />
+        <img
+          class="brand-logo dark"
+          src="/logo-vertical-dark.svg"
+          alt="tokemetry"
+        />
+      </div>
       <p class="muted">Enter an API token to connect to your server.</p>
       <input
         v-model="draft"
@@ -42,7 +53,18 @@ function saveToken(): void {
 
   <div v-else class="app">
     <header class="topbar">
-      <span class="brand">tokemetry</span>
+      <RouterLink to="/" class="brand" aria-label="tokemetry home">
+        <img
+          class="brand-logo light"
+          src="/logo-horizontal-light.svg"
+          alt="tokemetry"
+        />
+        <img
+          class="brand-logo dark"
+          src="/logo-horizontal-dark.svg"
+          alt="tokemetry"
+        />
+      </RouterLink>
       <nav>
         <RouterLink
           v-for="link in links"
@@ -74,8 +96,20 @@ function saveToken(): void {
   flex-wrap: wrap;
 }
 .brand {
-  font-weight: 700;
-  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+}
+.brand .brand-logo {
+  height: 26px;
+  display: block;
+}
+.gate-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+.gate-logo .brand-logo {
+  height: 96px;
 }
 nav {
   display: flex;
