@@ -108,7 +108,25 @@ export function calendarOption(days: UsageBucket[]): EChartsCoreOption {
   };
 }
 
-/** The five token components, in a fixed hue order, with an accessor. */
+/** Sum of the five explicitly-tracked token components in a bucket. */
+export function trackedTokens(b: UsageBucket): number {
+  return (
+    b.input_tokens +
+    b.output_tokens +
+    b.cache_read_tokens +
+    b.cache_write_short_tokens +
+    b.cache_write_long_tokens
+  );
+}
+
+/** The token components, in a fixed hue order, with an accessor.
+ *
+ * "other" reconciles the five tracked components with total_tokens: it is
+ * whatever the total carries beyond them (historical bootstrap aggregates and
+ * any token type without a per-event breakdown). Without it, buckets whose
+ * total exceeds the tracked sum draw a stacked bar shorter than their labelled
+ * total, and a total-only bootstrap bucket would render at zero height.
+ */
 export const TOKEN_COMPONENTS: {
   label: string;
   get: (b: UsageBucket) => number;
@@ -118,6 +136,10 @@ export const TOKEN_COMPONENTS: {
   { label: 'cache read', get: (b) => b.cache_read_tokens },
   { label: 'cache write 5m', get: (b) => b.cache_write_short_tokens },
   { label: 'cache write 1h', get: (b) => b.cache_write_long_tokens },
+  {
+    label: 'other',
+    get: (b) => Math.max(0, b.total_tokens - trackedTokens(b)),
+  },
 ];
 
 /** Header labels for the token-composition accessible table (value columns). */
@@ -127,6 +149,7 @@ export const TOKEN_TABLE_HEADERS = [
   'Cache read',
   'Write 5m',
   'Write 1h',
+  'Other',
   'Total',
 ];
 

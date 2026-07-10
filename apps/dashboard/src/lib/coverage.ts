@@ -9,7 +9,7 @@ export interface Coverage {
   totalTokens: number;
   /** priced / total in [0, 1]; 1 when there is no usage. */
   ratio: number;
-  /** Group keys (models) that have usage but no cost. */
+  /** Models with priceable usage but no cost — adding a price would fix these. */
   unpricedKeys: string[];
 }
 
@@ -17,6 +17,30 @@ interface CostBucket {
   key: string;
   total_tokens: number;
   cost_usd: string | null;
+  // Optional component fields; when absent a bucket is assumed priceable.
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_tokens?: number;
+  cache_write_short_tokens?: number;
+  cache_write_long_tokens?: number;
+}
+
+/** True when a bucket has per-event token components a price could apply to.
+ *
+ * Bootstrap/historical aggregates carry only a total (no component breakdown),
+ * so no price can ever resolve their cost — flagging them as "add a price" is
+ * a dead end. Buckets without component fields are treated as priceable.
+ */
+function isPriceable(bucket: CostBucket): boolean {
+  if (bucket.input_tokens === undefined) return true;
+  return (
+    (bucket.input_tokens ?? 0) +
+      (bucket.output_tokens ?? 0) +
+      (bucket.cache_read_tokens ?? 0) +
+      (bucket.cache_write_short_tokens ?? 0) +
+      (bucket.cache_write_long_tokens ?? 0) >
+    0
+  );
 }
 
 /** Compute priced coverage across a set of usage buckets. */
@@ -26,10 +50,10 @@ export function pricedCoverage(buckets: CostBucket[]): Coverage {
   const unpriced: string[] = [];
   for (const bucket of buckets) {
     total += bucket.total_tokens;
-    if (bucket.cost_usd === null) {
-      unpriced.push(bucket.key);
-    } else {
+    if (bucket.cost_usd !== null) {
       priced += bucket.total_tokens;
+    } else if (isPriceable(bucket)) {
+      unpriced.push(bucket.key);
     }
   }
   return {

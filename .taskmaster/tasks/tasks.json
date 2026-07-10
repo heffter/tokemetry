@@ -1688,13 +1688,146 @@
         "testStrategy": "1. Unit-test `cacheSavingsUsd(buckets, prices)` with sample data covering multiple models and rate variations.\n2. Verify Breakdowns cache card displays correct 'Caching saved ~$X' value and reassurance copy.\n3. Confirm Now-page Plan value tile labels window as 'last 30d'.\n4. Run 59 dashboard tests; ensure all pass.\n5. Validate build+lint are clean.",
         "subtasks": [],
         "updatedAt": "2026-07-09T21:48:24.445Z"
+      },
+      {
+        "id": "38",
+        "title": "Token reconciliation and unattributed components",
+        "description": "Components dont sum to total_tokens (uncaptured reasoning tokens?) and bootstrap rows have zero components; capture/reconcile so stacks and table match total, and price models that show null cost despite price rows.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Investigation: derived per-event rollups reconcile EXACTLY (diff=0, fully priced); the entire component-vs-total gap is 108 bootstrap 'stats_cache' rows carrying total_tokens (60M) with zero components and null cost, and the 3 'unpriced-despite-price' models are bootstrap-only (no per-event detail to price) -- so no parser bug. Fix (frontend, honest reconciliation): added an 'other' TOKEN_COMPONENTS entry = max(0, total - sum of 5 tracked) + 'Other' table column, so stacks/table reconcile to total and the 60M unattributed/bootstrap bar renders instead of drawing 0px. Refined pricedCoverage: buckets with zero priceable components are excluded from the actionable unpricedKeys (adding a price cannot resolve bootstrap-only cost) while still counting against coverage ratio. 60 dashboard tests pass; build+lint clean.",
+        "testStrategy": "Verify frontend reconciliation: 1) 'Other' TOKEN_COMPONENTS entry renders correctly as max(0, total - sum of 5 tracked); 2) 'Other' table column displays unattributed tokens; 3) 60M unattributed/bootstrap bar renders instead of 0px; 4) pricedCoverage excludes buckets with zero priceable components from actionable unpricedKeys while counting against coverage ratio; 5) 60 dashboard tests pass; 6) build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:13:54.237Z"
+      },
+      {
+        "id": "39",
+        "title": "Shared formatters: formatCost, modelLabel, timeUntil",
+        "description": "formatCost thousands separators + consistent decimals; modelLabel handles Claude 3.x family and disambiguates collapsed ids; timeUntil returns 'ended Xh ago' for past times. Unit tests.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "40",
+        "title": "Theme tokens and status contrast",
+        "description": "Define --series-* tokens (or use seriesColor) so dark mode stops using hardcoded light blue (Machines/Sessions/Alerts); fix light-mode --status-warning contrast (~1.8:1); status-word/badge helper.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "41",
+        "title": "Chart builders for skewed and dominant-series data",
+        "description": "100%-normalized stacked option (or cache-read split) for 96%-cache composition; stacked-segment borders; long-category label rotation/truncation; piecewise/log visualMap for power-law heatmaps; log/percentile magnitude option.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "42",
+        "title": "Now page representation fixes",
+        "description": "Banner checks snapshot age and degrades stale headlines + status words; empty state on today-by-model; single-point sparkline fallback; guard 0.0% cache tile on no usage; adopt normalized composition.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "43",
+        "title": "Trends page representation fixes",
+        "description": "Daily chart time-axis with gap-filled missing days + label rotation; fix project filter sending label '(unattributed)' as value; refetch error must not remove FilterBar; lower area opacity; normalized composition.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "44",
+        "title": "Breakdowns page representation fixes",
+        "description": "Wire machine/project into heatmap (or scope visibly); cache stats as tiles + show cache-read share; normalized stacks + segment borders + long labels; piecewise heatmap visualMap; wire AsyncState empty.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "45",
+        "title": "Sessions page representation fixes",
+        "description": "Top-N label by session id + click-through; Insights show driving metric per reason + explicable ranking; log/threshold magnitude bar; visible inflection marker + sparkline tooltip; anomaly error state; fix hardcoded series color.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "46",
+        "title": "Machines page representation fixes",
+        "description": "Real re-poll timer (not just ticking clock); handle N=1 fleet share + de-dup footer; status as a word not color-alone; fix hardcoded series color.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "47",
+        "title": "Blocks page representation fixes",
+        "description": "Distinguish idle/no-active-block from live (stop labeling stale block 'Current'); extend chart to now so trailing gap shows; encode true block duration as bar width; footer total cost; drop/relocate all-null End-util column; latest block first.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": "48",
+        "title": "Alerts page representation fixes",
+        "description": "Show warn AND crit in live current-vs-threshold; add collector_stale live value; validate create form (numeric, warn<crit, non-empty channels); surface migrated rule legacy threshold; filled state/severity badges + info severity; fix sparkline color.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": "49",
+        "title": "Settings page representation fixes",
+        "description": "Pricing table: current-active-price indicator + sort + collapse superseded rows; timezone picker region grouping + UTC offset; confirm revoke/disconnect; accessible banner buttons; surface API error detail; tick now preview; label add-price inputs with units.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T21:48:24.446Z",
-      "taskCount": 37,
-      "completedCount": 37,
+      "lastModified": "2026-07-10T09:13:54.238Z",
+      "taskCount": 49,
+      "completedCount": 38,
       "tags": [
         "master"
       ]

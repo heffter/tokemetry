@@ -30,6 +30,26 @@ describe('pricedCoverage', () => {
     expect(costIsTrustworthy(c)).toBe(true);
   });
 
+  it('does not flag component-less bootstrap buckets as add-a-price', () => {
+    const c = pricedCoverage([
+      {
+        key: 'historical',
+        total_tokens: 60_000_000,
+        cost_usd: null,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_short_tokens: 0,
+        cache_write_long_tokens: 0,
+      },
+      { key: 'opus', total_tokens: 100, cost_usd: '1', input_tokens: 100 },
+    ]);
+    // historical has no priceable components -> not in the actionable list,
+    // but still counts against coverage (its cost is genuinely unknown).
+    expect(c.unpricedKeys).toEqual([]);
+    expect(c.ratio).toBeCloseTo(100 / 60_000_100);
+  });
+
   it('is trustworthy exactly at the threshold', () => {
     const c = pricedCoverage([
       { key: 'a', total_tokens: 90, cost_usd: '1' },
