@@ -33,6 +33,10 @@ describe('formatCost', () => {
     expect(formatCost('0.0048')).toBe('$0.0048');
     expect(formatCost('12.5')).toBe('$12.50');
   });
+  it('adds thousands separators for large amounts', () => {
+    expect(formatCost('1957.9043')).toBe('$1,957.90');
+    expect(formatCost('10352.95')).toBe('$10,352.95');
+  });
 });
 
 describe('formatPct', () => {
@@ -66,10 +70,15 @@ describe('formatDuration', () => {
 
 describe('timeUntil', () => {
   const now = new Date('2026-07-09T12:00:00Z');
-  it('returns now for past times', () => {
-    expect(timeUntil('2026-07-09T11:00:00Z', now)).toBe('now');
+  it('returns now only for the current minute', () => {
+    expect(timeUntil('2026-07-09T12:00:00Z', now)).toBe('now');
+    expect(timeUntil('2026-07-09T11:59:30Z', now)).toBe('now');
   });
-  it('returns minutes and hours', () => {
+  it('returns an explicit ago form for past times', () => {
+    expect(timeUntil('2026-07-09T11:00:00Z', now)).toBe('1h ago');
+    expect(timeUntil('2026-07-08T20:38:00Z', now)).toBe('15h ago');
+  });
+  it('returns minutes and hours for the future', () => {
     expect(timeUntil('2026-07-09T12:43:00Z', now)).toBe('in 43m');
     expect(timeUntil('2026-07-09T14:30:00Z', now)).toBe('in 2h 30m');
   });
@@ -114,6 +123,11 @@ describe('modelLabel', () => {
     expect(modelLabel('us.anthropic.claude-opus-4-5-20251101-v1:0')).toBe(
       'Opus 4.5'
     );
+  });
+  it('humanizes the legacy 3.x version-first family order', () => {
+    expect(modelLabel('claude-3-7-sonnet-20250219')).toBe('Sonnet 3.7');
+    expect(modelLabel('claude-3-haiku-20240307')).toBe('Haiku 3');
+    expect(modelLabel('claude-3-opus-20240229')).toBe('Opus 3');
   });
   it('passes through unrecognized ids', () => {
     expect(modelLabel('gpt-5-turbo-preview')).toBe('gpt-5-turbo-preview');

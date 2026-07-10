@@ -16,14 +16,20 @@ export function formatTokens(value: number): string {
   return `${scaled.toFixed(1)}${TOKEN_UNITS[unit]}`;
 }
 
-/** Format a nullable USD string as "$1.23" (or "—" when unknown). */
+/** Format a nullable USD string as "$1,234.56" (or "—" when unknown).
+ *
+ * Uses thousands separators; sub-cent amounts get 4 decimals so tiny per-event
+ * costs stay legible.
+ */
 export function formatCost(value: string | null): string {
   if (value === null) return '—';
   const amount = Number(value);
   if (Number.isNaN(amount)) return '—';
-  if (amount === 0) return '$0.00';
-  if (amount < 0.01) return `$${amount.toFixed(4)}`;
-  return `$${amount.toFixed(2)}`;
+  const digits = amount !== 0 && Math.abs(amount) < 0.01 ? 4 : 2;
+  return `$${amount.toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
 }
 
 /** Format a percentage to one decimal (42.5 -> "42.5%"). */
@@ -31,12 +37,17 @@ export function formatPct(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
-/** Human-readable time remaining until an ISO timestamp ("in 43m", "now"). */
+/** Human-readable time to/from an ISO timestamp ("in 43m", "now", "15h ago").
+ *
+ * A moment in the past returns an explicit "… ago" form rather than "now", so a
+ * stale reset (e.g. a block that ended hours back) is never mistaken for a
+ * reset that is imminent.
+ */
 export function timeUntil(iso: string | null, now: Date = new Date()): string {
   if (iso === null) return '—';
-  const target = new Date(iso).getTime();
-  const diffMin = Math.round((target - now.getTime()) / 60000);
-  if (diffMin <= 0) return 'now';
+  const diffMin = Math.round((new Date(iso).getTime() - now.getTime()) / 60000);
+  if (diffMin >= -1 && diffMin <= 0) return 'now';
+  if (diffMin < 0) return `${formatDuration(Math.abs(diffMin) * 60)} ago`;
   if (diffMin < 60) return `in ${diffMin}m`;
   const hours = Math.floor(diffMin / 60);
   const minutes = diffMin % 60;
@@ -105,10 +116,17 @@ export function modelLabel(id: string): string {
   // Strip the bedrock version suffix (-v1:0) before the date (-YYYYMMDD),
   // otherwise the date is left dangling at the end.
   s = s.replace(/-v\d+:\d+$/, '').replace(/-\d{8}$/, '');
-  const match = s.match(/^([a-z]+)-(\d+(?:-\d+)*)$/);
-  if (match) {
-    const family = match[1][0].toUpperCase() + match[1].slice(1);
-    return `${family} ${match[2].replace(/-/g, '.')}`;
+  // Modern order: family-version (e.g. "opus-4-8" -> "Opus 4.8").
+  const modern = s.match(/^([a-z]+)-(\d+(?:-\d+)*)$/);
+  if (modern) {
+    const family = modern[1][0].toUpperCase() + modern[1].slice(1);
+    return `${family} ${modern[2].replace(/-/g, '.')}`;
+  }
+  // Legacy 3.x order: version-family (e.g. "3-7-sonnet" -> "Sonnet 3.7").
+  const legacy = s.match(/^(\d+(?:-\d+)*)-([a-z]+)$/);
+  if (legacy) {
+    const family = legacy[2][0].toUpperCase() + legacy[2].slice(1);
+    return `${family} ${legacy[1].replace(/-/g, '.')}`;
   }
   return id;
 }
