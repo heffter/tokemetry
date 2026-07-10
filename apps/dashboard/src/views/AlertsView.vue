@@ -15,15 +15,39 @@ import {
   windowLabel,
 } from '@/lib/format';
 import type { AlertEvent, AlertRule, AlertRuleInput } from '@/api/client';
-import type { Limit, SummaryNow } from '@/api/types';
+import type { Limit, MachineSummary, SummaryNow } from '@/api/types';
 
 const { loading, error, run, retry } = useAsync();
 const rules = ref<AlertRule[]>([]);
 const events = ref<AlertEvent[]>([]);
 const summary = ref<SummaryNow | null>(null);
+const machines = ref<MachineSummary[]>([]);
 const formHistory = ref<number[]>([]);
 const expanded = ref<Set<number>>(new Set());
 const evalStatus = ref('');
+const createError = ref('');
+
+// Event severity -> filled badge class (info covered, not just warn/critical).
+const SEV_BADGE: Record<string, string> = {
+  info: 'badge-good',
+  warning: 'badge-warning',
+  critical: 'badge-critical',
+  serious: 'badge-critical',
+};
+
+// Worst collector staleness across machines, for the collector_stale live value.
+const worstStaleMinutes = computed(() => {
+  const now = Date.now();
+  let worst = 0;
+  for (const machine of machines.value) {
+    if (!machine.last_seen) continue;
+    worst = Math.max(
+      worst,
+      Math.round((now - new Date(machine.last_seen).getTime()) / 60000)
+    );
+  }
+  return worst;
+});
 
 interface KindMeta {
   label: string;
@@ -93,20 +117,31 @@ function currentLimit(windowKind: string | null): Limit | undefined {
   return summary.value?.limits.find((l) => l.window_kind === windowKind);
 }
 
-function ruleThreshold(rule: AlertRule): string {
-  return rule.warn_threshold ?? rule.threshold ?? '?';
+function thresholds(rule: AlertRule): { warn: string; crit: string } {
+  return {
+    warn: rule.warn_threshold ?? rule.threshold ?? '?',
+    crit: rule.crit_threshold ?? '?',
+  };
 }
 
 function liveValue(rule: AlertRule): string {
+  const t = thresholds(rule);
   if (rule.kind === 'limit_pct') {
     const l = currentLimit(rule.window_kind);
     if (!l) return '—';
-    return `${formatPct(l.utilization_pct)} / ${ruleThreshold(rule)}%`;
+    return `${formatPct(l.utilization_pct)} · warn ${t.warn}% / crit ${t.crit}%`;
   }
   if (rule.kind === 'burn_rate' && summary.value) {
-    return `${formatTokens(Math.round(summary.value.token_burn_rate_per_min))}/min / ${ruleThreshold(rule)}`;
+    const rate = formatTokens(
+      Math.round(summary.value.token_burn_rate_per_min)
+    );
+    return `${rate}/min · warn ${t.warn} / crit ${t.crit}`;
   }
-  return '';
+  if (rule.kind === 'collector_stale') {
+    return `${worstStaleMinutes.value}m idle · warn ${t.warn}m / crit ${t.crit}m`;
+  }
+  // Non-threshold kinds: surface a migrated legacy threshold if one exists.
+  return rule.threshold ? `legacy threshold ${rule.threshold}` : '';
 }
 
 function ruleInput(rule: AlertRule, enabled: boolean): AlertRuleInput {
@@ -139,7 +174,9 @@ async function loadRules(): Promise<void> {
 
 async function load(): Promise<void> {
   await run(async () => {
-    summary.value = await useClient().summaryNow();
+    const client = useClient();
+    summary.value = await client.summaryNow();
+    machines.value = await client.machines();
     await loadRules();
   });
 }
@@ -160,18 +197,44 @@ async function loadFormHistory(): Promise<void> {
 watch(() => [draft.value.kind, draft.value.window_kind], loadFormHistory);
 
 async function create(): Promise<void> {
-  if (!draft.value.name.trim()) return;
+  createError.value = '';
+  const name = draft.value.name.trim();
   const meta = draftMeta.value;
+  const channels = draft.value.channels
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  if (!name) {
+    createError.value = 'A rule name is required.';
+    return;
+  }
+  if (channels.length === 0) {
+    createError.value =
+      'At least one channel is required, or the rule never notifies.';
+    return;
+  }
+  if (meta.threshold) {
+    const warn = Number(draft.value.warn);
+    const crit = Number(draft.value.crit);
+    if (Number.isNaN(warn) || Number.isNaN(crit)) {
+      createError.value = 'Warn and crit thresholds must be numbers.';
+      return;
+    }
+    if (warn > crit) {
+      createError.value =
+        'The warn threshold must not exceed the crit threshold.';
+      return;
+    }
+  }
+
   await useClient().createAlertRule({
-    name: draft.value.name.trim(),
+    name,
     kind: draft.value.kind,
     warn_threshold: meta.threshold ? draft.value.warn : null,
     crit_threshold: meta.threshold ? draft.value.crit : null,
     window_kind: meta.window ? draft.value.window_kind : null,
-    channels: draft.value.channels
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean),
+    channels,
     cooldown_seconds: 3600,
     enabled: true,
   });
@@ -262,6 +325,7 @@ onMounted(() => {
         <input v-model="draft.channels" placeholder="channels" class="narrow" />
         <button @click="create">Add</button>
       </div>
+      <p v-if="createError" class="create-error">{{ createError }}</p>
 
       <div class="channels-test">
         <span class="muted small">test channel:</span>
@@ -282,11 +346,7 @@ onMounted(() => {
         <span class="muted"
           >{{ windowLabel(draft.window_kind) }} (last 24h):</span
         >
-        <Sparkline
-          :values="formHistory"
-          :max="100"
-          color="var(--series-1, #2a78d6)"
-        />
+        <Sparkline :values="formHistory" :max="100" color="var(--series-1)" />
       </div>
 
       <ul class="rules">
@@ -294,8 +354,8 @@ onMounted(() => {
           <span class="mono">{{ KINDS[rule.kind]?.label ?? rule.kind }}</span>
           <span>{{ rule.name }}</span>
           <span
-            class="state"
-            :class="rule.state === 'firing' ? 'firing' : 'ok'"
+            class="badge"
+            :class="rule.state === 'firing' ? 'badge-critical' : 'badge-good'"
             :title="
               rule.last_fired_at ? formatDateTime(rule.last_fired_at) : ''
             "
@@ -325,9 +385,11 @@ onMounted(() => {
       <ul class="events">
         <li v-for="event in events" :key="event.id">
           <div class="event-head" @click="toggleExpand(event.id)">
-            <span class="sev" :class="event.severity">{{
-              event.severity
-            }}</span>
+            <span
+              class="badge"
+              :class="SEV_BADGE[event.severity] ?? 'badge-muted'"
+              >{{ event.severity }}</span
+            >
             <span class="title">{{ event.title }}</span>
             <span class="muted" :title="formatDateTime(event.ts)">
               {{ timeAgo(event.ts) }}
@@ -396,18 +458,10 @@ h3 {
   font-size: 0.85rem;
   cursor: pointer;
 }
-.state {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.1rem 0.4rem;
-  border-radius: 5px;
-}
-.state.ok {
-  color: var(--status-good);
-}
-.state.firing {
+.create-error {
   color: var(--status-critical);
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0.5rem;
 }
 .spark {
   display: flex;
@@ -498,19 +552,5 @@ button {
   padding: 0.5rem;
   overflow-x: auto;
   font-size: 0.8rem;
-}
-.sev {
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.1rem 0.4rem;
-  border-radius: 5px;
-}
-.sev.warning {
-  color: var(--status-warning);
-}
-.sev.critical,
-.sev.serious {
-  color: var(--status-critical);
 }
 </style>

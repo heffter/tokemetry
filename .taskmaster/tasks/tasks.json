@@ -1823,13 +1823,14 @@
       {
         "id": "48",
         "title": "Alerts page representation fixes",
-        "description": "Show warn AND crit in live current-vs-threshold; add collector_stale live value; validate create form (numeric, warn<crit, non-empty channels); surface migrated rule legacy threshold; filled state/severity badges + info severity; fix sparkline color.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "Show warn AND crit in live current-vs-threshold; add collector_stale live value; validate create form (numeric, warn<=crit, non-empty channels); surface migrated rule legacy threshold; filled state/severity badges + info severity; fix sparkline color.",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "Alerts: live current-vs-threshold now shows BOTH warn and crit (was warn only, hiding half the dual-threshold rework); added a collector_stale live value (worst machine idle minutes, fetched via client.machines()); non-threshold kinds surface a migrated legacy threshold instead of a blank cell. Create form now validates (name required, >=1 channel, warn/crit numeric, warn<=crit) with an inline error instead of silently creating a broken rule. State + severity badges use the filled global .badge classes (info severity now styled, not unstyled default text). Sparkline color resolves via --series-1. 68 dashboard tests; build+lint clean.",
+        "testStrategy": "vitest: Test live current-vs-threshold rendering for both warn and crit; validate collector_stale value from client.machines(); verify create form validation (name required, >=1 channel, warn/crit numeric, warn<=crit) with inline error; confirm migrated legacy threshold surfaces for non-threshold kinds; validate state/severity badges use filled .badge classes (info styled); verify sparkline color via --series-1. Frontend: Verify 68 dashboard tests pass, build + lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T10:32:51.505Z"
       },
       {
         "id": "49",
@@ -1845,9 +1846,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T10:21:46.342Z",
+      "lastModified": "2026-07-10T10:32:51.508Z",
       "taskCount": 49,
-      "completedCount": 47,
+      "completedCount": 48,
       "tags": [
         "master"
       ]
