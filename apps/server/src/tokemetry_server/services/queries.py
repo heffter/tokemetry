@@ -259,12 +259,19 @@ async def total_cost(
 
 
 async def punch_card(
-    session: AsyncSession, start: date, end: date
+    session: AsyncSession,
+    start: date,
+    end: date,
+    machine: str | None = None,
+    project: str | None = None,
+    roots: Sequence[str] = DEFAULT_ROOTS,
 ) -> dict[tuple[int, int], int]:
     """Return a (weekday, hour) -> total tokens map from usage_events.
 
     Weekday is 0=Monday..6=Sunday, hour is 0..23 (UTC). Bucketed in Python
-    for dialect portability over the (bounded) requested range.
+    for dialect portability over the (bounded) requested range. ``project`` is
+    matched against the normalized project group (so the punch card obeys the
+    same filter as the rollup-backed charts).
     """
     event = models.UsageEvent
     start_ts = datetime(start.year, start.month, start.day, tzinfo=UTC)
@@ -276,13 +283,16 @@ async def punch_card(
         + event.cache_write_short_tokens
         + event.cache_write_long_tokens
     )
-    rows = (
-        await session.execute(
-            select(event.ts, total).where(event.ts >= start_ts, event.ts <= end_ts)
-        )
-    ).all()
+    statement = select(event.ts, total, event.project).where(
+        event.ts >= start_ts, event.ts <= end_ts
+    )
+    if machine is not None:
+        statement = statement.where(event.machine == machine)
+    rows = (await session.execute(statement)).all()
     card: dict[tuple[int, int], int] = {}
-    for ts, tokens in rows:
+    for ts, tokens, raw_project in rows:
+        if project is not None and project_group(raw_project, roots) != project:
+            continue
         aware = _as_utc(ts)
         key = (aware.weekday(), aware.hour)
         card[key] = card.get(key, 0) + int(tokens or 0)

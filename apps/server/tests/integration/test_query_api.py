@@ -110,6 +110,11 @@ def test_heatmap_cost_pricing(client: TestClient, auth: dict[str, str]) -> None:
     heatmap = _get(client, auth, f"/api/v1/heatmap?{_WIDE_RANGE}")
     assert "calendar" in heatmap
     assert "punch_card" in heatmap
+    # The heatmap honors the machine filter the bar charts obey.
+    matched = _get(client, auth, f"/api/v1/heatmap?{_WIDE_RANGE}&machine=box-1")
+    assert matched["punch_card"]
+    empty = _get(client, auth, f"/api/v1/heatmap?{_WIDE_RANGE}&machine=nope")
+    assert empty["punch_card"] == []
     cost = _get(client, auth, f"/api/v1/cost?{_WIDE_RANGE}")
     assert "total_cost_usd" in cost
     pricing = _get(client, auth, "/api/v1/pricing")

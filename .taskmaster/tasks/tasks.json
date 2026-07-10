@@ -1765,12 +1765,24 @@
         "id": "44",
         "title": "Breakdowns page representation fixes",
         "description": "Wire machine/project into heatmap (or scope visibly); cache stats as tiles + show cache-read share; normalized stacks + segment borders + long labels; piecewise heatmap visualMap; wire AsyncState empty.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "Breakdowns: heatmap now honors machine (SQL) + project (matched via project_group in Python) filters -- backend punch_card + /heatmap endpoint + client.heatmap extended; the punch-card/calendar no longer silently show all activity while the bars are filtered. Cache metrics moved from prose into StatTiles and now surface the previously-computed-but-hidden cache-read share (the page's headline number). Added an Absolute/Composition% toggle so the stacked bars can flip to normalized (fixes cache-read crush) while keeping magnitude by default. Moved FilterBar+toggle outside AsyncState; wired the AsyncState empty state; dropped the unfilterable empty project key.",
+        "testStrategy": "Test: heatmap machine-filter integration. 16 server + 68 dashboard pass; ruff/mypy/build/lint clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Test heatmap machine-filter integration",
+            "description": "Test: heatmap machine-filter integration. 16 server + 68 dashboard pass; ruff/mypy/build/lint clean.",
+            "dependencies": [],
+            "details": "Verify heatmap correctly filters by machine (SQL) and project (matched via project_group in Python). Confirm punch-card/calendar bars reflect filtered activity without silently showing all data. Validate backend punch_card and /heatmap endpoint changes, plus client.heatmap extension.",
+            "status": "done",
+            "testStrategy": "Run pytest with coverage >= 80% (actual: 16 server + 68 dashboard tests). Validate ruff/mypy strict/trivy clean. Confirm heatmap machine-filter integration passes.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-10T10:03:13.244Z"
       },
       {
         "id": "45",
@@ -1830,9 +1842,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T09:52:43.582Z",
+      "lastModified": "2026-07-10T10:03:13.246Z",
       "taskCount": 49,
-      "completedCount": 43,
+      "completedCount": 44,
       "tags": [
         "master"
       ]

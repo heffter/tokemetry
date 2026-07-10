@@ -368,13 +368,20 @@ async def machines(
 async def heatmap(
     date_from: date | None = Query(None, alias="from"),
     date_to: date | None = Query(None, alias="to"),
+    machine: str | None = None,
+    project: str | None = None,
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
     _: str = Depends(require_token),
 ) -> HeatmapResponse:
     """Return calendar (daily) and punch-card (weekday x hour) usage."""
     start, end = _default_range(date_from, date_to)
-    calendar = await queries.usage_grouped(session, "day", start, end)
-    card = await queries.punch_card(session, start, end)
+    calendar = await queries.usage_grouped(
+        session, "day", start, end, machine=machine, project=project
+    )
+    card = await queries.punch_card(
+        session, start, end, machine, project, settings.project_root_markers
+    )
     return HeatmapResponse(
         calendar=[_bucket_out(bucket) for bucket in calendar],
         punch_card=[

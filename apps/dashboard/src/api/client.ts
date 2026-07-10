@@ -118,10 +118,18 @@ export class ApiClient {
     return this.request<MachineSummary[]>('/api/v1/machines');
   }
 
-  heatmap(from?: string, to?: string): Promise<HeatmapResponse> {
-    return this.request<HeatmapResponse>(
-      `/api/v1/heatmap?${rangeParams(from, to)}`
-    );
+  heatmap(
+    from?: string,
+    to?: string,
+    machine?: string,
+    project?: string
+  ): Promise<HeatmapResponse> {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (machine) params.set('machine', machine);
+    if (project) params.set('project', project);
+    return this.request<HeatmapResponse>(`/api/v1/heatmap?${params}`);
   }
 
   cost(from?: string, to?: string): Promise<CostResponse> {
