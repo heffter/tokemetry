@@ -166,6 +166,17 @@ def test_project_grouping_folds_variants(client: TestClient, auth: dict[str, str
     assert all(s["project"] == "Foo" for s in sessions if s["session_id"].startswith("psess"))
 
 
+def test_report_endpoint(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    data = _get(client, auth, f"/api/v1/report?{_WIDE_RANGE}")
+    assert "scorecard" in data
+    assert data["scorecard"]["session_count"] == 2
+    assert isinstance(data["projects"], list)
+    assert isinstance(data["machines"], list)
+    assert isinstance(data["recommendations"], list)
+    assert "cache_hit_rate" in data["scorecard"]
+
+
 def test_insights_anomalies_endpoint(client: TestClient, auth: dict[str, str]) -> None:
     _seed_events(client, auth)
     data = _get(client, auth, "/api/v1/insights/anomalies")

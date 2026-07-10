@@ -2126,13 +2126,14 @@
       {
         "id": "55",
         "title": "Optimization report backend",
-        "description": "report service: global scorecard (cache-hit, tokens/turn, verbosity, model mix, sidechain/unattributed share, session-length dist, inflection freq, tokens/day), per-project + per-machine tables + config drift; rule engine (threshold->recommendation+estimated impact tokens/week and % cap); GET /api/v1/report. Unit-test rules.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "description": "report service: global Scorecard (total, cache-hit-rate, verbosity ratio, median tokens/turn, sidechain share, unattributed share, session/machine counts, top model mix) + per-project and per-machine DimensionRows (grouped from a single per-session SQL aggregate, project normalized via project_group); rule engine (threshold->ranked Recommendations with estimated reclaimable tokens: low cache-hit-rate, high verbosity [impact = output - 0.3*input], no-subagent-isolation, high unattributed, opus concentration, per-machine config drift [cache-hit below fleet median]); GET /api/v1/report?from&to (ReportOut via from_attributes). Tests: 6 rule-engine units + endpoint integration. 152 server tests; ruff/mypy/trivy clean.",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "services/report.py: build_report aggregates usage over a range into a global Scorecard and per-project/per-machine DimensionRows. Pure evaluate_rules maps thresholds to ranked Recommendations with estimated impact. Endpoint supports date range filtering via ?from&to parameters.",
+        "testStrategy": "Unit tests: 6 rule-engine tests covering all recommendation types (low cache-hit, high verbosity, no-subagent-isolation, high unattributed, opus concentration, config drift). Integration tests: endpoint integration for GET /api/v1/report?from&to with ReportOut validation. Full suite: 152 server tests. Quality gates: ruff, mypy, and trivy must pass cleanly.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:32:14.149Z"
       },
       {
         "id": "56",
@@ -2181,9 +2182,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T20:22:25.440Z",
+      "lastModified": "2026-07-10T20:32:14.152Z",
       "taskCount": 59,
-      "completedCount": 54,
+      "completedCount": 55,
       "tags": [
         "master"
       ]

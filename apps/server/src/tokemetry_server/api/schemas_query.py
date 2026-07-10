@@ -252,6 +252,68 @@ class AnomalyReportOut(BaseModel):
     anomalies: list[AnomalyOut]
 
 
+class ScorecardOut(BaseModel):
+    """Global optimization scorecard."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    total_tokens: int
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_tokens: int
+    cache_hit_rate: float
+    verbosity_ratio: float
+    median_tokens_per_turn: float
+    sidechain_share: float
+    unattributed_share: float
+    session_count: int
+    machine_count: int
+    top_models: list[tuple[str, float]]
+
+
+class DimensionRowOut(BaseModel):
+    """Per-project or per-machine optimization rollup."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    total_tokens: int
+    cache_hit_rate: float
+    median_tokens_per_turn: float
+    verbosity_ratio: float
+    sidechain_share: float
+    session_count: int
+
+
+class RecommendationOut(BaseModel):
+    """One ranked optimization recommendation."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    severity: str
+    evidence: str
+    affected: list[str]
+    impact_tokens: int | None
+    effort: str
+
+
+class ReportOut(BaseModel):
+    """The full optimization report over a range."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    start: date
+    end: date
+    scorecard: ScorecardOut
+    projects: list[DimensionRowOut]
+    machines: list[DimensionRowOut]
+    trend: list[tuple[str, int]]
+    recommendations: list[RecommendationOut]
+
+
 class SyncResult(BaseModel):
     """Outcome of a LiteLLM price sync."""
 

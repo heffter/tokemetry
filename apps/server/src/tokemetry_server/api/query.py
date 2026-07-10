@@ -28,6 +28,7 @@ from tokemetry_server.api.schemas_query import (
     PricingOut,
     PunchCell,
     RebuildResult,
+    ReportOut,
     SessionDetailOut,
     SessionEventOut,
     SessionOut,
@@ -39,7 +40,7 @@ from tokemetry_server.api.schemas_query import (
 )
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db import models
-from tokemetry_server.services import analytics, insights, queries, rollups
+from tokemetry_server.services import analytics, insights, queries, report, rollups
 
 router = APIRouter(prefix="/api/v1", tags=["query"])
 
@@ -299,6 +300,20 @@ async def session_detail(
             inflection_index=detail.stats.inflection_index,
         ),
     )
+
+
+@router.get("/report", response_model=ReportOut)
+async def optimization_report(
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> ReportOut:
+    """Return the token-optimization report (scorecard + ranked recommendations)."""
+    start, end = _default_range(date_from, date_to)
+    built = await report.build_report(session, start, end, settings.project_root_markers)
+    return ReportOut.model_validate(built)
 
 
 @router.get("/insights/anomalies", response_model=AnomalyReportOut)
