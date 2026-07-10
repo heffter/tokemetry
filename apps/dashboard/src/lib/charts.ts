@@ -24,7 +24,6 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 /** A weekday x hour punch card heatmap (sequential blue). */
 export function punchCardOption(cells: PunchCell[]): EChartsCoreOption {
   const theme = ink();
-  const max = Math.max(1, ...cells.map((c) => c.total_tokens));
   return {
     grid: { top: 12, right: 12, bottom: 60, left: 44 },
     tooltip: {
@@ -47,14 +46,15 @@ export function punchCardOption(cells: PunchCell[]): EChartsCoreOption {
       axisLabel: { color: theme.muted },
     },
     visualMap: {
-      min: 0,
-      max,
-      calculable: true,
+      type: 'piecewise',
+      pieces: logVisualPieces(
+        cells.map((c) => c.total_tokens),
+        blueRamp(isDark())
+      ),
       orient: 'horizontal',
       left: 'center',
       bottom: 8,
       textStyle: { color: theme.muted },
-      inRange: { color: blueRamp(isDark()) },
     },
     series: [
       {
@@ -69,7 +69,6 @@ export function punchCardOption(cells: PunchCell[]): EChartsCoreOption {
 /** A GitHub-style daily contribution calendar for the given date range. */
 export function calendarOption(days: UsageBucket[]): EChartsCoreOption {
   const theme = ink();
-  const max = Math.max(1, ...days.map((d) => d.total_tokens));
   const dates = days.map((d) => d.key).sort();
   const range =
     dates.length > 0 ? [dates[0], dates[dates.length - 1]] : undefined;
@@ -81,10 +80,15 @@ export function calendarOption(days: UsageBucket[]): EChartsCoreOption {
       },
     },
     visualMap: {
-      min: 0,
-      max,
-      show: false,
-      inRange: { color: blueRamp(isDark()) },
+      type: 'piecewise',
+      pieces: logVisualPieces(
+        days.map((d) => d.total_tokens),
+        blueRamp(isDark())
+      ),
+      orient: 'horizontal',
+      left: 'center',
+      bottom: 0,
+      textStyle: { color: theme.muted },
     },
     calendar: {
       top: 20,
@@ -192,24 +196,89 @@ function ink(): ThemeInk {
   };
 }
 
+/** Options shared by the composition (stacked) builders. */
+export interface StackOptions {
+  /** Render each category as a 0-100% composition instead of absolute tokens. */
+  normalized?: boolean;
+}
+
+/** Options for single-measure bar charts over skewed data. */
+export interface BarOptions {
+  /** Use a log value axis so one outlier does not crush the other bars. */
+  log?: boolean;
+}
+
+/** Category axis config + the bottom margin its labels need.
+ *
+ * Long or numerous labels rotate and truncate (full text stays in the axis
+ * tooltip), and the grid reserves enough room so a rotated label is not clipped
+ * by a fixed container height.
+ */
+function categoryAxis(
+  categories: string[],
+  theme: ThemeInk
+): { axis: Record<string, unknown>; bottom: number } {
+  const longest = categories.reduce((m, c) => Math.max(m, c.length), 0);
+  const rotate = categories.length > 6 || longest > 12 ? 40 : 0;
+  return {
+    axis: {
+      type: 'category',
+      data: categories,
+      axisLabel: {
+        color: theme.muted,
+        rotate,
+        overflow: 'truncate',
+        width: 120,
+      },
+      axisLine: { lineStyle: { color: theme.grid } },
+    },
+    bottom: rotate ? 92 : 40,
+  };
+}
+
+/** Piecewise visualMap pieces on log-decade boundaries for power-law data.
+ *
+ * A linear color scale over a 1000x range renders almost every cell in the
+ * palest step with one dark outlier; log-decade buckets spread the contrast
+ * across the range so the distribution is readable.
+ */
+export function logVisualPieces(
+  values: number[],
+  ramp: string[]
+): { min?: number; max?: number; color: string }[] {
+  const nonzero = values.filter((v) => v > 0);
+  if (nonzero.length === 0) return [{ min: 0, color: ramp[0] }];
+  const lo = Math.floor(Math.log10(Math.min(...nonzero)));
+  const hi = Math.ceil(Math.log10(Math.max(...nonzero)));
+  const decades = Math.max(1, hi - lo);
+  const steps = Math.min(ramp.length, decades);
+  const width = decades / steps;
+  const pieces: { min?: number; max?: number; color: string }[] = [];
+  for (let i = 0; i < steps; i += 1) {
+    const min = i === 0 ? undefined : Math.round(10 ** (lo + i * width));
+    const max =
+      i === steps - 1 ? undefined : Math.round(10 ** (lo + (i + 1) * width));
+    pieces.push({ min, max, color: ramp[i] });
+  }
+  return pieces;
+}
+
 /** A vertical bar chart of a single measure across categories. */
 export function barOption(
   categories: string[],
   values: number[],
-  name: string
+  name: string,
+  opts: BarOptions = {}
 ): EChartsCoreOption {
   const theme = ink();
+  const { axis, bottom } = categoryAxis(categories, theme);
   return {
-    grid: { top: 24, right: 16, bottom: 48, left: 64 },
+    grid: { top: 24, right: 16, bottom, left: 64 },
     tooltip: { trigger: 'axis', valueFormatter: tokenValue },
-    xAxis: {
-      type: 'category',
-      data: categories,
-      axisLabel: { color: theme.muted, rotate: categories.length > 8 ? 40 : 0 },
-      axisLine: { lineStyle: { color: theme.grid } },
-    },
+    xAxis: axis,
     yAxis: {
-      type: 'value',
+      type: opts.log ? 'log' : 'value',
+      min: opts.log ? 1 : undefined,
       axisLabel: { color: theme.muted, formatter: tokenValue },
       splitLine: { lineStyle: { color: theme.grid } },
     },
@@ -218,6 +287,7 @@ export function barOption(
         name,
         type: 'bar',
         data: values,
+        barMaxWidth: 40,
         itemStyle: {
           color: seriesColor(0, isDark()),
           borderRadius: [4, 4, 0, 0],
@@ -230,7 +300,8 @@ export function barOption(
 /** A bar chart on a real time axis, so idle gaps render as gaps. */
 export function timeBarOption(
   points: [number, number][],
-  name: string
+  name: string,
+  opts: BarOptions & { axisMax?: number } = {}
 ): EChartsCoreOption {
   const theme = ink();
   return {
@@ -238,11 +309,14 @@ export function timeBarOption(
     tooltip: { trigger: 'axis', valueFormatter: tokenValue },
     xAxis: {
       type: 'time',
+      // Anchor the right edge (e.g. to "now") so a trailing idle gap shows.
+      max: opts.axisMax,
       axisLabel: { color: theme.muted },
       axisLine: { lineStyle: { color: theme.grid } },
     },
     yAxis: {
-      type: 'value',
+      type: opts.log ? 'log' : 'value',
+      min: opts.log ? 1 : undefined,
       axisLabel: { color: theme.muted, formatter: tokenValue },
       splitLine: { lineStyle: { color: theme.grid } },
     },
@@ -260,37 +334,51 @@ export function timeBarOption(
   };
 }
 
-/** A stacked bar of the five token components per category (hue-ordered). */
+/** A stacked bar of the token components per category (hue-ordered).
+ *
+ * In ``normalized`` mode each bar sums to 100%, so composition is comparable
+ * regardless of magnitude -- essential when cache-read is ~95% of every bar and
+ * would otherwise crush the other components to sub-pixel slivers.
+ */
 export function stackedTokenBarOption(
   categories: string[],
-  buckets: UsageBucket[]
+  buckets: UsageBucket[],
+  opts: StackOptions = {}
 ): EChartsCoreOption {
   const theme = ink();
   const dark = isDark();
+  const norm = opts.normalized === true;
+  const { axis, bottom } = categoryAxis(categories, theme);
+  const totals = buckets.map((b) => b.total_tokens || 1);
+  const pct = (value: unknown): string => `${Number(value).toFixed(1)}%`;
   return {
-    grid: { top: 28, right: 16, bottom: 56, left: 64 },
-    tooltip: { trigger: 'axis', valueFormatter: tokenValue },
+    grid: { top: 28, right: 16, bottom, left: 64 },
+    tooltip: { trigger: 'axis', valueFormatter: norm ? pct : tokenValue },
     legend: { top: 0, textStyle: { color: theme.text } },
-    xAxis: {
-      type: 'category',
-      data: categories,
-      axisLabel: {
-        color: theme.muted,
-        rotate: categories.length > 6 ? 30 : 0,
-      },
-      axisLine: { lineStyle: { color: theme.grid } },
-    },
+    xAxis: axis,
     yAxis: {
       type: 'value',
-      axisLabel: { color: theme.muted, formatter: tokenValue },
+      max: norm ? 100 : undefined,
+      axisLabel: {
+        color: theme.muted,
+        formatter: norm ? '{value}%' : tokenValue,
+      },
       splitLine: { lineStyle: { color: theme.grid } },
     },
     series: TOKEN_COMPONENTS.map((component, index) => ({
       name: component.label,
       type: 'bar',
       stack: 'tokens',
-      data: buckets.map(component.get),
-      itemStyle: { color: seriesColor(index, dark) },
+      barMaxWidth: 48,
+      data: buckets.map((bucket, i) =>
+        norm ? (component.get(bucket) / totals[i]) * 100 : component.get(bucket)
+      ),
+      // A thin surface-colored border separates thin adjacent segments.
+      itemStyle: {
+        color: seriesColor(index, dark),
+        borderColor: theme.surface,
+        borderWidth: 1,
+      },
     })),
   };
 }
@@ -298,13 +386,19 @@ export function stackedTokenBarOption(
 /** A stacked area chart over a shared time/category axis. */
 export function stackedAreaOption(
   categories: string[],
-  series: { name: string; values: number[] }[]
+  series: { name: string; values: number[] }[],
+  opts: StackOptions = {}
 ): EChartsCoreOption {
   const theme = ink();
   const dark = isDark();
+  const norm = opts.normalized === true;
+  const totals = categories.map((_, i) =>
+    series.reduce((sum, entry) => sum + (entry.values[i] ?? 0), 0)
+  );
+  const pct = (value: unknown): string => `${Number(value).toFixed(1)}%`;
   return {
     grid: { top: 24, right: 16, bottom: 48, left: 64 },
-    tooltip: { trigger: 'axis', valueFormatter: tokenValue },
+    tooltip: { trigger: 'axis', valueFormatter: norm ? pct : tokenValue },
     legend: { top: 0, textStyle: { color: theme.text } },
     xAxis: {
       type: 'category',
@@ -315,18 +409,25 @@ export function stackedAreaOption(
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: theme.muted, formatter: tokenValue },
+      max: norm ? 100 : undefined,
+      axisLabel: {
+        color: theme.muted,
+        formatter: norm ? '{value}%' : tokenValue,
+      },
       splitLine: { lineStyle: { color: theme.grid } },
     },
     series: series.map((entry, index) => ({
       name: entry.name,
       type: 'line',
       stack: 'total',
-      areaStyle: { opacity: 0.6 },
+      // A restrained wash so fills read as tint, not saturated blocks.
+      areaStyle: { opacity: 0.25 },
       showSymbol: false,
-      lineStyle: { width: 2 },
+      lineStyle: { width: 1.5 },
       itemStyle: { color: seriesColor(index, dark) },
-      data: entry.values,
+      data: entry.values.map((value, i) =>
+        norm ? (totals[i] ? (value / totals[i]) * 100 : 0) : value
+      ),
     })),
   };
 }

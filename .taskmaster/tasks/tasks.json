@@ -1729,12 +1729,13 @@
         "id": "41",
         "title": "Chart builders for skewed and dominant-series data",
         "description": "100%-normalized stacked option (or cache-read split) for 96%-cache composition; stacked-segment borders; long-category label rotation/truncation; piecewise/log visualMap for power-law heatmaps; log/percentile magnitude option.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "details": "charts.ts: stackedTokenBarOption + stackedAreaOption gain a {normalized} option (each category sums to 100%) so composition is legible under 96% cache-read dominance; added surface-colored segment borders + barMaxWidth cap; shared categoryAxis() rotates/truncates long labels and reserves bottom margin; area opacity 0.6->0.25, line 2->1.5. barOption/timeBarOption gain a {log} axis option (+ timeBarOption axisMax to anchor the right edge to 'now'). New pure logVisualPieces() builds piecewise log-decade visualMap pieces; punch-card + calendar heatmaps now use it (calendar legend now shown) so power-law spreads render readable instead of one dark blob. Unit test for logVisualPieces. 65 dashboard tests; build+lint clean.",
+        "testStrategy": "vitest: Test logVisualPieces() unit logic and normalized/stacked rendering. Frontend: Verify normalized stacked bars (each category sums to 100%), surface-colored segment borders, barMaxWidth cap, category label rotation/truncation with bottom margin, area opacity 0.25, line width 1.5, log axis on barOption/timeBarOption with axisMax anchoring to 'now', and punch-card/calendar heatmaps using logVisualPieces() with visible calendar legend. Ensure power-law spreads render readable (not one dark blob). Quality gates: 65 dashboard tests, build + lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:38:17.620Z"
       },
       {
         "id": "42",
@@ -1827,9 +1828,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T09:30:56.213Z",
+      "lastModified": "2026-07-10T09:38:17.621Z",
       "taskCount": 49,
-      "completedCount": 40,
+      "completedCount": 41,
       "tags": [
         "master"
       ]
