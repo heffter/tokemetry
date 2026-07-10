@@ -110,6 +110,11 @@ def test_heatmap_cost_pricing(client: TestClient, auth: dict[str, str]) -> None:
     heatmap = _get(client, auth, f"/api/v1/heatmap?{_WIDE_RANGE}")
     assert "calendar" in heatmap
     assert "punch_card" in heatmap
+    # The heatmap honors the machine filter the bar charts obey.
+    matched = _get(client, auth, f"/api/v1/heatmap?{_WIDE_RANGE}&machine=box-1")
+    assert matched["punch_card"]
+    empty = _get(client, auth, f"/api/v1/heatmap?{_WIDE_RANGE}&machine=nope")
+    assert empty["punch_card"] == []
     cost = _get(client, auth, f"/api/v1/cost?{_WIDE_RANGE}")
     assert "total_cost_usd" in cost
     pricing = _get(client, auth, "/api/v1/pricing")
@@ -122,3 +127,125 @@ def test_blocks(client: TestClient, auth: dict[str, str]) -> None:
     blocks = _get(client, auth, "/api/v1/blocks?hours=2400")
     assert isinstance(blocks, list)
     assert blocks and blocks[-1]["total_tokens"] > 0
+
+
+def _seed_project_variants(client: TestClient, auth: dict[str, str]) -> None:
+    """Ingest events whose cwd variants all belong to one project 'Foo'."""
+    paths = [
+        r"C:\devel\Foo",
+        r"c:\devel\Foo",  # case-variant drive letter
+        r"C:\devel\Foo\.claude\worktrees\wt-1\apps",  # worktree subpath
+    ]
+    events = [
+        {
+            "event_id": f"proj_{i}",
+            "provider": "anthropic",
+            "native_model": "claude-opus-4-5",
+            "ts": _BASE.isoformat(),
+            "session_id": f"psess-{i}",
+            "project": path,
+            "input_tokens": 500,
+            "output_tokens": 50,
+        }
+        for i, path in enumerate(paths)
+    ]
+    response = client.post(
+        "/api/v1/ingest/events", json={"machine": _MACHINE, "events": events}, headers=auth
+    )
+    assert response.status_code == 200
+
+
+def test_project_grouping_folds_variants(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_project_variants(client, auth)
+    data = _get(client, auth, f"/api/v1/usage?group_by=project&{_WIDE_RANGE}")
+    foo = [b for b in data["buckets"] if b["key"] == "Foo"]
+    assert len(foo) == 1, data["buckets"]
+    assert foo[0]["total_tokens"] == 3 * 550
+    # Sessions expose the same normalized project label.
+    sessions = _get(client, auth, "/api/v1/sessions")
+    assert all(s["project"] == "Foo" for s in sessions if s["session_id"].startswith("psess"))
+
+
+def test_insights_anomalies_endpoint(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    data = _get(client, auth, "/api/v1/insights/anomalies")
+    # Only 2 seeded sessions: below the baseline minimum, so no anomalies.
+    assert data["enough_data"] is False
+    assert data["anomalies"] == []
+    assert data["session_count"] == 2
+
+
+def test_session_detail(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    detail = _get(client, auth, "/api/v1/sessions/sess-0")
+    assert detail["session_id"] == "sess-0"
+    assert detail["message_count"] >= 1
+    assert len(detail["events"]) == detail["message_count"]
+    _assert_aware(detail["events"][0]["ts"])
+    assert "tokens_per_turn" in detail["stats"]
+    assert "inflection_index" in detail["stats"]
+
+
+def test_session_detail_unknown_is_404(client: TestClient, auth: dict[str, str]) -> None:
+    assert client.get("/api/v1/sessions/nope", headers=auth).status_code == 404
+
+
+def test_summary_overview(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    data = _get(client, auth, "/api/v1/summary/overview")
+    assert data["total_tokens"] == 4 * 1100
+    assert data["session_count"] == 2
+    assert data["machine_count"] == 1
+    assert data["first_event"] is not None
+    _assert_aware(data["first_event"])
+    _assert_aware(data["last_event"])
+
+
+def test_usage_filters_by_date_range(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    # A future window excludes the (past) seeded events.
+    empty = _get(client, auth, "/api/v1/usage?group_by=model&from=2099-01-01&to=2099-12-31")
+    assert empty["buckets"] == []
+    full = _get(client, auth, f"/api/v1/usage?group_by=model&{_WIDE_RANGE}")
+    assert full["buckets"]
+
+
+def test_rebuild_rollups_endpoint(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_project_variants(client, auth)
+    response = client.post("/api/v1/admin/rebuild-rollups", headers=auth)
+    assert response.status_code == 200, response.text
+    assert response.json()["rollups_rebuilt"] >= 1
+    # Grouping still holds after a full rebuild.
+    data = _get(client, auth, f"/api/v1/usage?group_by=project&{_WIDE_RANGE}")
+    assert any(b["key"] == "Foo" for b in data["buckets"])
+
+
+def _assert_aware(value: str) -> None:
+    """A serialized datetime must carry an explicit UTC offset."""
+    parsed = datetime.fromisoformat(value)
+    assert parsed.tzinfo is not None, f"naive datetime serialized: {value!r}"
+
+
+def test_response_datetimes_are_offset_aware(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    _seed_limits(client, auth)
+
+    summary = _get(client, auth, "/api/v1/summary/now")
+    _assert_aware(summary["now"])
+    for limit in summary["limits"]:
+        _assert_aware(limit["ts"])
+        if limit["resets_at"] is not None:
+            _assert_aware(limit["resets_at"])
+
+    for limit in _get(client, auth, "/api/v1/limits/current"):
+        _assert_aware(limit["ts"])
+        if limit["resets_at"] is not None:
+            _assert_aware(limit["resets_at"])
+
+    for session in _get(client, auth, "/api/v1/sessions"):
+        _assert_aware(session["started_at"])
+        _assert_aware(session["last_at"])
+
+    for block in _get(client, auth, "/api/v1/blocks?hours=2400"):
+        _assert_aware(block["start"])
+        _assert_aware(block["end"])

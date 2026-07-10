@@ -17,6 +17,24 @@ def test_requires_auth(client: TestClient) -> None:
     assert client.get("/api/v1/alerts").status_code == 401
 
 
+def test_create_rule_with_dual_thresholds(client: TestClient, auth: dict[str, str]) -> None:
+    payload = {**_RULE, "name": "dual", "warn_threshold": "80", "crit_threshold": "95"}
+    created = client.post("/api/v1/alerts", json=payload, headers=auth)
+    assert created.status_code == 201
+    body = created.json()
+    assert body["warn_threshold"] == "80"
+    assert body["crit_threshold"] == "95"
+    assert body["state"] == "normal"
+    assert body["last_fired_at"] is None
+
+
+def test_test_channel_endpoint(client: TestClient, auth: dict[str, str]) -> None:
+    # No channel is configured in tests, so delivery fails but the call succeeds.
+    response = client.post("/api/v1/alerts/test/ntfy", headers=auth)
+    assert response.status_code == 200
+    assert response.json() == {"channel": "ntfy", "delivered": False}
+
+
 def test_rule_crud(client: TestClient, auth: dict[str, str]) -> None:
     created = client.post("/api/v1/alerts", json=_RULE, headers=auth)
     assert created.status_code == 201

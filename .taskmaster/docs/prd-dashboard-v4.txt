@@ -1,0 +1,89 @@
+tokemetry Dashboard v4 -- Representation Critique Fixes
+
+OVERVIEW
+An 8-page dataviz critique (one reviewer per page, tested against live data)
+found ~45 issues. This PRD groups them into implementable tasks, shared
+infrastructure first so pages are not edited twice. Real data facts: cache-read
+is 96% of all tokens; the collector last reported ~15h ago (stale); token
+components do not sum to total_tokens; power-law magnitude spreads (1000x+).
+
+TASK A -- Token reconciliation and unattributed components (backend)
+The five token components (input/output/cache_read/cache_write_short/
+cache_write_long) do not sum to total_tokens (off up to ~2.3% for some models),
+and bootstrap rows carry total_tokens with zero components. Investigate the
+uncaptured token type (likely reasoning/thinking) in the Claude Code parser and
+either capture it as a component or expose a reconciled "other" bucket so
+stacked charts and the accessible table never contradict total_tokens. Ensure
+models that currently show null cost despite having price rows get priced.
+
+TASK B -- Shared formatters (format.ts)
+formatCost: add thousands separators and consistent per-column decimals.
+modelLabel: handle the Claude 3.x family (major-point-family ordering) and stop
+collapsing distinct model ids to an identical label without disambiguation.
+timeUntil: return an explicit past form ("ended 15h ago") instead of "now" for
+negative diffs. Add/extend unit tests.
+
+TASK C -- Theme tokens and status contrast (theme.css + palette)
+Define the --series-* CSS custom properties (or bridge to seriesColor) so
+dark mode stops falling back to a hardcoded light-mode blue in the Machines
+share bar, Sessions magnitude bar/sparkline, and Alerts sparkline. Fix the
+light-mode --status-warning contrast (currently ~1.8:1) by validating the
+palette per mode and choosing a passing step. Add a small status-word/badge
+helper so status is never carried by color alone.
+
+TASK D -- Chart builders for skewed and dominant-series data (charts.ts)
+Add a 100%-normalized stacked option (or a cache-read-split variant) so token
+composition is legible when one component is 96% of the total. Add
+segment-border spacers between stacked segments, label rotation/truncation for
+long categories, and a piecewise/log visualMap for the power-law heatmaps.
+Provide a log or percentile-clip option for magnitude bars.
+
+TASK E -- Now page
+Banner must check snapshot age and degrade stale headlines; add status words
+(not tint alone); empty state on today-by-model chart; single-point sparkline
+fallback; guard 0.0% cache tile when there is no usage; adopt the normalized
+composition chart.
+
+TASK F -- Trends page
+Daily chart: switch to a time axis with gap-filled missing days and label
+rotation. Fix the project filter sending the display label "(unattributed)" as
+the query value. Do not let a refetch error replace the FilterBar. Reduce area
+fill opacity and adopt the normalized composition option.
+
+TASK G -- Breakdowns page
+Wire machine/project filters into the heatmap (or scope it visibly). Render the
+cache stats as tiles and surface the cache-read share number. Adopt normalized
+stacks, add segment borders, handle long project labels, and switch the
+heatmaps to a piecewise visualMap. Wire the AsyncState empty state.
+
+TASK H -- Sessions page
+Top-N chart: label by session id (not project) and click through to expand.
+Insights: show the driving metric per reason and make the ranking explicable
+(show severity or group by reason). Log-scale or threshold the magnitude bar.
+Make the inflection marker visible (min offset/label) and add a tooltip. Handle
+the anomaly fetch error state. Fix the hardcoded series color.
+
+TASK I -- Machines page
+Add a real re-poll timer (not just a ticking clock). Handle N=1 fleet share
+(drop the column or make it informative) and de-duplicate the footer. Render
+the status as a word, not color alone. Fix the hardcoded series color.
+
+TASK J -- Blocks page
+Distinguish an idle/no-active-block state from a live one; stop labeling a
+stale block "Current". Extend the chart to now so the trailing idle gap shows,
+and encode true block duration as bar width. Add total cost to the footer,
+drop or relocate the all-null End-util column, and reverse the table order so
+the latest block is first.
+
+TASK K -- Alerts page
+Show both warn and crit in the live current-vs-threshold. Add a live value for
+collector_stale. Validate the create form (numeric, warn<crit, non-empty
+channels). Surface a migrated rule's legacy threshold. Give state/severity
+badges a filled treatment and add an info severity. Fix the sparkline color.
+
+TASK L -- Settings page
+Pricing table: indicate the currently-active price per model, add sorting, and
+collapse superseded rows. Timezone picker: group by region and show UTC offset
+(or a searchable combobox). Confirm before revoke/disconnect. Make the unpriced
+banner chips real buttons. Surface API error detail and place it correctly.
+Tick the now preview. Label the add-price form inputs with units.

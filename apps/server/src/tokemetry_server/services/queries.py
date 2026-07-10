@@ -16,8 +16,10 @@ from typing import Any
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tokemetry_core.projects import DEFAULT_ROOTS, project_group
 
 from tokemetry_server.db import models
+from tokemetry_server.services.session_stats import SessionStats, compute_session_stats
 
 #: Group-by dimensions backed by the daily_rollups table.
 _ROLLUP_DIMENSIONS = {
@@ -182,6 +184,68 @@ def _key_to_str(key: object) -> str:
     return str(key)
 
 
+@dataclass(frozen=True)
+class Overview:
+    """All-time totals for the dashboard summary strip."""
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+    session_count: int
+    machine_count: int
+    first_event: datetime | None
+    last_event: datetime | None
+
+
+async def overview(session: AsyncSession) -> Overview:
+    """Return all-time token/cost totals and activity span across every event."""
+    rollup = models.DailyRollup
+    totals = (
+        await session.execute(
+            select(
+                func.coalesce(func.sum(rollup.input_tokens), 0),
+                func.coalesce(func.sum(rollup.output_tokens), 0),
+                func.coalesce(func.sum(rollup.cache_read_tokens), 0),
+                func.coalesce(func.sum(rollup.cache_write_short_tokens), 0),
+                func.coalesce(func.sum(rollup.cache_write_long_tokens), 0),
+                func.coalesce(func.sum(rollup.total_tokens), 0),
+                func.sum(rollup.cost_usd),
+            )
+        )
+    ).one()
+
+    event = models.UsageEvent
+    sessions = (
+        await session.execute(
+            select(func.count(func.distinct(event.session_id))).where(
+                event.session_id.is_not(None)
+            )
+        )
+    ).scalar_one()
+    machines = (
+        await session.execute(select(func.count(func.distinct(event.machine))))
+    ).scalar_one()
+    span = (await session.execute(select(func.min(event.ts), func.max(event.ts)))).one()
+
+    return Overview(
+        input_tokens=int(totals[0] or 0),
+        output_tokens=int(totals[1] or 0),
+        cache_read_tokens=int(totals[2] or 0),
+        cache_write_short_tokens=int(totals[3] or 0),
+        cache_write_long_tokens=int(totals[4] or 0),
+        total_tokens=int(totals[5] or 0),
+        cost_usd=None if totals[6] is None else Decimal(str(totals[6])),
+        session_count=int(sessions or 0),
+        machine_count=int(machines or 0),
+        first_event=_as_utc(span[0]) if span[0] is not None else None,
+        last_event=_as_utc(span[1]) if span[1] is not None else None,
+    )
+
+
 async def total_cost(
     session: AsyncSession, start: date, end: date
 ) -> Decimal:
@@ -195,12 +259,19 @@ async def total_cost(
 
 
 async def punch_card(
-    session: AsyncSession, start: date, end: date
+    session: AsyncSession,
+    start: date,
+    end: date,
+    machine: str | None = None,
+    project: str | None = None,
+    roots: Sequence[str] = DEFAULT_ROOTS,
 ) -> dict[tuple[int, int], int]:
     """Return a (weekday, hour) -> total tokens map from usage_events.
 
     Weekday is 0=Monday..6=Sunday, hour is 0..23 (UTC). Bucketed in Python
-    for dialect portability over the (bounded) requested range.
+    for dialect portability over the (bounded) requested range. ``project`` is
+    matched against the normalized project group (so the punch card obeys the
+    same filter as the rollup-backed charts).
     """
     event = models.UsageEvent
     start_ts = datetime(start.year, start.month, start.day, tzinfo=UTC)
@@ -212,13 +283,16 @@ async def punch_card(
         + event.cache_write_short_tokens
         + event.cache_write_long_tokens
     )
-    rows = (
-        await session.execute(
-            select(event.ts, total).where(event.ts >= start_ts, event.ts <= end_ts)
-        )
-    ).all()
+    statement = select(event.ts, total, event.project).where(
+        event.ts >= start_ts, event.ts <= end_ts
+    )
+    if machine is not None:
+        statement = statement.where(event.machine == machine)
+    rows = (await session.execute(statement)).all()
     card: dict[tuple[int, int], int] = {}
-    for ts, tokens in rows:
+    for ts, tokens, raw_project in rows:
+        if project is not None and project_group(raw_project, roots) != project:
+            continue
         aware = _as_utc(ts)
         key = (aware.weekday(), aware.hour)
         card[key] = card.get(key, 0) + int(tokens or 0)
@@ -278,9 +352,15 @@ class SessionSummary:
 
 
 async def list_sessions(
-    session: AsyncSession, limit: int = 100
+    session: AsyncSession,
+    limit: int = 100,
+    roots: Sequence[str] = DEFAULT_ROOTS,
 ) -> list[SessionSummary]:
-    """Return recent sessions aggregated from usage_events, newest first."""
+    """Return recent sessions aggregated from usage_events, newest first.
+
+    The raw ``cwd`` is folded to a project group so sessions display the same
+    project labels as the rollup-backed breakdowns.
+    """
     event = models.UsageEvent
     total = (
         event.input_tokens
@@ -314,7 +394,7 @@ async def list_sessions(
                 session_id=str(row[0]),
                 provider=str(row[1]),
                 machine=row[2],
-                project=row[3],
+                project=project_group(row[3], roots),
                 started_at=_as_utc(row[4]),
                 last_at=_as_utc(row[5]),
                 message_count=int(row[6]),
@@ -328,6 +408,86 @@ async def list_sessions(
 def _as_utc(value: datetime) -> datetime:
     """Ensure a datetime read from the DB is timezone-aware (UTC)."""
     return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+@dataclass(frozen=True)
+class SessionEvent:
+    """One usage event within a session drill-down (metadata only)."""
+
+    ts: datetime
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+
+
+@dataclass(frozen=True)
+class SessionDetail:
+    """A session's ordered event series and derived efficiency stats."""
+
+    session_id: str
+    project: str | None
+    machine: str | None
+    events: list[SessionEvent]
+    stats: SessionStats
+
+
+async def session_detail(
+    session: AsyncSession, session_id: str, roots: Sequence[str] = DEFAULT_ROOTS
+) -> SessionDetail | None:
+    """Return one session's ordered events and stats, or None if unknown.
+
+    No message text is read or returned; only token/cost metadata.
+    """
+    event = models.UsageEvent
+    rows = list(
+        (
+            await session.execute(
+                select(event).where(event.session_id == session_id).order_by(event.ts)
+            )
+        ).scalars()
+    )
+    if not rows:
+        return None
+
+    events: list[SessionEvent] = []
+    for row in rows:
+        total = (
+            row.input_tokens
+            + row.output_tokens
+            + row.cache_read_tokens
+            + row.cache_write_short_tokens
+            + row.cache_write_long_tokens
+        )
+        events.append(
+            SessionEvent(
+                ts=_as_utc(row.ts),
+                model=row.model,
+                input_tokens=row.input_tokens,
+                output_tokens=row.output_tokens,
+                cache_read_tokens=row.cache_read_tokens,
+                cache_write_short_tokens=row.cache_write_short_tokens,
+                cache_write_long_tokens=row.cache_write_long_tokens,
+                total_tokens=total,
+                cost_usd=row.cost_usd,
+            )
+        )
+    stats = compute_session_stats(
+        [e.total_tokens for e in events],
+        [e.cache_read_tokens for e in events],
+        [e.input_tokens for e in events],
+    )
+    return SessionDetail(
+        session_id=session_id,
+        project=project_group(rows[0].project, roots),
+        machine=rows[0].machine,
+        events=events,
+        stats=stats,
+    )
 
 
 @dataclass(frozen=True)

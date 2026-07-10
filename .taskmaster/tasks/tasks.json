@@ -698,13 +698,1229 @@
           }
         ],
         "updatedAt": "2026-07-09T15:54:43.768Z"
+      },
+      {
+        "id": "15",
+        "title": "Backend Pricing Write + Recompute Endpoints",
+        "description": "Implement backend pricing write and recompute endpoints to unblock the real cost story.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Backend (FastAPI) - IMPLEMENTED: api/pricing.py with POST /api/v1/pricing (create/override a price row via pricing_repo.upsert_price_rows, source default 'manual', returns PricingOut) and POST /api/v1/pricing/recompute (reload pricing table -> fresh CostEngine, recompute_costs over all events, refresh_rollups_for_days across the full event date span so rollup cost_usd updates too, and hot-swap app.state.cost_fn so future ingests use new prices without restart). Added PriceRowIn + RecomputeResult schemas. Wired router into app. Tests: auth required, create appears in listing, unpriced event -> add price -> recompute fills event AND rollup cost, future ingest priced. Gates: 101 server tests, ruff/mypy strict/trivy clean.\n\nFrontend (Vue) - TODO: In Settings view, add 'Add/override model price' form with all fields. On mount, diff usage(group_by=model) against pricing rows to render a banner listing unpriced models (e.g., 'Unpriced: opus-4.8, sonnet-5, fable-5') with one-click prefill for the form. Use vitest for shared logic tests in src/lib.",
+        "testStrategy": "Backend (IMPLEMENTED): pytest: Test upsert_price_rows and recompute_costs with SQLite. Verify transactional integrity for recompute. Auth required, create appears in listing, unpriced event -> add price -> recompute fills event AND rollup cost, future ingest priced. Gates: 101 server tests, ruff/mypy strict/trivy clean.\n\nFrontend (TODO): vitest: Test form submission, banner rendering, and prefill logic. Ensure quality gates: vue-tsc, vite, vitest, eslint, prettier.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement frontend pricing form",
+            "description": "Implement frontend 'Add/override model price' form in Settings view with all fields.",
+            "dependencies": [],
+            "details": "Create Vue form component with fields: provider, model, effective_date, source, per-MTok fields. Ensure validation and submission logic.",
+            "status": "pending",
+            "testStrategy": "vitest: Test form submission, field validation, and prefill logic. Ensure quality gates: vue-tsc, vite, eslint, prettier.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement unpriced models banner",
+            "description": "Implement banner rendering for unpriced models with one-click prefill.",
+            "dependencies": [
+              1
+            ],
+            "details": "On mount, diff usage(group_by=model) against pricing rows. Render banner listing unpriced models (e.g., 'Unpriced: opus-4.8, sonnet-5, fable-5'). Add one-click prefill button to populate form.",
+            "status": "pending",
+            "testStrategy": "vitest: Test banner rendering, unpriced model detection, and prefill logic. Ensure quality gates pass.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T17:49:40.231Z"
+      },
+      {
+        "id": "16",
+        "title": "Coverage-Gated Cost Display Helper",
+        "description": "Implement coverage-gated cost display to prevent authoritative dollar figures from incomplete price tables.",
+        "status": "done",
+        "dependencies": [
+          "15"
+        ],
+        "priority": "high",
+        "details": "Shared Logic (src/lib/coverage.ts): Implemented pricedCoverage(buckets) -> {pricedTokens, totalTokens, ratio, unpricedKeys} and costIsTrustworthy (>=90% threshold), unit-tested. Frontend (NowView): Today tile now leads with tokens; cost sub is coverage-aware ('cost partial - N model(s) unpriced' below threshold, real equivalent above, 'no usage yet today' when empty). Added Plan value tile from GET /cost (value_multiple 'Nx vs /mo · priced models only', else 30d equivalent). Frontend (SessionsView): null cost renders an 'unpriced' pill (not a bare dash) linking mentally to Settings. Gates: 20 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Verify pricedCoverage returns correct object and costIsTrustworthy enforces threshold. Frontend: Test Today tile cost gating, Plan value tile rendering, and 'unpriced' pill in SessionsView. Ensure quality gates (20 dashboard tests, build, eslint/prettier) pass.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Verify lib/coverage.ts implementation",
+            "description": "Verify lib/coverage.ts implementation: pricedCoverage returns {pricedTokens, totalTokens, ratio, unpricedKeys} and costIsTrustworthy enforces >=90% threshold.",
+            "dependencies": [],
+            "details": "Check unit tests for pricedCoverage and costIsTrustworthy. Ensure ratio calculation is correct and unpricedKeys tracks missing models accurately.",
+            "status": "done",
+            "testStrategy": "Run existing unit tests. Manually verify return object structure and threshold logic.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Update NowView Today tile",
+            "description": "Update NowView Today tile: lead with tokens, add coverage-aware cost sub with 'partial' annotation below threshold.",
+            "dependencies": [],
+            "details": "Implement logic to show 'cost partial - N model(s) unpriced' when coverage <90%, real cost when >=90%, and 'no usage yet today' when empty.",
+            "status": "done",
+            "testStrategy": "Test with mock data for <90%, >=90%, and empty coverage scenarios. Verify text rendering.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add Plan value tile in NowView",
+            "description": "Add Plan value tile in NowView: wire GET /cost value_multiple vs subscription_monthly_us.",
+            "dependencies": [],
+            "details": "Display 'Nx vs /mo · priced models only' if value_multiple exists, else show 30d equivalent.",
+            "status": "done",
+            "testStrategy": "Test with API responses containing value_multiple and without. Verify fallback to 30d equivalent.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Update SessionsView null cost rendering",
+            "description": "Update SessionsView: render 'unpriced' pill for null cost instead of bare dash.",
+            "dependencies": [],
+            "details": "Ensure pill links mentally to Settings. Verify it distinguishes null cost from genuine $0.",
+            "status": "done",
+            "testStrategy": "Test with null cost and $0 cost. Verify pill rendering and visual distinction.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Run quality gates",
+            "description": "Run quality gates: 20 dashboard tests, build, eslint, prettier.",
+            "dependencies": [],
+            "details": "Ensure all tests pass, build succeeds, and code is clean per eslint/prettier.",
+            "status": "done",
+            "testStrategy": "Execute dashboard tests, run build, check eslint/prettier output.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T17:56:47.089Z"
+      },
+      {
+        "id": "17",
+        "title": "Stacked Token-Composition Chart Builder (roadmap #3: charts.ts, format.ts, NowView, BreakdownsView, TrendsView) - Implemented stackedTokenBarOption, TOKEN_COMPONENTS, formatTokens formatters, modelId/",
+        "description": "Implement stacked token-composition charts to visualize cache-read dominance.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16"
+        ],
+        "priority": "high",
+        "details": "Chart Builder (src/lib): Create stackedTokenBarOption(categories, buckets) builder with fixed categorical hue order (input/output/cache_read/cache_write_5m/cache_write_1h) and formatTokens value+axis formatters. Export TOKEN_COMPONENTS with typed accessors. Retrofit barOption + stackedAreaOption with formatTokens formatters (eliminating '2700000000'). Frontend: Apply to NowView (today-by-model as stacked composition + 'Cache reads %' tile), BreakdownsView (three charts as stacked composition, sorted descending, model labels, Promise.all load, mislabeled cache-efficiency stat replaced with hit ratio = read/(read+input) and reuse = read/write), and TrendsView (daily chart as real 5-component stacked area, dimension chart as sorted stacked token bar, split loadDays/loadDimension so toggle no longer refetches daily chart). Add cacheReadShare() stat and 'exclude cache' toggle. Data is on UsageBucket. Test chart builder with vitest.",
+        "testStrategy": "vitest: Test stackedTokenBarOption builder with sample data. Frontend: Verify chart rendering on NowView, BreakdownsView, TrendsView, and toggle functionality. Ensure quality gates pass (28 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T18:05:15.451Z"
+      },
+      {
+        "id": "18",
+        "title": "Live Feed Throttle + Polling Fallback",
+        "description": "Decouple live feed from fetch to eliminate WebSocket-driven refetch storm.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17"
+        ],
+        "priority": "high",
+        "details": "Frontend (NowView): Implemented lib/throttle.ts with trailing throttle (leading + guaranteed trailing, coalesces burst into one call per window; -Infinity init for correct leading edge), unit-tested with fake timers. WS onmessage now appends to feed (keyed by stable incrementing id, not array index) and calls throttledLoad (max one /summary/now refetch per 10s) instead of load() per event, killing per-event refetch storm. Added 30s polling fallback to prevent numbers freezing on idle/dropped socket. Added 'updated Xs ago' indicator (1s tick). All timers cleared on unmount. Gates: 28 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "Frontend: Verify 'updated Xs ago' indicator, feed append-only behavior (keyed by stable id), and throttledLoad limiting (max one refetch per 10s). Test polling fallback triggers on idle/dropped socket. Ensure all timers clear on unmount. Gates: 28 dashboard tests, build + eslint/prettier clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement lib/throttle.ts",
+            "description": "Implement lib/throttle.ts with trailing throttle (leading + guaranteed trailing, coalesces burst into one call per window; -Infinity init for correct leading edge).",
+            "dependencies": [],
+            "details": "Unit-tested with fake timers.",
+            "status": "done",
+            "testStrategy": "Unit test with fake timers.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Update WS onmessage handler",
+            "description": "Update WS onmessage in NowView to append to feed (keyed by stable incrementing id, not array index) and call throttledLoad (max one /summary/now refetch per 10s) instead of load() per event.",
+            "dependencies": [],
+            "details": "This kills the per-event refetch storm.",
+            "status": "done",
+            "testStrategy": "Verify no per-event refetch storm occurs.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add polling fallback",
+            "description": "Add 30s polling fallback to prevent numbers freezing on idle/dropped socket.",
+            "dependencies": [],
+            "details": "Ensure numbers do not freeze.",
+            "status": "done",
+            "testStrategy": "Test polling fallback triggers on idle/dropped socket.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add update indicator",
+            "description": "Add 'updated Xs ago' indicator with 1s tick.",
+            "dependencies": [],
+            "details": "Display time since last update.",
+            "status": "done",
+            "testStrategy": "Verify indicator updates every 1s.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Clear timers on unmount",
+            "description": "Ensure all timers are cleared on unmount.",
+            "dependencies": [],
+            "details": "Prevent memory leaks.",
+            "status": "done",
+            "testStrategy": "Test timer cleanup on unmount.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Verify quality gates",
+            "description": "Verify quality gates pass.",
+            "dependencies": [],
+            "details": "28 dashboard tests, build + eslint/prettier clean.",
+            "status": "done",
+            "testStrategy": "Run dashboard tests and check build/eslint/prettier.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T18:35:12.546Z"
+      },
+      {
+        "id": "19",
+        "title": "Chart Hygiene: Formatting + Accessibility",
+        "description": "Implement chart hygiene to fix formatting and accessibility issues.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18"
+        ],
+        "priority": "medium",
+        "details": "Completed chart hygiene (roadmap #11) mostly landed in Task 17: formatTokens tooltip/axis formatters on every chart builder (no more '2700000000'), modelLabel() humanizes ids, descending sort on categorical bars, stackedTokenBar/bar used for categorical instead of area lines. This task adds the remaining accessibility piece: components/ChartTable.vue (visually-hidden sr-only <table> with caption + scoped headers mirroring a chart's data) plus charts.ts TOKEN_TABLE_HEADERS + tokenTableRows() helper, applied under the Now 'today by model' chart and all three Breakdowns charts so exact numbers are available to screen readers and copy. Gates: 28 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Test TOKEN_TABLE_HEADERS and tokenTableRows() helper. Frontend: Verify ChartTable.vue semantic HTML, sr-only visibility, and caption/scoped headers. Test integration under Now 'today by model' and all three Breakdowns charts. Ensure screen readers can access exact numbers and copy works. Quality gates: 28 dashboard tests pass, build + eslint/prettier clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create ChartTable.vue component",
+            "description": "Create components/ChartTable.vue: visually-hidden sr-only <table> with caption + scoped headers mirroring chart data.",
+            "dependencies": [],
+            "details": "Implement semantic HTML table with sr-only class for screen readers. Add caption element describing the chart. Use scoped headers (scope='col' and scope='row') for proper navigation. Ensure table mirrors exact data from the chart.",
+            "status": "pending",
+            "testStrategy": "Frontend: Verify table is visually hidden but accessible to screen readers. Check semantic HTML structure with caption and scoped headers. Test keyboard navigation through table.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Add TOKEN_TABLE_HEADERS and tokenTableRows() helper",
+            "description": "Add charts.ts TOKEN_TABLE_HEADERS constant and tokenTableRows() helper function.",
+            "dependencies": [],
+            "details": "Define TOKEN_TABLE_HEADERS array with column names for the table. Implement tokenTableRows() to extract chart data into table row format. Ensure helper handles all chart types correctly.",
+            "status": "pending",
+            "testStrategy": "vitest: Test TOKEN_TABLE_HEADERS structure and tokenTableRows() output. Verify data extraction matches chart data exactly.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Apply accessibility table to target charts",
+            "description": "Apply ChartTable.vue and tokenTableRows() to Now 'today by model' chart and all three Breakdowns charts.",
+            "dependencies": [],
+            "details": "Integrate ChartTable component under the Now chart and all Breakdowns charts. Pass tokenTableRows() data to the table. Ensure exact numbers are available for screen readers and copy functionality.",
+            "status": "pending",
+            "testStrategy": "Frontend: Verify table appears under all target charts. Test screen reader access to exact numbers. Confirm copy functionality works with table data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Run quality gates",
+            "description": "Run quality gates: 28 dashboard tests, build + eslint/prettier clean.",
+            "dependencies": [],
+            "details": "Execute all 28 dashboard tests to verify implementation. Run build process and ensure eslint and prettier report no issues. Confirm all quality gates pass before marking task complete.",
+            "status": "pending",
+            "testStrategy": "Dashboard: Run 28 tests with 100% pass rate. Build: Verify clean build with no errors. Linting: Confirm eslint and prettier are clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T18:41:14.329Z"
+      },
+      {
+        "id": "20",
+        "title": "Shared AsyncState/StateCard Component",
+        "description": "Build shared AsyncState/StateCard component for loading, empty, and error states.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19"
+        ],
+        "priority": "medium",
+        "details": "Frontend (src/components): Create AsyncState/StateCard component with loading skeleton (shimmer), empty message, and error card (human message from ApiError.status + Retry button). Keep last-good data visible. Adopt on Now, Trends, Breakdowns, Settings (replacing raw String(e) cards and false empty flashes; loading gate uses '&& no-data-yet' so background polls don't blank the page). Sessions/Machines/Blocks/Alerts adopt AsyncState within their own rewrite tasks (22/23/24/26). Test with vitest.",
+        "testStrategy": "vitest: Test component rendering for loading, empty, and error states. Frontend: Verify adoption on Now, Trends, Breakdowns, Settings views and Retry button functionality. Ensure quality gates pass (37 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement shared async-state (roadmap #7)",
+            "description": "Implement shared async-state (roadmap #7): lib/errors.ts errorMessage() maps ApiError.status (401/403->token hint, 5xx->server error, network TypeError->cannot reach) to human text (tested); composables/useAsync.ts (loading/error refs + run(fn) wrapper + retry that re-runs last loader, tested); components/AsyncState.vue (loading skeleton with shimmer, human error card + Retry button, empty state only after load so a fetch never looks like 'no data').",
+            "dependencies": [],
+            "details": "lib/errors.ts: Add errorMessage() mapping ApiError.status to human text. composables/useAsync.ts: Add loading/error refs, run(fn) wrapper, retry that re-runs last loader. components/AsyncState.vue: Add loading skeleton with shimmer, human error card + Retry button, empty state only after load.",
+            "status": "done",
+            "testStrategy": "Test errorMessage() mapping, useAsync.ts wrapper/retry, AsyncState.vue rendering. Verify loading gate uses '&& no-data-yet'.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Adopt AsyncState on Now, Trends, Breakdowns, Settings",
+            "description": "Adopt AsyncState on Now, Trends, Breakdowns, Settings views.",
+            "dependencies": [],
+            "details": "Replace raw String(e) cards and false empty flashes with AsyncState component. Ensure loading gate uses '&& no-data-yet' so background polls don't blank the page.",
+            "status": "done",
+            "testStrategy": "Verify AsyncState adoption on all four views. Test Retry button functionality. Ensure quality gates pass.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Adopt AsyncState on Sessions, Machines, Blocks, Alerts",
+            "description": "Adopt AsyncState on Sessions, Machines, Blocks, Alerts views within their rewrite tasks.",
+            "dependencies": [],
+            "details": "Sessions/Machines/Blocks/Alerts adopt AsyncState within their own rewrite tasks (22/23/24/26). No direct implementation in this task.",
+            "status": "done",
+            "testStrategy": "Verify AsyncState adoption in rewrite tasks 22/23/24/26.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Run vitest tests for AsyncState component rendering",
+            "description": "Run vitest tests for AsyncState component rendering.",
+            "dependencies": [],
+            "details": "Test component rendering for loading, empty, and error states. Verify quality gates pass.",
+            "status": "done",
+            "testStrategy": "vitest: Test component rendering for loading, empty, and error states. Ensure quality gates pass.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Verify quality gates",
+            "description": "Verify quality gates: 37 dashboard tests, build + eslint/prettier clean.",
+            "dependencies": [],
+            "details": "Ensure 37 dashboard tests pass. Verify build + eslint/prettier are clean.",
+            "status": "done",
+            "testStrategy": "Run 37 dashboard tests. Verify build + eslint/prettier clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T18:52:51.015Z"
+      },
+      {
+        "id": "21",
+        "title": "Limits Time-Series + Exhaustion Forecast",
+        "description": "Implement Limits time-series with reset markers and projected exhaustion.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20"
+        ],
+        "priority": "medium",
+        "details": "Frontend (Now page): Use GET /limits/history. Draw utilization sparkline/area inside each GaugeCard with dashed slope-projected exhaustion segment (from prediction.slope) and reset marker. Compute most-at-risk window and promote to headline banner ('You will hit your 5-hour block in ~40m - 87%, climbing 1.4%/min', or 'X at N% - resets in Yh'). Replace one redundant Trends chart with utilization-over-time per window_kind. Test with vitest. Implementation: lib/sparkline.ts sparkGeometry() pure SVG-polyline geometry (clamps to max, optional dashed projection past last point), unit-tested; components/Sparkline.vue inline-SVG sparkline (history polyline + dashed projection + end marker, no chart lib). GaugeCard renders utilization sparkline colored by status with dashed projected-exhaustion segment. NowView fetches /limits/history (24h) per window in parallel and passes to each gauge; computes most-at-risk window and promotes to headline banner colored by status.",
+        "testStrategy": "vitest: Test utilization calculation and banner logic. Frontend: Verify sparkline rendering, exhaustion segment, reset marker, and banner display. Ensure quality gates pass (42 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Verify sparkGeometry() clamping and dashed projection",
+            "description": "Verify lib/sparkline.ts sparkGeometry() clamps to max and handles optional dashed projection past last point.",
+            "dependencies": [],
+            "details": "Unit tests confirm sparkGeometry() pure SVG-polyline geometry behavior. Ensure clamping logic and dashed projection toggle work correctly.",
+            "status": "done",
+            "testStrategy": "Run unit tests for sparkGeometry(). Verify clamping and dashed projection edge cases.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Confirm Sparkline.vue inline-SVG rendering",
+            "description": "Confirm components/Sparkline.vue renders inline-SVG sparkline with history polyline, dashed projection, and end marker.",
+            "dependencies": [],
+            "details": "Sparkline.vue uses inline-SVG (no chart lib). Ensure history polyline, dashed projection, and end marker render correctly.",
+            "status": "done",
+            "testStrategy": "Frontend test: Render Sparkline.vue with sample history. Verify polyline, dashed projection, and end marker visibility.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Validate GaugeCard sparkline and exhaustion segment",
+            "description": "Validate GaugeCard renders utilization sparkline colored by status with dashed projected-exhaustion segment.",
+            "dependencies": [],
+            "details": "GaugeCard integration: sparkline colored by status, dashed exhaustion segment visible. Ensure status-based coloring and segment rendering.",
+            "status": "done",
+            "testStrategy": "Frontend test: Render GaugeCard with utilization data. Verify status coloring and dashed exhaustion segment.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Ensure NowView parallel fetch and data passing",
+            "description": "Ensure NowView fetches /limits/history (24h) per window in parallel and passes to each gauge.",
+            "dependencies": [],
+            "details": "NowView parallel fetch: /limits/history (24h) per window. Confirm parallel execution and data passing to gauges.",
+            "status": "done",
+            "testStrategy": "Frontend test: Mock /limits/history. Verify parallel fetch per window and data passing to gauges.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Verify most-at-risk window and headline banner",
+            "description": "Verify NowView computes most-at-risk window and promotes to headline banner colored by status.",
+            "dependencies": [],
+            "details": "Banner logic: most-at-risk window computed, promoted to headline banner ('You will hit your 5-hour block in ~40m - 87%, climbing 1.4%/min' or 'X at N% - resets in Yh'). Ensure status-based coloring.",
+            "status": "done",
+            "testStrategy": "Frontend test: Mock /limits/history with varying windows. Verify most-at-risk computation, banner text, and status coloring.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Replace redundant Trends chart with utilization-over-time",
+            "description": "Replace one redundant Trends chart with utilization-over-time per window_kind.",
+            "dependencies": [],
+            "details": "Identify redundant Trends chart. Replace with utilization-over-time chart per window_kind. Ensure data mapping and rendering.",
+            "status": "pending",
+            "testStrategy": "Frontend test: Render utilization-over-time chart per window_kind. Verify data accuracy and chart visibility.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Test utilization calculation and banner logic with vitest",
+            "description": "Test utilization calculation and banner logic with vitest.",
+            "dependencies": [],
+            "details": "vitest: Test utilization calculation and banner logic. Ensure quality gates pass (42 dashboard tests, build + eslint/prettier clean).",
+            "status": "pending",
+            "testStrategy": "Run vitest for utilization calculation and banner logic. Verify 42 dashboard tests pass, build + eslint/prettier clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T18:59:32.349Z"
+      },
+      {
+        "id": "22",
+        "title": "Machines Page: Staleness Clock + Differentiators",
+        "description": "Fix Machines page: unfreeze staleness clock and add differentiators.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21"
+        ],
+        "priority": "medium",
+        "details": "Frontend (Machines page): Drive 'now' from ticking ref (setInterval, cleared on unmount) instead of computed(() => Date.now()). Re-poll machines() on same interval. Add per-machine burn-rate and share-of-fleet columns, token-share bar, totals footer, status scale (online/recent/stale/dead) with thresholds, sort-stale-first with 'N offline' banner, and click-through to Usage/Sessions filtered by machine. Test with vitest.",
+        "testStrategy": "vitest: Test ticking ref and re-poll logic. Frontend: Verify status scale, sorting, banner, and click-through. Ensure quality gates pass (46 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement machineStatus with shared thresholds",
+            "description": "Backend (lib/machines.ts): Implement machineStatus(lastSeen, nowMs) with single shared thresholds (online<2m/recent<30m/stale<24h/offline), statusRank (stale/offline first), and isDown. Unit-test.",
+            "dependencies": [],
+            "details": "Rewrote Machines page (roadmap #5): lib/machines.ts machineStatus(lastSeen, nowMs) with single shared thresholds (online<2m/recent<30m/stale<24h/offline) + statusRank (stale/offline first) + isDown, unit-tested.",
+            "status": "done",
+            "testStrategy": "Unit tests for machineStatus thresholds, statusRank ordering, and isDown logic.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Fix frozen-clock bug",
+            "description": "Frontend: Fix frozen-clock bug by using ticking ref (15s interval) instead of computed(() => Date.now()).",
+            "dependencies": [],
+            "details": "FIXED the frozen-clock bug: now is a ref ticked every 15s (was computed(()=>Date.now()) which never updated, so staleness lied).",
+            "status": "done",
+            "testStrategy": "Test ticking ref updates every 15s and re-polls machines() correctly.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add status indicators and sorting",
+            "description": "Frontend: Add status dot, relative 'ago', sort stale/offline-first, and 'N machines offline or stale' banner.",
+            "dependencies": [],
+            "details": "Added a status dot + relative 'ago', sort stale/offline-first, an 'N machines offline or stale' banner.",
+            "status": "done",
+            "testStrategy": "Verify status dot rendering, relative time display, sorting order, and banner text.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add fleet metrics and formatting",
+            "description": "Frontend: Add share-of-fleet inline bar with %, fleet totals footer (events + tokens), and locale-formatted event_count.",
+            "dependencies": [],
+            "details": "Added a share-of-fleet inline bar + %, a fleet totals footer (events + tokens), event_count locale-formatted.",
+            "status": "done",
+            "testStrategy": "Verify share-of-fleet bar, totals footer values, and locale formatting.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement click-through and AsyncState",
+            "description": "Frontend: Implement click-through to /sessions?machine=id and AsyncState (loading/empty/error).",
+            "dependencies": [],
+            "details": "Added click-through to /sessions?machine=id, and AsyncState (loading/empty/error).",
+            "status": "done",
+            "testStrategy": "Test click-through navigation and AsyncState rendering for loading, empty, and error states.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Add burn-rate and share-of-fleet columns",
+            "description": "Frontend: Add per-machine burn-rate and share-of-fleet columns, token-share bar, and totals footer.",
+            "dependencies": [],
+            "details": "Add per-machine burn-rate and share-of-fleet columns, token-share bar, totals footer.",
+            "status": "pending",
+            "testStrategy": "Verify column rendering, token-share bar, and totals footer.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Implement status scale and sorting",
+            "description": "Frontend: Implement status scale (online/recent/stale/dead) with thresholds and sort-stale-first.",
+            "dependencies": [],
+            "details": "Add status scale (online/recent/stale/dead) with thresholds, sort-stale-first.",
+            "status": "pending",
+            "testStrategy": "Test status scale thresholds and sorting order.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "Add offline banner and click-through",
+            "description": "Frontend: Add 'N offline' banner and click-through to Usage/Sessions filtered by machine.",
+            "dependencies": [],
+            "details": "Add 'N offline' banner and click-through to Usage/Sessions filtered by machine.",
+            "status": "pending",
+            "testStrategy": "Verify banner text and click-through navigation with machine filter.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 9,
+            "title": "Run vitest tests",
+            "description": "Test: Run vitest for ticking ref, re-poll logic, status scale, sorting, banner, and click-through.",
+            "dependencies": [],
+            "details": "Test with vitest: Test ticking ref and re-poll logic. Frontend: Verify status scale, sorting, banner, and click-through. Ensure quality gates pass.",
+            "status": "pending",
+            "testStrategy": "Run vitest suite and ensure all quality gates pass (46 dashboard tests, build + eslint/prettier clean).",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T19:04:55.933Z"
+      },
+      {
+        "id": "23",
+        "title": "Navigable Tables: Sorting + Filtering + Drill-Down",
+        "description": "Implement navigable tables: sorting, filtering, drill-down, totals.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22"
+        ],
+        "priority": "medium",
+        "details": "Frontend (Sessions page): Rewrote as navigable table (roadmap #8). Features: sortable columns (messages/tokens/cost/last-active) with click header toggling asc/desc (arrow indicator); client-side filters for machine/project/provider honoring ?machine= route query from Machines click-through; top-10-sessions bar chart; inline token magnitude bars in Tokens cell; totals footer (session count, messages, tokens, cost); relative 'last active' via new timeAgo() helper (tested) with absolute on hover; full session id on title hover; unpriced-cost pill. Adopted AsyncState. Per-request drill-down timeline deferred (needs backend per-session events endpoint). Confirms Breakdowns bars already sort descending. Gates: 47 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Test sorting, filtering, and drill-down logic. Frontend: Verify table rendering, totals footer, bar chart, magnitude bars, hover behaviors, and drill-down functionality. Ensure quality gates pass (47 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Sortable Columns",
+            "description": "Implement sortable columns (messages/tokens/cost/last-active) with click header toggling asc/desc and arrow indicator.",
+            "dependencies": [],
+            "details": "Click header toggles sort direction; show arrow (↑/↓) for visual feedback.",
+            "status": "done",
+            "testStrategy": "vitest: Test sort toggling and arrow indicator rendering.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Client-Side Filters",
+            "description": "Implement client-side filters for machine/project/provider honoring ?machine= route query.",
+            "dependencies": [],
+            "details": "Filters honor route query from Machines click-through; client-side filtering.",
+            "status": "done",
+            "testStrategy": "vitest: Test filter logic and route query integration.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Bar Chart, Magnitude Bars, Totals Footer",
+            "description": "Add top-10-sessions bar chart, inline token magnitude bars, and totals footer.",
+            "dependencies": [],
+            "details": "Bar chart shows top-10 sessions; inline bars in Tokens cell; totals footer includes session count, messages, tokens, cost.",
+            "status": "done",
+            "testStrategy": "Frontend: Verify bar chart, magnitude bars, and totals footer rendering.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "timeAgo() Helper and Hover Details",
+            "description": "Implement relative 'last active' via timeAgo() helper with absolute on hover and full session id on title hover.",
+            "dependencies": [],
+            "details": "timeAgo() helper tested; relative time shown with absolute on hover; full session id on title hover.",
+            "status": "done",
+            "testStrategy": "vitest: Test timeAgo() helper; Frontend: Verify hover behaviors.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Unpriced-Cost Pill and AsyncState",
+            "description": "Add unpriced-cost pill and adopt AsyncState.",
+            "dependencies": [],
+            "details": "Unpriced-cost pill for unpriced items; AsyncState adopted for state management.",
+            "status": "done",
+            "testStrategy": "Frontend: Verify unpriced-cost pill and AsyncState integration.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Per-Session Drill-Down and Click-to-Requery",
+            "description": "Implement per-session drill-down (usage group_by filtered to session) and click-to-requery to Breakdowns/Blocks bars.",
+            "dependencies": [],
+            "details": "Drill-down filters usage group_by to session; click-to-requery to Breakdowns and Blocks bars. Per-request drill-down timeline deferred (needs backend endpoint).",
+            "status": "done",
+            "testStrategy": "Frontend: Verify drill-down functionality and click-to-requery to Breakdowns/Blocks.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Breakdowns Descending Sort and Quality Gates",
+            "description": "Verify descending sort on Breakdowns bars and ensure quality gates pass.",
+            "dependencies": [],
+            "details": "Confirm Breakdowns bars sort descending; ensure 47 dashboard tests pass, build + eslint/prettier clean.",
+            "status": "done",
+            "testStrategy": "vitest: Test descending sort; Run quality gates (47 tests, build, lint).",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T19:10:30.226Z"
+      },
+      {
+        "id": "24",
+        "title": "Blocks Page: Hero Card + Time Axis Chart",
+        "description": "Implement current in-progress 5-hour block hero card and chart improvements.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23"
+        ],
+        "priority": "medium",
+        "details": "Frontend (Blocks page): Pin current block as hero card (percent consumed from end_utilization_pct, tokens this block, time until reset, peak burn labeled 'tok/min') colored by utilization status. Switch block chart to real time axis via charts.ts timeBarOption() (idle gaps render as gaps, was lying categorical axis). Add range picker (48h/7d/30d) defaulting to 48h. Update table: peak labeled 'Peak (tok/min)', null-aware Cost column, color-coded end-utilization, totals footer (block count, tokens, max peak). Adopt AsyncState. Test with vitest.",
+        "testStrategy": "vitest: Test hero card calculations, chart logic, range picker, table updates, and AsyncState integration. Frontend: Verify hero card, time axis chart, range picker, table, and totals footer. Ensure quality gates pass (47 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Rewrite hero card",
+            "description": "Rewrite hero card: percent consumed from end_utilization_pct, tokens this block, time until reset, peak burn labeled 'tok/min', colored by utilization status.",
+            "dependencies": [],
+            "details": "Implement hero card component with new calculations and styling. Ensure color coding reflects utilization status accurately.",
+            "status": "done",
+            "testStrategy": "vitest: Verify hero card calculations and color coding.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Update charts.ts time axis",
+            "description": "Update charts.ts: timeBarOption() renders blocks on real time axis (idle gaps as gaps).",
+            "dependencies": [],
+            "details": "Modify timeBarOption() to use real time axis instead of categorical. Ensure idle gaps are rendered correctly.",
+            "status": "done",
+            "testStrategy": "vitest: Test time axis rendering and idle gap handling.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add range picker",
+            "description": "Add range picker (48h/7d/30d) defaulting to 48h.",
+            "dependencies": [],
+            "details": "Implement range picker component with options 48h, 7d, 30d. Set default to 48h.",
+            "status": "done",
+            "testStrategy": "vitest: Verify range picker functionality and default value.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Update table and totals footer",
+            "description": "Update table: peak labeled 'Peak (tok/min)', null-aware Cost column, color-coded end-utilization, totals footer.",
+            "dependencies": [],
+            "details": "Modify table component to include new peak label, null-aware Cost column, color-coded end-utilization, and totals footer with block count, tokens, max peak.",
+            "status": "done",
+            "testStrategy": "vitest: Test table updates and totals footer.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Adopt AsyncState",
+            "description": "Adopt AsyncState for state management.",
+            "dependencies": [],
+            "details": "Integrate AsyncState into Blocks page for efficient state management.",
+            "status": "done",
+            "testStrategy": "vitest: Verify AsyncState integration and state handling.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Run dashboard tests and linting",
+            "description": "Run dashboard tests (47 tests) and ensure build + eslint/prettier clean.",
+            "dependencies": [],
+            "details": "Execute 47 dashboard tests. Ensure build passes and code is clean with eslint/prettier.",
+            "status": "done",
+            "testStrategy": "Run dashboard tests and verify build + linting.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T19:15:03.224Z"
+      },
+      {
+        "id": "25",
+        "title": "Heatmap Punch-Card + Calendar Grid",
+        "description": "Render unused /heatmap punch-card and calendar.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24"
+        ],
+        "priority": "low",
+        "details": "Frontend (Breakdowns page): Add GET /heatmap (weekday x hour punch_card + daily calendar). Create weekday-by-hour heatmap (sequential palette) and contribution-style calendar grid. Optionally add compact strip on Now/Trends. Test with vitest.\n\nIMPLEMENTATION UPDATE: Rendered unused /heatmap (roadmap #10): charts.ts punchCardOption() draws a weekday x hour heatmap (ECharts heatmap, sequential blue ramp light/dark, formatted tooltip) and calendarOption() draws a GitHub-style daily contribution calendar (ECharts calendar coordinate + heatmap over the data date range). Breakdowns now fetches client.heatmap() alongside the usage cuts and shows both under 'When you burn tokens' and 'Daily activity'. Answers 'when do I burn quota' - a throttling-avoidance question the backend already served and no view used.\n\nGATES: 47 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Test heatmap and calendar rendering logic. Frontend: Verify heatmap palette, calendar grid, and optional compact strip. Ensure quality gates pass.\n\nUPDATED: Verify ECharts heatmap (sequential blue ramp, formatted tooltip) and calendar (GitHub-style, calendar coordinate + heatmap overlay) render correctly. Confirm Breakdowns page displays data under 'When you burn tokens' and 'Daily activity'. Ensure 47 dashboard tests pass and build + eslint/prettier gates are clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement punchCardOption() heatmap",
+            "description": "Implement charts.ts punchCardOption() for weekday x hour heatmap using ECharts (sequential blue ramp light/dark, formatted tooltip).",
+            "dependencies": [],
+            "details": "Create ECharts heatmap configuration in charts.ts. Use sequential blue ramp for light/dark values. Ensure tooltip is formatted correctly to display weekday and hour data.",
+            "status": "done",
+            "testStrategy": "Verify heatmap renders correctly with ECharts. Check tooltip formatting and color ramp application.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement calendarOption() calendar",
+            "description": "Implement charts.ts calendarOption() for GitHub-style daily contribution calendar using ECharts calendar coordinate + heatmap over data date range.",
+            "dependencies": [],
+            "details": "Create ECharts calendar configuration in charts.ts. Use calendar coordinate system with heatmap overlay over the data date range. Ensure it matches GitHub-style contribution calendar appearance.",
+            "status": "done",
+            "testStrategy": "Verify calendar renders correctly with ECharts. Check heatmap overlay and calendar coordinate system.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Update Breakdowns page to display heatmap and calendar",
+            "description": "Update Breakdowns page to fetch client.heatmap() alongside usage cuts and display both under 'When you burn tokens' and 'Daily activity' sections.",
+            "dependencies": [],
+            "details": "Modify Breakdowns page component to call client.heatmap(). Integrate heatmap and calendar data into the page under the specified sections. Ensure proper data binding and rendering.",
+            "status": "done",
+            "testStrategy": "Verify Breakdowns page fetches and displays heatmap and calendar data correctly. Check section labels and data presentation.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Pass quality gates",
+            "description": "Run 47 dashboard tests and ensure build + eslint/prettier clean gates pass.",
+            "dependencies": [],
+            "details": "Execute all 47 dashboard tests. Verify build process completes without errors. Ensure eslint and prettier checks pass with no issues.",
+            "status": "done",
+            "testStrategy": "Confirm all 47 tests pass. Verify build success and code quality gates (eslint/prettier) are clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T19:20:09.316Z"
+      },
+      {
+        "id": "26",
+        "title": "Alerts Page: Kind-Aware Thresholds + Live Sparkline",
+        "description": "Fix Alerts page: kind-aware threshold control and live sparkline.",
+        "status": "done",
+        "dependencies": [
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
+          "25"
+        ],
+        "priority": "low",
+        "details": "Frontend (Alerts page): Rewrote with kind-aware threshold control (0-100 range slider with % for limit_pct, number+tok/min for burn_rate, number+min for collector_stale, hidden for predicted_exhaustion/unknown_model; threshold resets to kind default on kind change). Set against live /limits/history sparkline for selected window so limit_pct thresholds are set against live utilization. Rule list is now a status board: shows human kind label, live current-vs-threshold (utilization or burn from summaryNow), channels, enable/disable toggle (PUT via new client.updateAlertRule, not destructive-only), and delete-with-confirm. Events show relative time (timeAgo) + absolute on hover, and expand to reveal body + context JSON. 'Evaluate now' surfaces its {fired} result ('N rule(s) fired' / 'nothing fired'). window_kind selector shown only for window-scoped kinds. Adopted AsyncState. Gates: 47 dashboard tests, build + eslint/prettier clean.",
+        "testStrategy": "vitest: Test kind-aware threshold logic and event rendering. Frontend: Verify sparkline, expandable events, enable/disable toggle, and confirm delete. Ensure quality gates pass (47 dashboard tests, build + eslint/prettier clean).",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T19:25:34.554Z"
+      },
+      {
+        "id": "27",
+        "title": "Settings Pricing UI + LiteLLM Sync",
+        "description": "Settings pricing management UI plus a LiteLLM price-sync endpoint",
+        "status": "done",
+        "dependencies": [
+          "15"
+        ],
+        "priority": "high",
+        "details": "Backend: POST /api/v1/pricing/sync-litellm (fetch_litellm_prices via app.state.http_client, sync_anthropic_pricing, effective_date fixed to 2025-01-01 so synced prices cover ALL retained history not just today); stored http_client on app.state; SyncResult schema; monkeypatched test. Frontend client: createPrice/syncLitellm/recomputeCosts + PriceRowInput. SettingsView rewritten: full 5-column price table (input/output/cache read/write 5m/write 1h) + provider + effective_date in an overflow-x scroll, an add/override price form (all fields), an unpriced-model banner (diff usage group_by=model coverage) with click-to-prefill chips, and Sync-from-LiteLLM + Recompute buttons that report events repriced. Fixed modelLabel bedrock/date strip order (strip -v1:0 before -YYYYMMDD). VERIFIED on real data: LiteLLM sync priced 23 models, recomputed 11373 events; cost went from 0.79 (Haiku only) to ~$ equivalent with Opus 4.7 = $ revealed. Gates: 102 server tests + 25 dashboard tests, ruff/mypy/trivy/build/lint clean.",
+        "testStrategy": "Backend: pytest with SQLite to verify fetch_litellm_prices, sync_anthropic_pricing, and transactional integrity of SyncResult. Verify effective_date=2025-01-01 covers all retained history. Frontend: test createPrice/syncLitellm/recomputeCosts flow and PriceRowInput rendering. SettingsView: validate 5-column table layout, overflow-x scroll, add/override form, unpriced-model banner with click-to-prefill chips, and Sync-from-LiteLLM + Recompute button event reporting. Verify modelLabel strip order (-v1:0 before -YYYYMMDD). Gates: 102 server tests + 25 dashboard tests, ruff/mypy strict/trivy zero issues, build/lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T18:28:58.092Z"
+      },
+      {
+        "id": "28",
+        "title": "Fix empty Trends and Breakdowns tabs",
+        "description": "Remove the directive-less bare <template> wrapping AsyncState slot content in TrendsView.vue and BreakdownsView.vue so both tabs render; add eslint vue/no-lone-template to prevent regression.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Fixed: removed directive-less <template> wrapping AsyncState slot in TrendsView and BreakdownsView (Vue rendered it as inert native template, hiding all children). Added eslint vue/no-lone-template=error to block regression. 47 dashboard tests pass, build+lint+format clean.",
+        "testStrategy": "Verify that Trends and Breakdowns tabs render correctly with AsyncState content. Confirm eslint vue/no-lone-template=error blocks regression. Run 47 dashboard tests and validate build+lint+format are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:15:09.946Z"
+      },
+      {
+        "id": "29",
+        "title": "Fix naive datetime serialization across the API",
+        "description": "Add a shared UtcDatetime Pydantic type with a field serializer stamping UTC on naive values; apply to every response schema so all datetime fields are offset-aware.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Added shared UtcDatetime annotated type (PlainSerializer, when_used=json) in api/serialization.py. Applied to all response schemas in schemas_query.py (LimitOut, PredictionOut, SummaryNow, BlockOut, SessionOut, MachineOut, token schemas) and schemas_alerts.py (AlertEventOut). Naive DB datetimes now serialize offset-aware so browsers stop parsing them as local time. New test: test_response_datetimes_are_offset_aware. 103 server tests pass; ruff+mypy+trivy clean.",
+        "testStrategy": "Run test_response_datetimes_are_offset_aware to verify all datetime fields in response schemas are offset-aware. Validate that naive DB datetimes serialize with UTC offset. Confirm 103 server tests pass and code quality tools (ruff, mypy, trivy) report zero issues.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:21:33.444Z"
+      },
+      {
+        "id": "30",
+        "title": "Limits freshness, reset rollover, weekly absolute time",
+        "description": "Attach snapshot age to limits payload; roll a past five_hour resets_at forward in 5h steps (mark derived); GaugeCard shows staleness badge and weekly absolute reset time.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Backend: added analytics.roll_reset_forward(window_kind, resets_at, now) advancing a stale reset in whole periods (5h for five_hour, 7d for weekly) and flagging it derived; LimitOut gains age_seconds + derived_reset; _limit_out(now, roll_reset) computes both, history rows pass roll_reset=False; prediction resets_at also rolled. Frontend: formatDateTime + formatDuration in format.ts; Limit type extended; GaugeCard shows a stale badge (>=600s old) and weekly windows render the absolute reset date/time (countdown as tooltip) while five_hour keeps countdown primary. Tests: 7 rollover unit tests, 4 format tests; 110 server + 51 dashboard pass; all gates clean.",
+        "testStrategy": "Backend: Verify analytics.roll_reset_forward advances stale resets in whole periods and flags derived. Confirm LimitOut includes age_seconds and derived_reset. Validate _limit_out computes both correctly and history rows pass roll_reset=False. Check prediction resets_at is rolled. Frontend: Verify formatDateTime and formatDuration work in format.ts. Confirm Limit type extension. Test GaugeCard stale badge (>=600s) and weekly absolute reset date/time with countdown tooltip. Ensure five_hour keeps countdown primary. Run 7 rollover unit tests and 4 format tests. Validate 110 server and 51 dashboard tests pass with clean gates.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:32:01.215Z"
+      },
+      {
+        "id": "31",
+        "title": "Timezone setting",
+        "description": "Frontend: useSettings composable persists an IANA timezone ('' = auto/browser via Intl.resolvedOptions), Settings page adds a timezone <select> (Intl.supportedValuesOf) with a live 'now' preview; formatDateTime now renders in activeTimezone() so all absolute displays re-render on change; routed the bare toLocaleString() tooltips in Blocks/Sessions/Alerts through it. Backend: config.timezone (TOKEMETRY_TIMEZONE), AlertEngine(timezone) resolves a ZoneInfo (UTC fallback) and _in_quiet_hours evaluates in it; added tzdata dep for Windows. Tests: quiet-hours + resolve-zone units; 114 server + 51 dashboard pass; gates clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:42:12.464Z"
+      },
+      {
+        "id": "32",
+        "title": "Project grouping root-folder heuristic",
+        "description": "New tokemetry_core/projects.py project_group(path, roots): strips .claude/worktrees/<name> tails, drops drive letters, folds case/subfolder variants by the segment after a root marker (TOKEMETRY_PROJECT_ROOTS default 'devel'); empty->'(unattributed)'. rollups._aggregate_day now re-groups raw cwd into project groups and sums colliding rows; new rebuild_all_rollups deletes derived rollups and rebuilds full span; POST /api/v1/admin/rebuild-rollups exposes it. list_sessions normalizes project at read; ingest/recompute thread settings.project_root_markers. usage_events.project stays raw. Settings gets a 'Rebuild project groups' button. Tests: 16 core unit cases across all messy forms + 2 integration (fold + rebuild). 195 server/core + 51 dashboard pass; gates clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "16 core unit cases across all messy forms + 2 integration (fold + rebuild). 195 server/core + 51 dashboard pass; gates clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T20:57:17.393Z"
+      },
+      {
+        "id": "33",
+        "title": "Global filters and all-time summary",
+        "description": "GET /api/v1/summary/overview (queries.overview): all-time token components, known cost, distinct session + machine counts, first/last event ts; shared FilterBar.vue (range presets today/7d/30d/90d/all + custom from/to, machine + project selects) wired into Trends and Breakdowns; Trends gains an all-time stat strip (tokens, cache share, cost, sessions/machines); Trends and Breakdowns pass from/to/machine/project through UsageQuery.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "New shared FilterBar.vue with range presets (today, 7d, 30d, 90d, all) and custom from/to inputs, plus machine and project selects. Trends and Breakdowns now pass from/to/machine/project through UsageQuery. Trends includes an all-time stat strip showing tokens, cache share, cost, and sessions/machines. New lib/filters.ts with presetRange function (unit-tested).",
+        "testStrategy": "Test overview endpoint with various query parameters. Test FilterBar component rendering and functionality. Test Trends and Breakdowns with FilterBar integration. Test Trends stat strip with all-time data. Run unit tests for presetRange function. Execute integration tests for overview + date-range-filter and 5 filter unit tests. Verify 56 dashboard + server tests pass with clean gates.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement overview endpoint",
+            "description": "Implement GET /api/v1/summary/overview endpoint returning queries.overview with all-time token components, known cost, distinct session + machine counts, and first/last event timestamps.",
+            "dependencies": [],
+            "details": "Endpoint should return all-time totals including token components, known cost, distinct sessions, distinct machines, and first/last event timestamps.",
+            "status": "pending",
+            "testStrategy": "Test overview endpoint with various query parameters. Verify response contains all required fields with correct data types.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Create FilterBar.vue component",
+            "description": "Create FilterBar.vue component with range presets (today, 7d, 30d, 90d, all) and custom from/to inputs, plus machine and project selects.",
+            "dependencies": [
+              1
+            ],
+            "details": "Component should include range presets, custom date inputs, and machine/project dropdowns. Must be reusable across Trends and Breakdowns views.",
+            "status": "pending",
+            "testStrategy": "Test FilterBar component rendering and functionality. Verify all presets work correctly and custom inputs accept valid dates.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Wire FilterBar into Trends and Breakdowns",
+            "description": "Wire FilterBar into Trends and Breakdowns views, ensuring from/to/machine/project parameters pass through UsageQuery.",
+            "dependencies": [
+              2
+            ],
+            "details": "Update Trends and Breakdowns to use FilterBar for date range and machine/project filtering. Ensure parameters flow correctly through UsageQuery.",
+            "status": "pending",
+            "testStrategy": "Test Trends and Breakdowns with FilterBar. Verify from/to/machine/project parameters are correctly passed and applied.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add all-time stat strip to Trends",
+            "description": "Add all-time stat strip to Trends view showing tokens, cache share, cost, and sessions/machines.",
+            "dependencies": [
+              3
+            ],
+            "details": "Stat strip should display all-time totals for tokens, cache share percentage, cost, and session/machine counts.",
+            "status": "pending",
+            "testStrategy": "Test Trends view stat strip. Verify all metrics display correctly with all-time data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement lib/filters.ts presetRange",
+            "description": "Implement lib/filters.ts with presetRange function and unit tests.",
+            "dependencies": [],
+            "details": "Create presetRange function in lib/filters.ts with comprehensive unit tests covering all range presets.",
+            "status": "pending",
+            "testStrategy": "Run unit tests for presetRange function. Verify all range presets return correct date ranges.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Run integration and unit tests",
+            "description": "Run integration tests for overview + date-range-filter and 5 filter unit tests. Verify 56 dashboard + server tests pass with clean gates.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Execute integration tests for overview endpoint combined with date-range filtering. Run 5 filter unit tests. Ensure all 56 dashboard and server tests pass with clean quality gates.",
+            "status": "pending",
+            "testStrategy": "Run integration tests for overview + date-range-filter. Execute 5 filter unit tests. Verify 56 dashboard + server tests pass with clean gates.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-09T21:06:45.626Z"
+      },
+      {
+        "id": "34",
+        "title": "Alerts rework to community best practices",
+        "description": "Migration 0002 adds warn_threshold/crit_threshold + state/last_fired_at; severity derived from which threshold a measure crosses (killed hardcoded >=95 and 'serious'->normalized info/warning/critical); engine as firing/normal state machine (notify on transition-in or post-cooldown repeat; firing->normal sends one 'Resolved' info notice ignoring cooldown); ntfy maps severity->Priority header (crit 5/warn 4) + optional Click (dashboard_url); seeded default rule set on first run (gated by seed_default_alerts, off in tests); POST /api/v1/alerts/test/{channel}; UI: dual warn/crit inputs, firing/ok state badge with last-fired tooltip, per-channel Test buttons; tests: warn/crit severity, resolved notice, seeding idempotency, test-channel + dual-threshold API; 207 server + 56 dashboard pass; gates clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Test warn/crit severity levels, resolved notice generation, seeding idempotency, test-channel endpoint functionality, and dual-threshold API. Verify 207 server tests and 56 dashboard tests pass with clean gates.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T21:24:46.694Z"
+      },
+      {
+        "id": "35",
+        "title": "Per-session drill-down and efficiency stats",
+        "description": "GET /api/v1/sessions/{id}: ordered per-event series (ts, model, 5 token components, cost) + efficiency stats via new pure services/session_stats.py compute_session_stats: tokens/turn, cache hit rate (read/(read+input)), context growth (late-half vs early-half mean turn size), inflection index (first turn > 2x session median, needs >=4 turns). queries.session_detail assembles it (project normalized, no message text). Sessions rows now expand to a cumulative-tokens Sparkline (extended with a markerIndex vertical guide at the inflection turn) plus stat chips including 'consider /clear at turn N'. Metadata only.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "Tests: 6 stats units + detail/404 integration. 215 server/core + 56 dashboard pass; gates clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T21:34:51.391Z"
+      },
+      {
+        "id": "36",
+        "title": "Anomaly insights",
+        "description": "services/insights.py: classify_anomalies flags sessions vs the account's own baseline (mean+/-2sigma, 50k-token floor, needs >=20 sessions else enough_data=False): high tokens, high cost, low cache reuse, cost-inefficient composite; severity=cost*(1-cache_hit_rate), sorted desc. detect_anomalies aggregates per-session from usage_events (project normalized). GET /api/v1/insights/anomalies. SessionsView: Insights card listing top-6 anomalies (reason chips, click to expand detail), 'flagged' markers on anomalous rows, and a 'needs 20 sessions' note when the baseline is too small. Skipped unusual-model-mix (noisy). Tests: 4 classify units + endpoint integration. 219 server/core + 56 dashboard pass; gates clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "Tests: 4 classify units + endpoint integration. 219 server/core + 56 dashboard pass; gates clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T21:43:20.128Z"
+      },
+      {
+        "id": "37",
+        "title": "Cache framing and plan-value polish",
+        "description": "Frontend-only polish. Added pure cacheSavingsUsd(buckets, prices) to lib/coverage.ts summing cache_read x (input_rate - cache_read_rate)/1e6 over priced models (latest rate per model); unit-tested. Breakdowns cache card now shows 'Caching saved ~$X' (from pricing() + byModel) plus reassurance copy that a ~95% cache-read share is normal (Claude Code re-reads cached context each turn, billed at a fraction of input). Now-page Plan value tile labels its window ('last 30d'). 59 dashboard tests pass; build+lint clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "low",
+        "details": "1. Implement `cacheSavingsUsd(buckets, prices)` in `lib/coverage.ts`:\n   - Sum `cache_read * (input_rate - cache_read_rate) / 1e6` over priced models.\n   - Use latest rate per model.\n   - Unit-test the function.\n2. Update Breakdowns cache card:\n   - Display 'Caching saved ~$X' using `pricing()` + `byModel`.\n   - Add reassurance copy: '~95% cache-read share is normal' (explain Claude Code re-reads cached context each turn, billed at a fraction of input).\n3. Update Now-page Plan value tile:\n   - Label its window as 'last 30d'.\n4. Validation:\n   - Ensure 59 dashboard tests pass.\n   - Confirm build+lint are clean.",
+        "testStrategy": "1. Unit-test `cacheSavingsUsd(buckets, prices)` with sample data covering multiple models and rate variations.\n2. Verify Breakdowns cache card displays correct 'Caching saved ~$X' value and reassurance copy.\n3. Confirm Now-page Plan value tile labels window as 'last 30d'.\n4. Run 59 dashboard tests; ensure all pass.\n5. Validate build+lint are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-09T21:48:24.445Z"
+      },
+      {
+        "id": "38",
+        "title": "Token reconciliation and unattributed components",
+        "description": "Components dont sum to total_tokens (uncaptured reasoning tokens?) and bootstrap rows have zero components; capture/reconcile so stacks and table match total, and price models that show null cost despite price rows.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Investigation: derived per-event rollups reconcile EXACTLY (diff=0, fully priced); the entire component-vs-total gap is 108 bootstrap 'stats_cache' rows carrying total_tokens (60M) with zero components and null cost, and the 3 'unpriced-despite-price' models are bootstrap-only (no per-event detail to price) -- so no parser bug. Fix (frontend, honest reconciliation): added an 'other' TOKEN_COMPONENTS entry = max(0, total - sum of 5 tracked) + 'Other' table column, so stacks/table reconcile to total and the 60M unattributed/bootstrap bar renders instead of drawing 0px. Refined pricedCoverage: buckets with zero priceable components are excluded from the actionable unpricedKeys (adding a price cannot resolve bootstrap-only cost) while still counting against coverage ratio. 60 dashboard tests pass; build+lint clean.",
+        "testStrategy": "Verify frontend reconciliation: 1) 'Other' TOKEN_COMPONENTS entry renders correctly as max(0, total - sum of 5 tracked); 2) 'Other' table column displays unattributed tokens; 3) 60M unattributed/bootstrap bar renders instead of 0px; 4) pricedCoverage excludes buckets with zero priceable components from actionable unpricedKeys while counting against coverage ratio; 5) 60 dashboard tests pass; 6) build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:13:54.237Z"
+      },
+      {
+        "id": "39",
+        "title": "Shared formatters: formatCost, modelLabel, timeUntil",
+        "description": "formatCost thousands separators + consistent decimals; modelLabel handles Claude 3.x family and disambiguates collapsed ids; timeUntil returns 'ended Xh ago' for past times. Unit tests.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:23:31.634Z"
+      },
+      {
+        "id": "40",
+        "title": "Theme tokens and status contrast",
+        "description": "Define --series-* tokens (or use seriesColor) so dark mode stops using hardcoded light blue (Machines/Sessions/Alerts); fix light-mode --status-warning contrast (~1.8:1); status-word/badge helper.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "theme.css: defined --series-1..5 (mirroring lib/palette.ts) in light + both dark blocks, so var(--series-1) usages (Machines share bar, Sessions sparkline, Alerts sparkline) resolve to the correct per-mode color instead of the hardcoded light-blue fallback; fixed the one remaining hardcoded #2a78d6 in Sessions .mbar. Darkened light-mode status colors so status TEXT clears WCAG AA (warning #fab219->#b45309 ~4.9:1, good/critical likewise) while adding bright variants back in the dark blocks. Added global .badge/.badge-good/-warning/-critical/-muted filled-pill classes so state reads as a badge not color-alone text. 63 tests, build+lint clean.",
+        "testStrategy": "Verify theme tokens and contrast: 1) var(--series-1) resolves to correct per-mode color in Machines share bar, Sessions sparkline, Alerts sparkline (no hardcoded light-blue fallback); 2) Sessions .mbar uses resolved color instead of hardcoded #2a78d6; 3) light-mode status TEXT meets WCAG AA (warning ~4.9:1, good/critical likewise); 4) dark blocks include bright status variants; 5) .badge/.badge-good/-warning/-critical/-muted classes render as filled-pill badges; 6) 63 tests pass, build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:30:56.212Z"
+      },
+      {
+        "id": "41",
+        "title": "Chart builders for skewed and dominant-series data",
+        "description": "100%-normalized stacked option (or cache-read split) for 96%-cache composition; stacked-segment borders; long-category label rotation/truncation; piecewise/log visualMap for power-law heatmaps; log/percentile magnitude option.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "charts.ts: stackedTokenBarOption + stackedAreaOption gain a {normalized} option (each category sums to 100%) so composition is legible under 96% cache-read dominance; added surface-colored segment borders + barMaxWidth cap; shared categoryAxis() rotates/truncates long labels and reserves bottom margin; area opacity 0.6->0.25, line 2->1.5. barOption/timeBarOption gain a {log} axis option (+ timeBarOption axisMax to anchor the right edge to 'now'). New pure logVisualPieces() builds piecewise log-decade visualMap pieces; punch-card + calendar heatmaps now use it (calendar legend now shown) so power-law spreads render readable instead of one dark blob. Unit test for logVisualPieces. 65 dashboard tests; build+lint clean.",
+        "testStrategy": "vitest: Test logVisualPieces() unit logic and normalized/stacked rendering. Frontend: Verify normalized stacked bars (each category sums to 100%), surface-colored segment borders, barMaxWidth cap, category label rotation/truncation with bottom margin, area opacity 0.25, line width 1.5, log axis on barOption/timeBarOption with axisMax anchoring to 'now', and punch-card/calendar heatmaps using logVisualPieces() with visible calendar legend. Ensure power-law spreads render readable (not one dark blob). Quality gates: 65 dashboard tests, build + lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:38:17.620Z"
+      },
+      {
+        "id": "42",
+        "title": "Now page representation fixes",
+        "description": "Banner checks snapshot age and degrades stale headlines + status words; empty state on today-by-model; single-point sparkline fallback; guard 0.0% cache tile on no usage; adopt normalized composition.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "at-risk banner now checks the top limit's age_seconds and, when stale, says 'Limit data is Xh old ... live utilization unknown' instead of asserting current risk; added a status-word badge (OK/Warning/Critical/Stale) so state is not color-alone. today-by-model chart switched to normalized composition (100% bars) with the ChartTable carrying magnitudes, and gained a 'No usage yet today' empty state. Cache-reads tile guards the no-usage case ('—'/'no usage yet') instead of a fake 0.0%. GaugeCard shows a 'collecting trend...' placeholder when history has <=1 point instead of silently omitting the sparkline. 65 tests, build+lint clean.",
+        "testStrategy": "Verify banner displays 'Limit data is Xh old ... live utilization unknown' when age_seconds is stale; confirm status-word badge shows OK/Warning/Critical/Stale independent of color; validate today-by-model chart uses 100% normalized bars with ChartTable magnitudes and shows 'No usage yet today' empty state; ensure Cache-reads tile displays '—' or 'no usage yet' instead of 0.0%; check GaugeCard shows 'collecting trend...' placeholder when history <=1 point; run 65 tests and confirm build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:45:19.633Z"
+      },
+      {
+        "id": "43",
+        "title": "Trends page representation fixes",
+        "description": "Daily chart time-axis with gap-filled missing days + label rotation; fix project filter sending label '(unattributed)' as value; refetch error must not remove FilterBar; lower area opacity; normalized composition.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Trends: daily area now gap-filled over its own span (new pure enumerateDays, unit-tested) so weekend/idle days render as zero instead of being spliced out, with compact 'Jun 1' UTC labels. Project filter fix: dropped the empty (unattributed/bootstrap) key from the dropdown -- it has no project to filter by and its label was being sent as the query value (matching nothing). By-dimension chart switched to normalized composition. Moved the summary strip + FilterBar outside AsyncState so a chart-load error no longer removes the controls; loadStatic wrapped in try/catch. 68 dashboard tests; build+lint clean.",
+        "testStrategy": "Verify that weekend/idle days render as zero in the daily area chart instead of being spliced out. Confirm compact 'Jun 1' UTC labels are displayed. Validate that the empty (unattributed/bootstrap) key is dropped from the project filter dropdown and its label is not sent as the query value. Ensure the by-dimension chart uses normalized composition. Confirm that a chart-load error does not remove the summary strip and FilterBar. Validate loadStatic is wrapped in try/catch. Run 68 dashboard tests and confirm build+lint are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T09:52:43.581Z"
+      },
+      {
+        "id": "44",
+        "title": "Breakdowns page representation fixes",
+        "description": "Wire machine/project into heatmap (or scope visibly); cache stats as tiles + show cache-read share; normalized stacks + segment borders + long labels; piecewise heatmap visualMap; wire AsyncState empty.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Breakdowns: heatmap now honors machine (SQL) + project (matched via project_group in Python) filters -- backend punch_card + /heatmap endpoint + client.heatmap extended; the punch-card/calendar no longer silently show all activity while the bars are filtered. Cache metrics moved from prose into StatTiles and now surface the previously-computed-but-hidden cache-read share (the page's headline number). Added an Absolute/Composition% toggle so the stacked bars can flip to normalized (fixes cache-read crush) while keeping magnitude by default. Moved FilterBar+toggle outside AsyncState; wired the AsyncState empty state; dropped the unfilterable empty project key.",
+        "testStrategy": "Test: heatmap machine-filter integration. 16 server + 68 dashboard pass; ruff/mypy/build/lint clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Test heatmap machine-filter integration",
+            "description": "Test: heatmap machine-filter integration. 16 server + 68 dashboard pass; ruff/mypy/build/lint clean.",
+            "dependencies": [],
+            "details": "Verify heatmap correctly filters by machine (SQL) and project (matched via project_group in Python). Confirm punch-card/calendar bars reflect filtered activity without silently showing all data. Validate backend punch_card and /heatmap endpoint changes, plus client.heatmap extension.",
+            "status": "done",
+            "testStrategy": "Run pytest with coverage >= 80% (actual: 16 server + 68 dashboard tests). Validate ruff/mypy strict/trivy clean. Confirm heatmap machine-filter integration passes.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-10T10:03:13.244Z"
+      },
+      {
+        "id": "45",
+        "title": "Sessions page representation fixes",
+        "description": "Top-N label by session id + click-through; Insights show driving metric per reason + explicable ranking; log/threshold magnitude bar; visible inflection marker + sparkline tooltip; anomaly error state; fix hardcoded series color.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Sessions: top-N bar now labels by session id (unique) instead of project (6 bars showed the same 32-char string). Inline magnitude bar is log-scaled so the 36 small rows are no longer sub-pixel invisible. Insights card now shows the driving metrics per row (tokens, cost, cache-hit%) and states the ranking basis (cost x low-cache) so the order is explicable; added distinct error / not-enough-data / no-anomalies states instead of silent blank. Drill-down sparkline wrapped with a descriptive title (was aria-hidden with no tooltip) and its caption now names the inflection /clear marker; color resolves via --series-1 (dark-mode fixed in Task 40). 68 dashboard tests; build+lint clean.",
+        "testStrategy": "Verify top-N bar labels by unique session id. Confirm inline magnitude bar is log-scaled and visible. Validate Insights card shows driving metrics (tokens, cost, cache-hit%) and ranking basis. Test distinct error/not-enough-data/no-anomalies states. Ensure sparkline has descriptive title and tooltip, with caption naming inflection/clear marker. Confirm series color resolves via --series-1. Run 68 dashboard tests; verify build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T10:09:54.538Z"
+      },
+      {
+        "id": "46",
+        "title": "Machines page representation fixes",
+        "description": "Real re-poll timer (not just ticking clock); handle N=1 fleet share + de-dup footer; status as a word not color-alone; fix hardcoded series color.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Added a real 30s re-poll timer (the page only ticked a display clock before, so a recovered machine stayed red until manual reload) alongside the 15s staleness tick. Status now renders as a filled word badge (Online/Recent/Stale/Offline) so it's not color-alone, and the dot distinguishes stale (warning) from offline (critical) instead of one red. The meaningless single-machine 'Share of fleet' column and the duplicate fleet footer are hidden when rows.length<2. Banner grammar fixed ('1 machine is'). Share bar color resolves via --series-1 (dark fix from Task 40); 'Collector' column renamed 'Agent version'. 68 dashboard tests; build+lint clean.",
+        "testStrategy": "Verify 30s re-poll timer triggers correctly and recovered machines update status without manual reload; confirm status badge displays Online/Recent/Stale/Offline as filled words with distinct dots for stale (warning) vs offline (critical); validate 'Share of fleet' column and duplicate footer are hidden when rows.length<2; check banner grammar reads '1 machine is'; confirm share bar color uses --series-1; verify 'Collector' column renamed to 'Agent version'; run 68 dashboard tests; ensure build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T10:15:08.175Z"
+      },
+      {
+        "id": "47",
+        "title": "Blocks page representation fixes",
+        "description": "Distinguish idle/no-active-block from live (stop labeling stale block 'Current'); extend chart to now so trailing gap shows; encode true block duration as bar width; footer total cost; drop/relocate all-null End-util column; latest block first.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T10:21:46.340Z"
+      },
+      {
+        "id": "48",
+        "title": "Alerts page representation fixes",
+        "description": "Show warn AND crit in live current-vs-threshold; add collector_stale live value; validate create form (numeric, warn<=crit, non-empty channels); surface migrated rule legacy threshold; filled state/severity badges + info severity; fix sparkline color.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Alerts: live current-vs-threshold now shows BOTH warn and crit (was warn only, hiding half the dual-threshold rework); added a collector_stale live value (worst machine idle minutes, fetched via client.machines()); non-threshold kinds surface a migrated legacy threshold instead of a blank cell. Create form now validates (name required, >=1 channel, warn/crit numeric, warn<=crit) with an inline error instead of silently creating a broken rule. State + severity badges use the filled global .badge classes (info severity now styled, not unstyled default text). Sparkline color resolves via --series-1. 68 dashboard tests; build+lint clean.",
+        "testStrategy": "vitest: Test live current-vs-threshold rendering for both warn and crit; validate collector_stale value from client.machines(); verify create form validation (name required, >=1 channel, warn/crit numeric, warn<=crit) with inline error; confirm migrated legacy threshold surfaces for non-threshold kinds; validate state/severity badges use filled .badge classes (info styled); verify sparkline color via --series-1. Frontend: Verify 68 dashboard tests pass, build + lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T10:32:51.505Z"
+      },
+      {
+        "id": "49",
+        "title": "Settings page representation fixes",
+        "description": "Pricing table collapses to one active-price row per model (latest effective date <= today) with a 'current' badge and a '• N versions' note, sorted by model, dropping the redundant all-anthropic Provider column and the wall of superseded rows; model id shown as a title tooltip to disambiguate collapsed labels. Timezone picker groups its ~400 options into <optgroup> by region. Revoke and Disconnect now confirm before acting. Unpriced-banner chips are real <button>s (keyboard/SR accessible). client.request() reads the server's error detail into ApiError; mint/revoke wrapped with a token-error surface. 'now' preview ticks every 30s instead of freezing at load. 68 dashboard tests; build+lint clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "Dashboard: verify pricing table collapse, timezone grouping, confirmation dialogs, accessible buttons, API error surfacing, and 'now' preview ticking. Backend: test client.request() error detail extraction and token-error wrapping. Run 68 dashboard tests; confirm build+lint clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Collapse pricing table to active rows",
+            "description": "Pricing table: collapse to one active-price row per model (latest effective date <= today) with 'current' badge and '• N versions' note; sort by model; drop Provider column; drop superseded rows; show model id as title tooltip.",
+            "dependencies": [],
+            "details": "Implement collapse logic to select the latest effective price per model where effective_date <= today. Add badge and version count note. Remove Provider column and all superseded rows. Ensure model id is visible via tooltip for disambiguation.",
+            "status": "done",
+            "testStrategy": "Verify pricing table shows exactly one row per model with correct badge and version count. Confirm Provider column is removed and no superseded rows appear. Check tooltip displays model id.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Group timezone options by region",
+            "description": "Timezone picker: group ~400 options into <optgroup> by region.",
+            "dependencies": [],
+            "details": "Refactor timezone <select> to use <optgroup> elements grouped by geographic region for better navigation.",
+            "status": "done",
+            "testStrategy": "Confirm timezone picker displays options grouped by region using <optgroup>. Verify all ~400 options are present and correctly grouped.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add confirmation for Revoke/Disconnect",
+            "description": "Revoke/Disconnect: add confirmation before acting.",
+            "dependencies": [],
+            "details": "Add modal confirmation step before executing Revoke or Disconnect actions to prevent accidental clicks.",
+            "status": "done",
+            "testStrategy": "Trigger Revoke and Disconnect actions and verify confirmation modal appears. Confirm action only proceeds after user confirmation.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Make banner chips accessible buttons",
+            "description": "Unpriced-banner chips: convert to real <button>s for keyboard/SR accessibility.",
+            "dependencies": [],
+            "details": "Replace unpriced-banner chips with native <button> elements to ensure keyboard navigation and screen reader accessibility.",
+            "status": "done",
+            "testStrategy": "Verify unpriced-banner chips are <button> elements. Test keyboard navigation and screen reader access.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Surface API error detail",
+            "description": "API error detail: client.request() reads server error detail into ApiError; wrap mint/revoke with token-error surface.",
+            "dependencies": [],
+            "details": "Update client.request() to extract server error detail and populate ApiError. Add token-error surface wrapping for mint/revoke operations.",
+            "status": "done",
+            "testStrategy": "Simulate API error and confirm client.request() populates ApiError with server detail. Verify mint/revoke operations show token-error surface.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Make 'now' preview tick every 30s",
+            "description": "'now' preview: tick every 30s instead of freezing at load.",
+            "dependencies": [],
+            "details": "Implement 30-second interval timer for 'now' preview to update live instead of freezing at initial load.",
+            "status": "done",
+            "testStrategy": "Verify 'now' preview updates every 30 seconds. Confirm it does not freeze at load time.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Add dashboard tests and clean build/lint",
+            "description": "Add 68 dashboard tests and ensure build+lint clean.",
+            "dependencies": [],
+            "details": "Write 68 new dashboard tests covering the updated functionality. Ensure build and lint processes pass without errors.",
+            "status": "done",
+            "testStrategy": "Run dashboard test suite and confirm 68 tests pass. Execute build and lint commands to verify clean output.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-10T10:42:51.784Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-09T15:54:43.770Z",
-      "taskCount": 14,
-      "completedCount": 14,
+      "lastModified": "2026-07-10T10:42:51.790Z",
+      "taskCount": 49,
+      "completedCount": 49,
       "tags": [
         "master"
       ]

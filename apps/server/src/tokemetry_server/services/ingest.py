@@ -9,12 +9,13 @@ when absent, ``cost_usd`` is stored as ``NULL`` and filled in later.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.models import DailyAggregate, LimitSnapshot, UsageEvent
+from tokemetry_core.projects import DEFAULT_ROOTS
 
 from tokemetry_server.api.schemas import IngestResult, MachineInfo
 from tokemetry_server.db import models
@@ -57,6 +58,7 @@ class IngestService:
         session: AsyncSession,
         dialect_name: str,
         cost_fn: CostFn | None = None,
+        roots: Sequence[str] = DEFAULT_ROOTS,
     ) -> None:
         """Create the service.
 
@@ -64,10 +66,12 @@ class IngestService:
             session: Active async session; the caller owns the transaction.
             dialect_name: ``"postgresql"`` or ``"sqlite"`` for upsert syntax.
             cost_fn: Optional per-event cost function.
+            roots: Project root markers for directory-to-project grouping.
         """
         self._session = session
         self._dialect = dialect_name
         self._cost_fn = cost_fn
+        self._roots = roots
 
     async def ingest_events(
         self, machine: MachineInfo, events: list[UsageEvent]
@@ -84,7 +88,9 @@ class IngestService:
 
         # Recompute the touched days' rollups from the now-current events.
         affected_days = {event.ts.date() for event in deduped}
-        await refresh_rollups_for_days(self._session, self._dialect, affected_days)
+        await refresh_rollups_for_days(
+            self._session, self._dialect, affected_days, self._roots
+        )
 
         return IngestResult(
             accepted=len(deduped),

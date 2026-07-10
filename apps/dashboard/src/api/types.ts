@@ -25,6 +25,8 @@ export interface Limit {
   resets_at: string | null;
   ts: string;
   provenance: string;
+  age_seconds: number;
+  derived_reset: boolean;
 }
 
 export interface Prediction {
@@ -49,6 +51,20 @@ export interface SummaryNow {
   today: TodaySummary;
 }
 
+export interface Overview {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_short_tokens: number;
+  cache_write_long_tokens: number;
+  total_tokens: number;
+  cost_usd: string | null;
+  session_count: number;
+  machine_count: number;
+  first_event: string | null;
+  last_event: string | null;
+}
+
 export interface Block {
   start: string;
   end: string;
@@ -68,6 +84,51 @@ export interface SessionSummary {
   message_count: number;
   total_tokens: number;
   cost_usd: string | null;
+}
+
+export interface SessionEvent {
+  ts: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_short_tokens: number;
+  cache_write_long_tokens: number;
+  total_tokens: number;
+  cost_usd: string | null;
+}
+
+export interface SessionStats {
+  tokens_per_turn: number;
+  cache_hit_rate: number;
+  context_growth: number;
+  inflection_index: number | null;
+}
+
+export interface SessionDetail {
+  session_id: string;
+  project: string | null;
+  machine: string | null;
+  message_count: number;
+  total_tokens: number;
+  events: SessionEvent[];
+  stats: SessionStats;
+}
+
+export interface Anomaly {
+  session_id: string;
+  project: string | null;
+  reasons: string[];
+  severity_score: number;
+  total_tokens: number;
+  cost_usd: number | null;
+  cache_hit_rate: number;
+}
+
+export interface AnomalyReport {
+  enough_data: boolean;
+  session_count: number;
+  anomalies: Anomaly[];
 }
 
 export interface MachineSummary {

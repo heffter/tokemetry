@@ -23,10 +23,41 @@ BLOCK_LENGTH = timedelta(hours=5)
 #: Window kind whose resets anchor the 5-hour block grid.
 _FIVE_HOUR = "five_hour"
 
+#: Reset period per window kind, used to advance a stale reset to the live
+#: window. Weekly windows repeat every 7 days; the 5-hour block every 5 hours.
+_WINDOW_PERIOD = {
+    _FIVE_HOUR: timedelta(hours=5),
+    "seven_day": timedelta(days=7),
+    "seven_day_opus": timedelta(days=7),
+    "seven_day_sonnet": timedelta(days=7),
+}
+
 
 def _as_utc(value: datetime) -> datetime:
     """Ensure a DB datetime is timezone-aware (UTC)."""
     return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def roll_reset_forward(
+    window_kind: str, resets_at: datetime | None, now: datetime
+) -> tuple[datetime | None, bool]:
+    """Advance a stale reset time to the current window.
+
+    A collector snapshot can be hours old, leaving its ``resets_at`` in the
+    past so a naive countdown reads "resets now". When the window's reset
+    period is known, advance the reset in whole periods until it lands in the
+    future and flag the result as derived so the UI can distinguish it from an
+    officially reported reset. Unknown windows and future resets pass through
+    unchanged.
+    """
+    if resets_at is None:
+        return None, False
+    aware = _as_utc(resets_at)
+    period = _WINDOW_PERIOD.get(window_kind)
+    if period is None or aware > now:
+        return aware, False
+    steps = int((now - aware) // period) + 1
+    return aware + steps * period, True
 
 
 def _now() -> datetime:

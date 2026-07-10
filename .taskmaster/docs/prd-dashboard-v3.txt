@@ -1,0 +1,104 @@
+tokemetry Dashboard v3 -- Feedback Fixes, Timezone, Project Grouping, Alerts Rework, Insights
+
+OVERVIEW
+Second feedback round on the live dashboard. A multi-agent investigation confirmed
+every user report and uncovered one additional backend bug. This PRD covers bug
+fixes, a timezone display system, project-path normalization, a global filter +
+all-time summary, a community-best-practices alerts rework, and analytics insights
+adapted from four peer projects (statistical anomaly detection, /clear inflection
+point, per-session efficiency). Privacy rule stays absolute: no message content
+ever leaves the machine, so all drill-downs are metadata only.
+
+TASK 1 -- Fix empty Trends and Breakdowns tabs
+Both views render empty because the AsyncState refactor left a bare <template> with
+no structural directive wrapping the slot content (TrendsView.vue and
+BreakdownsView.vue). Vue compiles a directive-less <template> to an inert native
+template element, so children never render. Remove the wrapper (hoist sections
+directly into the AsyncState default slot, matching BlocksView). Add the eslint
+rule vue/no-lone-template so this regression cannot recur. Verify both tabs render.
+
+TASK 2 -- Fix naive datetime serialization across the API
+Datetimes read back from SQLite serialize without a timezone offset (no Z), so the
+browser parses them as local time and every timestamp is wrong by the UTC offset.
+summary.now serializes with Z; resets_at, ts, session times, alert event times do
+not. Add a shared annotated Pydantic type (UtcDatetime) with a field serializer
+that stamps UTC on naive values and emits offset-aware ISO. Apply to every response
+schema (schemas_query, schemas_alerts, tokens). Test that every datetime field in
+every endpoint response is offset-aware.
+
+TASK 3 -- Limits freshness, reset rollover, weekly absolute time
+The five_hour gauge shows "resets now" because a stale snapshot's past resets_at is
+served verbatim. Attach snapshot age to the limits payload. When a five_hour
+resets_at is in the past, roll it forward in 5-hour steps to the live window and
+mark it derived. GaugeCard shows a "data Xm old" badge when the snapshot is older
+than roughly three poll intervals. Weekly windows display the absolute reset date
+and time (timezone-aware) with the relative countdown secondary; five_hour keeps
+the countdown primary with absolute secondary.
+
+TASK 4 -- Timezone setting
+Add a useSettings composable persisting a timezone preference (default from
+Intl.DateTimeFormat().resolvedOptions().timeZone). Settings page gets an IANA
+timezone picker ("Auto (browser)" plus a searchable list from
+Intl.supportedValuesOf). Add formatDateTime(iso) in lib/format.ts honoring the
+setting and route all absolute timestamp renders through it (GaugeCard, BlocksView,
+SessionsView, AlertsView). Server gains a TOKEMETRY_TIMEZONE setting used for alert
+quiet-hours evaluation instead of hardcoded UTC. Daily rollups stay bucketed by UTC
+day; label day-bucketed charts as UTC (documented compromise).
+
+TASK 5 -- Project grouping (root-folder heuristic)
+Add project_group(path) in a new tokemetry_core/projects.py module. Normalize
+separators and case for comparison, strip a trailing .claude/worktrees/<name>
+segment, then if a path segment matches a configured root marker (server setting
+TOKEMETRY_PROJECT_ROOTS, default marker "devel") the group is the segment after it,
+else the basename of the stripped path; empty cwd becomes "(unattributed)". Unit
+test against every observed messy form: worktrees, case variants, subfolders,
+Windows 8.3 short names, Temp paths, empty. Apply the grouping in rollups aggregation
+group key and in the sessions query and project filter; keep usage_events.project
+raw. Add an admin rebuild that deletes derived rollup rows and rebuilds the full
+span so history regroups. Project buckets should collapse from ~37 to ~10.
+
+TASK 6 -- Global filters and all-time summary
+Add GET /api/v1/summary/overview returning all-time token components, known cost,
+session count, machine count, and first/last event timestamps. Add a shared
+FilterBar component (range presets today/7d/30d/90d/all plus custom from/to date
+inputs, machine and project selects) wired into Trends and Breakdowns, finally
+passing from/to/machine/project through the existing UsageQuery params. Add an
+all-time summary stat strip at the top of Trends. Sessions keeps its existing
+client-side filters.
+
+TASK 7 -- Alerts rework to community best practices
+Migration adds warn_threshold, crit_threshold, and rule state columns (state
+normal|firing, last_fired_at). Derive severity from which threshold is crossed;
+remove the hardcoded >=95 upgrade and the stray "serious" severity (normalize to
+info/warning/critical). On firing-to-resolved transitions send one Resolved notice.
+ntfy notifier maps severity to the Priority header (warning 4, critical 5) and adds
+Tags and a Click link to the dashboard. Seed a default rule set when the table is
+empty (5h 80/95, weekly 80/95, predicted exhaustion, collector stale 30m). Add POST
+/api/v1/alerts/test/{channel} to send a test notification. Evaluate quiet hours in
+TOKEMETRY_TIMEZONE. AlertsView gets dual warn/critical inputs, a firing/ok state
+badge, and per-channel Test buttons. Pending/for duration, inhibition, and grouped
+digests are deferred follow-ups.
+
+TASK 8 -- Per-session drill-down and efficiency stats (metadata only)
+Add GET /api/v1/sessions/{id} returning the ordered per-event series (ts, model,
+token components, cost) plus computed stats: tokens per turn, cache hit rate
+(read/(read+input)), context growth (early vs late mean per-turn tokens), and an
+inflection point (first event whose per-turn total exceeds twice the session median,
+surfaced as "consider /clear here"). SessionsView gains an expandable row showing a
+cumulative-tokens sparkline with the inflection marker and stat chips. No message
+text anywhere.
+
+TASK 9 -- Anomaly insights
+Add services/insights.py computing per-session aggregates against the account
+baseline (mean plus/minus 2 sigma, minimum-token floor, requires at least 20
+sessions else "not enough data"): high-tokens, high-cost, low-cache-rate, and a
+cost-inefficient composite. Severity score is cost*(1-cache_hit_rate). Add GET
+/api/v1/insights/anomalies. SessionsView gains an Insights card listing top
+anomalies with reason chips and flag icons on anomalous rows. Skip the noisy
+unusual-model-mix detector.
+
+TASK 10 -- Cache framing and plan-value polish
+Breakdowns cache card gains reassurance copy explaining that a ~95% cache-read share
+is normal because Claude Code re-reads cached context every turn, plus a "caching
+saved ~$X" figure (cache_read * (input_rate - cache_read_rate) from priced buckets).
+The Now page value tile labels its window explicitly.

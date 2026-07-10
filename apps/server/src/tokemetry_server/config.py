@@ -60,12 +60,30 @@ class Settings(BaseSettings):
     alerts_enabled: bool = Field(default=True)
     #: Seconds between background alert evaluations.
     alerts_interval_seconds: float = Field(default=60.0, gt=0)
+    #: Seed a default alert-rule set on first run when the table is empty.
+    seed_default_alerts: bool = Field(default=True)
+
+    #: IANA timezone name used to evaluate alert quiet hours (e.g.
+    #: "Europe/Budapest"). Defaults to UTC; an unknown name falls back to UTC.
+    timezone: str = Field(default="UTC")
+
+    #: Comma-separated development-root markers for project grouping: the path
+    #: segment after one of these is the project name (e.g. "devel,src,repos").
+    project_roots: str = Field(default="devel")
+
+    @property
+    def project_root_markers(self) -> tuple[str, ...]:
+        """Parse :attr:`project_roots` into a tuple of marker segments."""
+        return tuple(part.strip() for part in self.project_roots.split(",") if part.strip())
 
     # --- Notification channel settings (all optional; a channel is only
     # available when its required settings are present). Secrets stay here on
     # the server, never in the database alert rows. ---
     ntfy_url: str = Field(default="https://ntfy.sh")
     ntfy_topic: str | None = Field(default=None)
+    #: Dashboard base URL added as an ntfy Click action so a tapped
+    #: notification opens the app (e.g. "http://10.0.0.1:8790").
+    dashboard_url: str | None = Field(default=None)
     telegram_bot_token: str | None = Field(default=None)
     telegram_chat_id: str | None = Field(default=None)
     smtp_host: str | None = Field(default=None)

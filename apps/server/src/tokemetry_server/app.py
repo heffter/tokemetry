@@ -21,13 +21,14 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tokemetry_core.models import UsageEvent
 
-from tokemetry_server.api import alerts, ingest, query, stream, tokens
+from tokemetry_server.api import alerts, ingest, pricing, query, stream, tokens
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db.migrate import upgrade_to_head
 from tokemetry_server.db.session import create_engine, create_session_factory
 from tokemetry_server.providers import build_registry
 from tokemetry_server.services.alerting.engine import AlertEngine
 from tokemetry_server.services.alerting.notifiers import build_notifiers
+from tokemetry_server.services.alerting.seed import seed_default_alert_rules
 from tokemetry_server.services.broadcast import Broadcaster
 from tokemetry_server.services.cost import CostEngine
 from tokemetry_server.services.pricing_repo import load_pricing_table, seed_default_pricing
@@ -89,8 +90,14 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
             active_cost_fn: CostFn = cost_fn
         else:
             active_cost_fn = (await _build_cost_engine(session_factory, dialect_name)).cost
-        http_client = httpx.AsyncClient(timeout=15.0)
-        alert_engine = AlertEngine(build_notifiers(resolved, http_client))
+        if resolved.seed_default_alerts:
+            async with session_factory() as seed_session:
+                await seed_default_alert_rules(seed_session)
+                await seed_session.commit()
+        http_client = httpx.AsyncClient(timeout=30.0)
+        alert_engine = AlertEngine(
+            build_notifiers(resolved, http_client), timezone=resolved.timezone
+        )
         app.state.settings = resolved
         app.state.engine = engine
         app.state.session_factory = session_factory
@@ -98,6 +105,7 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         app.state.cost_fn = active_cost_fn
         app.state.broadcaster = Broadcaster()
         app.state.alert_engine = alert_engine
+        app.state.http_client = http_client
 
         alert_task: asyncio.Task[None] | None = None
         if resolved.alerts_enabled:
@@ -122,6 +130,7 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
     )
     app.include_router(ingest.router)
     app.include_router(query.router)
+    app.include_router(pricing.router)
     app.include_router(tokens.router)
     app.include_router(alerts.router)
     app.include_router(stream.router)

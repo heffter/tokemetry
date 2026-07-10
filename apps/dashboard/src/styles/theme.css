@@ -12,9 +12,20 @@
   --baseline: #c3c2b7;
   --border: rgba(11, 11, 11, 0.1);
 
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-critical: #d03b3b;
+  /* Status colors are darkened for light mode so status TEXT (badges, chips,
+     flags) clears WCAG AA (4.5:1) on the light surface; the bright variants
+     that only work on dark are set in the dark blocks below. */
+  --status-good: #0a7a0a;
+  --status-warning: #b45309;
+  --status-critical: #c62828;
+
+  /* Categorical series colors, mirrored from lib/palette.ts so CSS-styled
+     marks (magnitude bars, sparklines) match the ECharts series. */
+  --series-1: #2a78d6;
+  --series-2: #1baf7a;
+  --series-3: #eda100;
+  --series-4: #008300;
+  --series-5: #4a3aa7;
 
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --radius: 10px;
@@ -30,6 +41,14 @@
     --gridline: #2c2c2a;
     --baseline: #383835;
     --border: rgba(255, 255, 255, 0.1);
+    --status-good: #14c414;
+    --status-warning: #fab219;
+    --status-critical: #f16d6d;
+    --series-1: #3987e5;
+    --series-2: #199e70;
+    --series-3: #c98500;
+    --series-4: #008300;
+    --series-5: #9085e9;
   }
 }
 
@@ -42,6 +61,14 @@
   --gridline: #2c2c2a;
   --baseline: #383835;
   --border: rgba(255, 255, 255, 0.1);
+  --status-good: #14c414;
+  --status-warning: #fab219;
+  --status-critical: #f16d6d;
+  --series-1: #3987e5;
+  --series-2: #199e70;
+  --series-3: #c98500;
+  --series-4: #008300;
+  --series-5: #9085e9;
 }
 
 :root[data-theme='light'] {
@@ -52,6 +79,14 @@
   --gridline: #e1e0d9;
   --baseline: #c3c2b7;
   --border: rgba(11, 11, 11, 0.1);
+  --status-good: #0a7a0a;
+  --status-warning: #b45309;
+  --status-critical: #c62828;
+  --series-1: #2a78d6;
+  --series-2: #1baf7a;
+  --series-3: #eda100;
+  --series-4: #008300;
+  --series-5: #4a3aa7;
 }
 
 * {
@@ -89,4 +124,35 @@ a {
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Filled status badges: a tinted pill plus a colored, accessible label, so a
+   state reads as a badge and never as color-alone plain text. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.badge-good {
+  color: var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 14%, transparent);
+}
+.badge-warning {
+  color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 16%, transparent);
+}
+.badge-critical {
+  color: var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 16%, transparent);
+}
+.badge-muted {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 }

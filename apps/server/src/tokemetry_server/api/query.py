@@ -10,21 +10,28 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import require_token
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.schemas_query import (
+    AnomalyOut,
+    AnomalyReportOut,
     BlockOut,
     CostResponse,
     HeatmapResponse,
     LimitOut,
     MachineOut,
+    OverviewOut,
     PredictionOut,
     PricingOut,
     PunchCell,
+    RebuildResult,
+    SessionDetailOut,
+    SessionEventOut,
     SessionOut,
+    SessionStatsOut,
     SummaryNow,
     TodaySummary,
     UsageBucketOut,
@@ -32,7 +39,7 @@ from tokemetry_server.api.schemas_query import (
 )
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db import models
-from tokemetry_server.services import analytics, queries
+from tokemetry_server.services import analytics, insights, queries, rollups
 
 router = APIRouter(prefix="/api/v1", tags=["query"])
 
@@ -63,15 +70,32 @@ def _bucket_out(bucket: queries.UsageBucket) -> UsageBucketOut:
     )
 
 
-def _limit_out(snapshot: models.LimitSnapshot) -> LimitOut:
-    """Map a limit snapshot ORM row to its response schema."""
+def _limit_out(
+    snapshot: models.LimitSnapshot, now: datetime, *, roll_reset: bool = True
+) -> LimitOut:
+    """Map a limit snapshot ORM row to its response schema.
+
+    ``now`` anchors the snapshot-age and reset-rollover computations. History
+    rows pass ``roll_reset=False`` since their resets are points in the past,
+    not a live window to advance.
+    """
+    ts_aware = snapshot.ts if snapshot.ts.tzinfo else snapshot.ts.replace(tzinfo=UTC)
+    age = max(0, int((now - ts_aware).total_seconds()))
+    if roll_reset:
+        resets_at, derived = analytics.roll_reset_forward(
+            snapshot.window_kind, snapshot.resets_at, now
+        )
+    else:
+        resets_at, derived = snapshot.resets_at, False
     return LimitOut(
         provider=snapshot.provider,
         window_kind=snapshot.window_kind,
         utilization_pct=float(snapshot.utilization_pct),
-        resets_at=snapshot.resets_at,
+        resets_at=resets_at,
         ts=snapshot.ts,
         provenance=snapshot.provenance,
+        age_seconds=age,
+        derived_reset=derived,
     )
 
 
@@ -92,7 +116,7 @@ async def summary_now(
 
     return SummaryNow(
         now=now,
-        limits=[_limit_out(item) for item in limits],
+        limits=[_limit_out(item, now) for item in limits],
         token_burn_rate_per_min=burn,
         prediction=(
             PredictionOut(
@@ -100,7 +124,9 @@ async def summary_now(
                 utilization_pct=prediction.utilization_pct,
                 slope_pct_per_min=prediction.slope_pct_per_min,
                 predicted_exhaustion_at=prediction.predicted_exhaustion_at,
-                resets_at=prediction.resets_at,
+                resets_at=analytics.roll_reset_forward(
+                    prediction.window_kind, prediction.resets_at, now
+                )[0],
             )
             if prediction is not None
             else None
@@ -113,13 +139,36 @@ async def summary_now(
     )
 
 
+@router.get("/summary/overview", response_model=OverviewOut)
+async def summary_overview(
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> OverviewOut:
+    """Return all-time token/cost totals and the activity span."""
+    data = await queries.overview(session)
+    return OverviewOut(
+        input_tokens=data.input_tokens,
+        output_tokens=data.output_tokens,
+        cache_read_tokens=data.cache_read_tokens,
+        cache_write_short_tokens=data.cache_write_short_tokens,
+        cache_write_long_tokens=data.cache_write_long_tokens,
+        total_tokens=data.total_tokens,
+        cost_usd=data.cost_usd,
+        session_count=data.session_count,
+        machine_count=data.machine_count,
+        first_event=data.first_event,
+        last_event=data.last_event,
+    )
+
+
 @router.get("/limits/current", response_model=list[LimitOut])
 async def limits_current(
     session: AsyncSession = Depends(get_session),
     _: str = Depends(require_token),
 ) -> list[LimitOut]:
     """Return the latest snapshot for each limit window."""
-    return [_limit_out(item) for item in await analytics.current_limits(session)]
+    now = datetime.now(UTC)
+    return [_limit_out(item, now) for item in await analytics.current_limits(session)]
 
 
 @router.get("/limits/history", response_model=list[LimitOut])
@@ -134,7 +183,7 @@ async def limits_history(
     snapshots = await analytics.limits_history(
         session, window_kind, now - timedelta(hours=hours), now
     )
-    return [_limit_out(item) for item in snapshots]
+    return [_limit_out(item, now, roll_reset=False) for item in snapshots]
 
 
 @router.get("/blocks", response_model=list[BlockOut])
@@ -188,6 +237,7 @@ async def usage(
 async def sessions(
     limit: int = Query(100, ge=1, le=1000),
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
     _: str = Depends(require_token),
 ) -> list[SessionOut]:
     """Return recent sessions, newest first."""
@@ -203,8 +253,96 @@ async def sessions(
             total_tokens=item.total_tokens,
             cost_usd=item.cost_usd,
         )
-        for item in await queries.list_sessions(session, limit)
+        for item in await queries.list_sessions(
+            session, limit, settings.project_root_markers
+        )
     ]
+
+
+@router.get("/sessions/{session_id}", response_model=SessionDetailOut)
+async def session_detail(
+    session_id: str,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> SessionDetailOut:
+    """Return one session's event series and efficiency stats (metadata only)."""
+    detail = await queries.session_detail(
+        session, session_id, settings.project_root_markers
+    )
+    if detail is None:
+        raise HTTPException(status_code=404, detail="unknown session")
+    return SessionDetailOut(
+        session_id=detail.session_id,
+        project=detail.project,
+        machine=detail.machine,
+        message_count=len(detail.events),
+        total_tokens=sum(e.total_tokens for e in detail.events),
+        events=[
+            SessionEventOut(
+                ts=e.ts,
+                model=e.model,
+                input_tokens=e.input_tokens,
+                output_tokens=e.output_tokens,
+                cache_read_tokens=e.cache_read_tokens,
+                cache_write_short_tokens=e.cache_write_short_tokens,
+                cache_write_long_tokens=e.cache_write_long_tokens,
+                total_tokens=e.total_tokens,
+                cost_usd=e.cost_usd,
+            )
+            for e in detail.events
+        ],
+        stats=SessionStatsOut(
+            tokens_per_turn=detail.stats.tokens_per_turn,
+            cache_hit_rate=detail.stats.cache_hit_rate,
+            context_growth=detail.stats.context_growth,
+            inflection_index=detail.stats.inflection_index,
+        ),
+    )
+
+
+@router.get("/insights/anomalies", response_model=AnomalyReportOut)
+async def insights_anomalies(
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> AnomalyReportOut:
+    """Return sessions that deviate from the account's own usage baseline."""
+    report = await insights.detect_anomalies(session, settings.project_root_markers)
+    return AnomalyReportOut(
+        enough_data=report.enough_data,
+        session_count=report.session_count,
+        anomalies=[
+            AnomalyOut(
+                session_id=a.session_id,
+                project=a.project,
+                reasons=a.reasons,
+                severity_score=a.severity_score,
+                total_tokens=a.total_tokens,
+                cost_usd=a.cost_usd,
+                cache_hit_rate=a.cache_hit_rate,
+            )
+            for a in report.anomalies
+        ],
+    )
+
+
+@router.post("/admin/rebuild-rollups", response_model=RebuildResult)
+async def rebuild_rollups(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> RebuildResult:
+    """Delete derived rollups and rebuild them, re-applying project grouping.
+
+    Run after changing the project-grouping configuration so historical
+    breakdowns regroup (worktrees and case-variant paths fold together).
+    """
+    rebuilt = await rollups.rebuild_all_rollups(
+        session, request.app.state.dialect_name, settings.project_root_markers
+    )
+    return RebuildResult(rollups_rebuilt=rebuilt)
 
 
 @router.get("/machines", response_model=list[MachineOut])
@@ -230,13 +368,20 @@ async def machines(
 async def heatmap(
     date_from: date | None = Query(None, alias="from"),
     date_to: date | None = Query(None, alias="to"),
+    machine: str | None = None,
+    project: str | None = None,
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
     _: str = Depends(require_token),
 ) -> HeatmapResponse:
     """Return calendar (daily) and punch-card (weekday x hour) usage."""
     start, end = _default_range(date_from, date_to)
-    calendar = await queries.usage_grouped(session, "day", start, end)
-    card = await queries.punch_card(session, start, end)
+    calendar = await queries.usage_grouped(
+        session, "day", start, end, machine=machine, project=project
+    )
+    card = await queries.punch_card(
+        session, start, end, machine, project, settings.project_root_markers
+    )
     return HeatmapResponse(
         calendar=[_bucket_out(bucket) for bucket in calendar],
         punch_card=[

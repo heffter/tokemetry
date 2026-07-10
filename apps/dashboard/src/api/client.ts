@@ -5,12 +5,15 @@
 // live in a single place.
 
 import type {
+  AnomalyReport,
   Block,
   CostResponse,
   HeatmapResponse,
   Limit,
   MachineSummary,
+  Overview,
   PricingRow,
+  SessionDetail,
   SessionSummary,
   SummaryNow,
   UsageResponse,
@@ -40,7 +43,10 @@ export class ApiClient {
   constructor(
     private readonly token: string,
     private readonly baseUrl = '',
-    private readonly fetchFn: typeof fetch = fetch
+    // Wrap the global fetch so it is always invoked with the correct `this`
+    // (window). Passing the bare `fetch` reference and calling it as a method
+    // detaches it and native fetch throws "Illegal invocation".
+    private readonly fetchFn: typeof fetch = (input, init) => fetch(input, init)
   ) {}
 
   private async request<T>(
@@ -58,7 +64,19 @@ export class ApiClient {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!response.ok) {
-      throw new ApiError(response.status, `request failed: ${response.status}`);
+      // Surface the server's error detail (FastAPI returns {detail: ...}) so
+      // callers can show why a request failed, not just the status code.
+      let detail = '';
+      try {
+        const body = (await response.json()) as { detail?: unknown };
+        if (typeof body?.detail === 'string') detail = `: ${body.detail}`;
+      } catch {
+        // Non-JSON error body; the status alone will have to do.
+      }
+      throw new ApiError(
+        response.status,
+        `request failed (${response.status})${detail}`
+      );
     }
     if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
@@ -66,6 +84,10 @@ export class ApiClient {
 
   summaryNow(): Promise<SummaryNow> {
     return this.request<SummaryNow>('/api/v1/summary/now');
+  }
+
+  summaryOverview(): Promise<Overview> {
+    return this.request<Overview>('/api/v1/summary/overview');
   }
 
   limitsCurrent(): Promise<Limit[]> {
@@ -94,14 +116,32 @@ export class ApiClient {
     return this.request<SessionSummary[]>(`/api/v1/sessions?limit=${limit}`);
   }
 
+  sessionDetail(id: string): Promise<SessionDetail> {
+    return this.request<SessionDetail>(
+      `/api/v1/sessions/${encodeURIComponent(id)}`
+    );
+  }
+
+  insightsAnomalies(): Promise<AnomalyReport> {
+    return this.request<AnomalyReport>('/api/v1/insights/anomalies');
+  }
+
   machines(): Promise<MachineSummary[]> {
     return this.request<MachineSummary[]>('/api/v1/machines');
   }
 
-  heatmap(from?: string, to?: string): Promise<HeatmapResponse> {
-    return this.request<HeatmapResponse>(
-      `/api/v1/heatmap?${rangeParams(from, to)}`
-    );
+  heatmap(
+    from?: string,
+    to?: string,
+    machine?: string,
+    project?: string
+  ): Promise<HeatmapResponse> {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (machine) params.set('machine', machine);
+    if (project) params.set('project', project);
+    return this.request<HeatmapResponse>(`/api/v1/heatmap?${params}`);
   }
 
   cost(from?: string, to?: string): Promise<CostResponse> {
@@ -112,12 +152,47 @@ export class ApiClient {
     return this.request<PricingRow[]>('/api/v1/pricing');
   }
 
+  createPrice(row: PriceRowInput): Promise<PricingRow> {
+    return this.request<PricingRow>('/api/v1/pricing', 'POST', row);
+  }
+
+  syncLitellm(): Promise<{ synced: number }> {
+    return this.request<{ synced: number }>(
+      '/api/v1/pricing/sync-litellm',
+      'POST',
+      {}
+    );
+  }
+
+  recomputeCosts(): Promise<{
+    events_updated: number;
+    rollups_refreshed: number;
+  }> {
+    return this.request<{ events_updated: number; rollups_refreshed: number }>(
+      '/api/v1/pricing/recompute',
+      'POST',
+      {}
+    );
+  }
+
+  rebuildRollups(): Promise<{ rollups_rebuilt: number }> {
+    return this.request<{ rollups_rebuilt: number }>(
+      '/api/v1/admin/rebuild-rollups',
+      'POST',
+      {}
+    );
+  }
+
   alertRules(): Promise<AlertRule[]> {
     return this.request<AlertRule[]>('/api/v1/alerts');
   }
 
   createAlertRule(rule: AlertRuleInput): Promise<AlertRule> {
     return this.request<AlertRule>('/api/v1/alerts', 'POST', rule);
+  }
+
+  updateAlertRule(id: number, rule: AlertRuleInput): Promise<AlertRule> {
+    return this.request<AlertRule>(`/api/v1/alerts/${id}`, 'PUT', rule);
   }
 
   deleteAlertRule(id: number): Promise<void> {
@@ -131,6 +206,16 @@ export class ApiClient {
   evaluateAlerts(): Promise<{ fired: AlertEvent[] }> {
     return this.request<{ fired: AlertEvent[] }>(
       '/api/v1/alerts/evaluate',
+      'POST',
+      {}
+    );
+  }
+
+  testChannel(
+    channel: string
+  ): Promise<{ channel: string; delivered: boolean }> {
+    return this.request<{ channel: string; delivered: boolean }>(
+      `/api/v1/alerts/test/${encodeURIComponent(channel)}`,
       'POST',
       {}
     );
@@ -170,18 +255,24 @@ export interface AlertRule {
   name: string;
   kind: string;
   threshold: string | null;
+  warn_threshold: string | null;
+  crit_threshold: string | null;
   window_kind: string | null;
   channels: string[];
   cooldown_seconds: number;
   quiet_hours: Record<string, unknown> | null;
   enabled: boolean;
   config: Record<string, unknown>;
+  state: string;
+  last_fired_at: string | null;
 }
 
 export interface AlertRuleInput {
   name: string;
   kind: string;
   threshold?: string | null;
+  warn_threshold?: string | null;
+  crit_threshold?: string | null;
   window_kind?: string | null;
   channels: string[];
   cooldown_seconds: number;
@@ -197,6 +288,18 @@ export interface AlertEvent {
   body: string;
   delivered: boolean;
   context: Record<string, unknown>;
+}
+
+export interface PriceRowInput {
+  provider: string;
+  model: string;
+  effective_date: string;
+  input_per_mtok: string;
+  output_per_mtok: string;
+  cache_read_per_mtok: string;
+  cache_write_short_per_mtok: string;
+  cache_write_long_per_mtok: string;
+  source: string;
 }
 
 export function buildUsageParams(query: UsageQuery): string {

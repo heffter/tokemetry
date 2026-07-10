@@ -1,0 +1,162 @@
+# Overview
+
+Dashboard v2: fix the twelve highest-impact defects found by an adversarial
+multi-agent review of the tokemetry dashboard. The current UI fails at its two
+jobs (limits-first and value-first): it prints a cost figure it knows is
+incomplete, plots bare total_tokens everywhere (hiding that cache reads are
+>50% of volume), ignores the /limits/history and /heatmap endpoints that are
+its only real edge over free CLIs, has no loading/empty/error states, ships
+dead unsortable tables, and contains two real bugs (a WebSocket-driven summary
+refetch storm and a frozen staleness clock). These tasks fix all of that.
+
+Each task must keep quality gates green: for Python (apps/server), pytest +
+ruff + mypy strict + trivy; for the dashboard (apps/dashboard), vue-tsc
+typecheck, vite build, vitest, and eslint + prettier.
+
+# Core Features
+
+## 1. Editable pricing and unpriced-model coverage (Settings + backend)
+Add a server endpoint to create/override a price row (POST /api/v1/pricing) and
+to recompute stored event costs and refresh rollups afterward
+(POST /api/v1/pricing/recompute). In the dashboard Settings view, add an
+"Add/override model price" form (provider, model, effective_date, source, and
+all five per-MTok fields) and, on mount, diff usage(group_by=model) against the
+pricing rows to render a banner listing every model that has usage but no price
+("Unpriced: opus-4.8, sonnet-5, fable-5"), each with a one-click prefill of the
+add-price form. This is the single root cause of the app-wide "cost n/a"
+problem and unblocks the value story everywhere.
+
+## 2. Coverage-gated cost display
+Never present an authoritative dollar figure derived from an incomplete price
+table. Add a shared helper that computes a priced-coverage ratio from a set of
+usage buckets (buckets with null cost_usd vs priced). On the Now page, gate the
+"Today" cost figure: suppress or annotate "partial - N of M models unpriced"
+below ~90% coverage and lead with the token total. In Sessions/Blocks/
+Breakdowns/Machines, distinguish "unpriced" (model missing from price table)
+from a genuine $0 with an "unpriced" pill/badge. Wire GET /cost value_multiple
+vs subscription_monthly_usd into the Now page for the real Max-value figure.
+
+## 3. Stacked token-composition charts
+Stop plotting bare total_tokens. Add a stackedBarOption chart builder (fixed
+categorical hue order over input / output / cache_read / cache_write_short /
+cache_write_long) and use it on Now (today by model), Trends (daily), and
+Breakdowns (by model/machine/project) so the >50% cache-read dominance is
+visible. Add a cache-read-share stat and an "exclude cache" toggle. Data is
+already on every UsageBucket.
+
+## 4. Limits time-series with reset markers and projected exhaustion
+Use GET /limits/history (currently fetched by nobody). Draw a utilization
+sparkline/area inside each GaugeCard on Now with a dashed slope-projected
+exhaustion segment (from prediction.slope) and a reset marker. Compute the
+most-at-risk window and promote it to a headline banner ("5-hour limit in ~40m,
+92%, climbing 1.4%/min"). Replace one redundant Trends chart with
+utilization-over-time per window_kind. This is the reset-aware forecast the
+competitor TUIs lead with.
+
+## 5. Multi-machine differentiator on the Machines page
+Fix the frozen staleness clock: now is computed(() => Date.now()) with no
+reactive deps, so it never ticks and a dead machine still reads "online". Drive
+now from a ticking ref (setInterval, cleared on unmount) and re-poll machines()
+on the same interval. Add per-machine burn-rate and share-of-fleet columns, a
+token-share bar, a totals footer, a status scale (online/recent/stale/dead)
+with sane shared thresholds, sort-stale-first with an "N offline" banner, and
+click-through to Usage/Sessions filtered by machine.
+
+## 6. Decouple the live feed from the fetch (Now)
+socket.onmessage currently calls load() on every WebSocket message, refetching
+all of /summary/now per event with no debounce - a self-inflicted refetch storm
+during ingest. Throttle summary reloads to a trailing ~10s cadence, add a ~30s
+polling fallback so idle/dropped-socket data does not silently freeze, and show
+an "updated Xs ago" indicator. Keep the feed append-only and cheap.
+
+## 7. Shared loading, empty, and error states
+Build one shared AsyncState/StateCard component (loading skeleton, empty
+message, and a real error card with a human message mapped from ApiError.status
+plus a Retry button that re-runs the loader, keeping last-good data visible).
+Adopt it on all eight views, replacing the raw String(e) cards and the false
+"no data" flashes that show during loading.
+
+## 8. Navigable tables: sorting, filtering, drill-down, totals
+Make Sessions sortable (click headers) and filterable (machine/project/provider
+dropdowns + date range, wired to the existing UsageQuery params), add a totals
+footer, a top-N sessions bar chart, an inline magnitude bar in the Tokens cell,
+and a per-session drill-down (usage group_by filtered to the session). Add
+descending sort + top-N "other" bucket and click-to-requery drill-down to
+Breakdowns and Blocks bars.
+
+## 9. Current in-progress 5-hour block hero (Blocks)
+Pin the current block as a hero card (percent of window consumed, tokens vs
+limit, minutes to reset, and a burn-to-exhaustion verdict). Switch the block
+chart to a time axis so idle gaps render as gaps, default to a sane recent
+window (last 48h) with a range picker, paginate/virtualize the table, add a
+totals/summary footer, color and make sortable the end_utilization_pct column,
+and label peak_tokens_per_min as a rate.
+
+## 10. Render the unused /heatmap punch-card and calendar
+GET /heatmap (weekday x hour punch_card + daily calendar) is used by no view.
+Add a weekday-by-hour heatmap (sequential palette) and a contribution-style
+calendar grid to Breakdowns (and optionally a compact strip on Now/Trends).
+
+## 11. Chart hygiene
+Pass formatTokens as tooltip.valueFormatter and axis label formatter everywhere
+(no more "2700000000"). Add a modelLabel() map mirroring WINDOW_LABELS to
+humanize model ids. Sort categorical bars descending. Use bars (not filled area
+lines) for categorical breakdowns. Add visually-hidden table fallbacks for
+accessibility.
+
+## 12. Fix the Alerts page
+Make the threshold control kind-aware (0-100 slider with % for limit_pct,
+tokens/min for burn_rate, duration for predicted_exhaustion, hidden for
+collector_stale/unknown_model) and set it against a live /limits/history
+sparkline. Show live current-vs-threshold per rule from summaryNow. Render
+event.ts as relative time with an absolute tooltip, sort newest-first, and make
+each event expandable to show body and context. Add an enable/disable toggle
+(instead of destructive-only delete) and a confirm before delete. Surface the
+evaluate() { fired } result. Add a window_kind selector shown only for
+window-scoped kinds.
+
+# Technical Architecture
+
+- Frontend: Vue 3 + TypeScript + ECharts SPA in apps/dashboard. Shared logic
+  (formatters, coverage math, chart option builders, model labels) lives in
+  src/lib and is unit-tested with vitest; Vue components are covered by
+  typecheck + build + eslint.
+- Backend: FastAPI in apps/server. New pricing write endpoints reuse the
+  existing pricing_repo (upsert_price_rows, recompute_costs) and rollup refresh;
+  tested with pytest against SQLite.
+- No new external dependencies unless strictly necessary.
+
+# Development Roadmap
+
+Implement in this priority order (highest impact first): 1, 2, 3, 6, 11
+(unblock cost + cache honesty + kill the refetch bug + chart cleanup), then 7
+(shared states), then 4, 5, 9, 8, 10, 12 (differentiators and depth). Each task
+is independently shippable with its own commit and green gates.
+
+# Logical Dependency Chain
+
+- Task 1 (backend pricing write + recompute) unblocks the real cost story that
+  tasks 2, 8, 9 lean on.
+- Task 3 (stacked chart builder) and task 11 (chart hygiene) provide shared
+  chart infrastructure used by 8, 9, 10.
+- Task 7 (shared async-state component) is adopted by every later page task.
+- Tasks 4, 5, 9, 10, 12 are page-specific and can follow once the shared pieces
+  exist.
+
+# Risks and Mitigations
+
+- Recomputing cost over all events after a price change is a large write; do it
+  in one transaction and expose it as an explicit endpoint, not on every price
+  edit.
+- Newer models may still be absent from LiteLLM; the manual override form and
+  the coverage banner make the gap visible and fixable rather than silent.
+- Vue component logic is harder to unit test than pure functions; push logic
+  into tested lib helpers and rely on typecheck/build/lint for components.
+
+# Appendix
+
+Findings come from an adversarial two-critics-per-page review with consensus,
+compared against ccusage, Claude-Code-Usage-Monitor, sniffly, tokscale, ccseva,
+and Grafana/OTEL stacks. The dashboard's real differentiators (multi-machine
+aggregation, durable history, limits-first, API-first) are currently underused
+by the UI; these tasks surface them.

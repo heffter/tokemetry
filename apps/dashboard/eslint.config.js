@@ -20,6 +20,9 @@ export default ts.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'vue/multi-word-component-names': 'off',
+      // A directive-less <template> compiles to an inert native element and
+      // silently hides its children (this bug emptied Trends/Breakdowns).
+      'vue/no-lone-template': 'error',
     },
   },
   // Prettier owns formatting: disable all ESLint stylistic rules that overlap.

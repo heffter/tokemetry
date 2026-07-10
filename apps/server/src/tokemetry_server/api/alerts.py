@@ -16,6 +16,7 @@ from tokemetry_server.api.schemas_alerts import (
     AlertRuleIn,
     AlertRuleOut,
     EvaluateResult,
+    TestChannelResult,
 )
 from tokemetry_server.db import models
 from tokemetry_server.services.alerting.rules import EVALUATORS
@@ -31,12 +32,16 @@ def _rule_out(rule: models.AlertRule) -> AlertRuleOut:
         name=rule.name,
         kind=rule.kind,
         threshold=rule.threshold,
+        warn_threshold=rule.warn_threshold,
+        crit_threshold=rule.crit_threshold,
         window_kind=rule.window_kind,
         channels=[str(c) for c in channels],
         cooldown_seconds=rule.cooldown_seconds,
         quiet_hours=rule.quiet_hours,
         enabled=rule.enabled,
         config=rule.config,
+        state=rule.state,
+        last_fired_at=rule.last_fired_at,
     )
 
 
@@ -76,6 +81,8 @@ async def create_rule(
         name=payload.name,
         kind=payload.kind,
         threshold=payload.threshold,
+        warn_threshold=payload.warn_threshold,
+        crit_threshold=payload.crit_threshold,
         window_kind=payload.window_kind,
         channels=payload.channels,
         cooldown_seconds=payload.cooldown_seconds,
@@ -103,6 +110,8 @@ async def update_rule(
     rule.name = payload.name
     rule.kind = payload.kind
     rule.threshold = payload.threshold
+    rule.warn_threshold = payload.warn_threshold
+    rule.crit_threshold = payload.crit_threshold
     rule.window_kind = payload.window_kind
     rule.channels = payload.channels
     rule.cooldown_seconds = payload.cooldown_seconds
@@ -149,6 +158,18 @@ async def list_events(
         )
         for event in result.scalars()
     ]
+
+
+@router.post("/test/{channel}", response_model=TestChannelResult)
+async def test_channel(
+    channel: str,
+    request: Request,
+    _: str = Depends(require_token),
+) -> TestChannelResult:
+    """Send a test notification through one channel and report the outcome."""
+    engine = request.app.state.alert_engine
+    delivered = await engine.test_channel(channel)
+    return TestChannelResult(channel=channel, delivered=delivered)
 
 
 @router.post("/evaluate", response_model=EvaluateResult)

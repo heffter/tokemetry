@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
+
+from tokemetry_server.api.serialization import UtcDatetime
 
 
 class UsageBucketOut(BaseModel):
@@ -36,9 +38,15 @@ class LimitOut(BaseModel):
     provider: str
     window_kind: str
     utilization_pct: float
-    resets_at: datetime | None
-    ts: datetime
+    resets_at: UtcDatetime | None
+    ts: UtcDatetime
     provenance: str
+    #: Age of the underlying snapshot in seconds; large values mean the
+    #: collector has not reported recently and the reading may be stale.
+    age_seconds: int = 0
+    #: True when ``resets_at`` was rolled forward from a stale snapshot rather
+    #: than reported directly.
+    derived_reset: bool = False
 
 
 class PredictionOut(BaseModel):
@@ -47,8 +55,8 @@ class PredictionOut(BaseModel):
     window_kind: str
     utilization_pct: float
     slope_pct_per_min: float
-    predicted_exhaustion_at: datetime | None
-    resets_at: datetime | None
+    predicted_exhaustion_at: UtcDatetime | None
+    resets_at: UtcDatetime | None
 
 
 class TodaySummary(BaseModel):
@@ -62,18 +70,34 @@ class TodaySummary(BaseModel):
 class SummaryNow(BaseModel):
     """The dashboard front-page summary."""
 
-    now: datetime
+    now: UtcDatetime
     limits: list[LimitOut]
     token_burn_rate_per_min: float
     prediction: PredictionOut | None
     today: TodaySummary
 
 
+class OverviewOut(BaseModel):
+    """All-time totals for the dashboard summary strip."""
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+    session_count: int
+    machine_count: int
+    first_event: UtcDatetime | None
+    last_event: UtcDatetime | None
+
+
 class BlockOut(BaseModel):
     """One reconstructed 5-hour usage block."""
 
-    start: datetime
-    end: datetime
+    start: UtcDatetime
+    end: UtcDatetime
     total_tokens: int
     cost_usd: Decimal | None
     peak_tokens_per_min: int
@@ -87,11 +111,46 @@ class SessionOut(BaseModel):
     provider: str
     machine: str | None
     project: str | None
-    started_at: datetime
-    last_at: datetime
+    started_at: UtcDatetime
+    last_at: UtcDatetime
     message_count: int
     total_tokens: int
     cost_usd: Decimal | None
+
+
+class SessionEventOut(BaseModel):
+    """One usage event in a session drill-down (metadata only)."""
+
+    ts: UtcDatetime
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+
+
+class SessionStatsOut(BaseModel):
+    """Derived efficiency signals for a session."""
+
+    tokens_per_turn: float
+    cache_hit_rate: float
+    context_growth: float
+    inflection_index: int | None
+
+
+class SessionDetailOut(BaseModel):
+    """A session's ordered event series and derived stats."""
+
+    session_id: str
+    project: str | None
+    machine: str | None
+    message_count: int
+    total_tokens: int
+    events: list[SessionEventOut]
+    stats: SessionStatsOut
 
 
 class MachineOut(BaseModel):
@@ -99,7 +158,7 @@ class MachineOut(BaseModel):
 
     id: str
     platform: str | None
-    last_seen: datetime | None
+    last_seen: UtcDatetime | None
     collector_version: str | None
     total_tokens: int
     event_count: int
@@ -144,6 +203,61 @@ class PricingOut(BaseModel):
     source: str
 
 
+class PriceRowIn(BaseModel):
+    """A price row to create or override."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1, max_length=50)
+    model: str = Field(min_length=1, max_length=200)
+    effective_date: date
+    input_per_mtok: Decimal = Field(ge=0)
+    output_per_mtok: Decimal = Field(ge=0)
+    cache_read_per_mtok: Decimal = Field(ge=0)
+    cache_write_short_per_mtok: Decimal = Field(ge=0)
+    cache_write_long_per_mtok: Decimal = Field(ge=0)
+    source: str = Field(default="manual", max_length=50)
+
+
+class RecomputeResult(BaseModel):
+    """Outcome of a cost recomputation."""
+
+    events_updated: int
+    rollups_refreshed: int
+
+
+class RebuildResult(BaseModel):
+    """Outcome of a full rollup rebuild (project regrouping)."""
+
+    rollups_rebuilt: int
+
+
+class AnomalyOut(BaseModel):
+    """One flagged session and why it stood out."""
+
+    session_id: str
+    project: str | None
+    reasons: list[str]
+    severity_score: float
+    total_tokens: int
+    cost_usd: float | None
+    cache_hit_rate: float
+
+
+class AnomalyReportOut(BaseModel):
+    """Anomaly-detection result across the account's sessions."""
+
+    enough_data: bool
+    session_count: int
+    anomalies: list[AnomalyOut]
+
+
+class SyncResult(BaseModel):
+    """Outcome of a LiteLLM price sync."""
+
+    synced: int
+
+
 class TokenCreateRequest(BaseModel):
     """Request to mint an API token."""
 
@@ -155,13 +269,13 @@ class TokenCreatedOut(BaseModel):
 
     label: str
     token: str
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 class TokenInfoOut(BaseModel):
     """Stored token metadata (never the secret)."""
 
     label: str
-    created_at: datetime
-    last_used: datetime | None
+    created_at: UtcDatetime
+    last_used: UtcDatetime | None
     revoked: bool
