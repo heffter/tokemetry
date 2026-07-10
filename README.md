@@ -62,9 +62,12 @@ mypy strict, trivy (no HIGH/CRITICAL), shellcheck for shell scripts.
 ## Deployment
 
 - [Server](docs/deployment/server.md) — Docker Compose on a VPS behind
-  WireGuard (app + Postgres + nightly backup).
-- [Collector](docs/deployment/collector.md) — install and run as a service
-  on Windows, Linux, and macOS.
+  WireGuard (app + Postgres + nightly backup), or the native systemd unit.
+- Collector — install and run as a service, step by step per platform:
+  [Windows](docs/deployment/collector-windows.md),
+  [Linux](docs/deployment/collector-linux.md),
+  [macOS](docs/deployment/collector-macos.md). The
+  [overview](docs/deployment/collector.md) covers all three at a glance.
 - [Grafana](docs/deployment/grafana.md) — point Grafana at the database.
 - [API clients](docs/deployment/api-clients.md) — provision tokens for
   OpenClaw and other apps.

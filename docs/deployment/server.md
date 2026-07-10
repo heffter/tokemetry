@@ -58,3 +58,43 @@ git pull && docker compose up -d --build
 ```
 
 Migrations run automatically on startup (`TOKEMETRY_AUTO_MIGRATE=true`).
+
+## Native systemd (without Docker)
+
+Docker Compose above is the primary path. If you would rather run directly on
+the host (for example on a small VPS without a container runtime), use the
+native systemd unit. This runs the app under uvicorn from a virtualenv and,
+by default, stores data in SQLite.
+
+```bash
+# 1. Install as a dedicated user under /opt/tokemetry.
+sudo useradd --system --home /opt/tokemetry --shell /usr/sbin/nologin tokemetry
+sudo git clone https://github.com/heffter/tokemetry.git /opt/tokemetry
+sudo chown -R tokemetry:tokemetry /opt/tokemetry
+
+# 2. Create the virtualenv and install the server + build the dashboard.
+cd /opt/tokemetry
+sudo -u tokemetry uv venv apps/server/.venv
+sudo -u tokemetry uv pip install --python apps/server/.venv ./apps/server
+sudo -u tokemetry npm --prefix apps/dashboard ci
+sudo -u tokemetry npm --prefix apps/dashboard run build
+
+# 3. Data directory (for the SQLite database).
+sudo install -d -o tokemetry -g tokemetry /var/lib/tokemetry
+
+# 4. Environment file with the secrets (mode 0600).
+sudo install -d /etc/tokemetry
+sudo cp deploy/server/tokemetry-server.env.example /etc/tokemetry/server.env
+sudo chmod 600 /etc/tokemetry/server.env
+# Edit /etc/tokemetry/server.env: set TOKEMETRY_BIND_HOST to the WireGuard
+# address, a long random TOKEMETRY_API_BOOTSTRAP_TOKEN, and adjust paths.
+
+# 5. Install and start the unit.
+sudo cp deploy/server/systemd/tokemetry-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now tokemetry-server
+```
+
+Logs: `journalctl -u tokemetry-server -f`. Upgrade with
+`git pull`, re-install/re-build (steps 2), then
+`sudo systemctl restart tokemetry-server`. Migrations still run on startup.

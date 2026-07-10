@@ -2165,10 +2165,11 @@
         "description": "Native systemd unit for the server; polish collector units (Win Scheduled Task + NSSM note, launchd, systemd); per-platform collector docs (Windows/Linux/macOS) + native server doc; README links; shellcheck new scripts.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:58:28.946Z"
       },
       {
         "id": "59",
@@ -2184,9 +2185,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T20:53:31.649Z",
+      "lastModified": "2026-07-10T20:58:28.947Z",
       "taskCount": 59,
-      "completedCount": 57,
+      "completedCount": 58,
       "tags": [
         "master"
       ]

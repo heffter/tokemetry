@@ -1,0 +1,35 @@
+[Unit]
+# Native (non-Docker) systemd unit for the tokemetry server. Docker Compose
+# (deploy/docker-compose.yml) remains the primary path; use this when running
+# directly on a host without containers. See docs/deployment/server.md.
+Description=tokemetry server (FastAPI API + dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# The unprivileged account that owns the install and data directory.
+User=tokemetry
+Group=tokemetry
+# Directory containing the installed package (a uv/venv checkout). Adjust to
+# your install path.
+WorkingDirectory=/opt/tokemetry/apps/server
+# All TOKEMETRY_-prefixed settings, including secrets, live here (mode 0600).
+EnvironmentFile=/etc/tokemetry/server.env
+# Run uvicorn from the project's virtualenv against the app factory. Bind to
+# the WireGuard address only, never a public interface.
+ExecStart=/opt/tokemetry/apps/server/.venv/bin/uvicorn \
+    tokemetry_server.app:create_app --factory \
+    --host ${TOKEMETRY_BIND_HOST} --port ${TOKEMETRY_BIND_PORT}
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+# Harden: the server only needs its own state directory to be writable.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=tokemetry
+ReadWritePaths=/var/lib/tokemetry
+
+[Install]
+WantedBy=multi-user.target
