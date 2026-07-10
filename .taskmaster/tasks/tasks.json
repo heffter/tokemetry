@@ -1800,12 +1800,13 @@
         "id": "46",
         "title": "Machines page representation fixes",
         "description": "Real re-poll timer (not just ticking clock); handle N=1 fleet share + de-dup footer; status as a word not color-alone; fix hardcoded series color.",
-        "details": "",
-        "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "details": "Added a real 30s re-poll timer (the page only ticked a display clock before, so a recovered machine stayed red until manual reload) alongside the 15s staleness tick. Status now renders as a filled word badge (Online/Recent/Stale/Offline) so it's not color-alone, and the dot distinguishes stale (warning) from offline (critical) instead of one red. The meaningless single-machine 'Share of fleet' column and the duplicate fleet footer are hidden when rows.length<2. Banner grammar fixed ('1 machine is'). Share bar color resolves via --series-1 (dark fix from Task 40); 'Collector' column renamed 'Agent version'. 68 dashboard tests; build+lint clean.",
+        "testStrategy": "Verify 30s re-poll timer triggers correctly and recovered machines update status without manual reload; confirm status badge displays Online/Recent/Stale/Offline as filled words with distinct dots for stale (warning) vs offline (critical); validate 'Share of fleet' column and duplicate footer are hidden when rows.length<2; check banner grammar reads '1 machine is'; confirm share bar color uses --series-1; verify 'Collector' column renamed to 'Agent version'; run 68 dashboard tests; ensure build+lint clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T10:15:08.175Z"
       },
       {
         "id": "47",
@@ -1843,9 +1844,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T10:09:54.539Z",
+      "lastModified": "2026-07-10T10:15:08.177Z",
       "taskCount": 49,
-      "completedCount": 45,
+      "completedCount": 46,
       "tags": [
         "master"
       ]
