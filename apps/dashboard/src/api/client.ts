@@ -131,6 +131,27 @@ export class ApiClient {
     return this.request<Report>(`/api/v1/report?${rangeParams(from, to)}`);
   }
 
+  // The export is a Markdown document, not JSON, so it bypasses request<T>()
+  // and returns raw text for the caller to save as a file.
+  async reportExport(
+    size: 'compact' | 'full',
+    from?: string,
+    to?: string
+  ): Promise<string> {
+    const params = new URLSearchParams(rangeParams(from, to));
+    params.set('size', size);
+    const response = await this.fetchFn(
+      `${this.baseUrl}/api/v1/report/export?${params}`,
+      {
+        headers: { Authorization: `Bearer ${this.token}` },
+      }
+    );
+    if (!response.ok) {
+      throw new ApiError(response.status, `export failed (${response.status})`);
+    }
+    return response.text();
+  }
+
   machines(): Promise<MachineSummary[]> {
     return this.request<MachineSummary[]>('/api/v1/machines');
   }

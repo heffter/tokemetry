@@ -28,6 +28,33 @@ function onFilter(next: UsageFilter): void {
   void load();
 }
 
+const exporting = ref<'compact' | 'full' | null>(null);
+const exportError = ref('');
+
+// Download the LLM-ready Markdown export, triggering a browser file save.
+async function downloadExport(size: 'compact' | 'full'): Promise<void> {
+  exporting.value = size;
+  exportError.value = '';
+  try {
+    const markdown = await useClient().reportExport(
+      size,
+      filter.value.from,
+      filter.value.to
+    );
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tokemetry-report-${size}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    exportError.value = err instanceof Error ? err.message : 'export failed';
+  } finally {
+    exporting.value = null;
+  }
+}
+
 // Higher-is-better metric -> a status class by two thresholds.
 function goodHigh(value: number, warn: number, good: number): string {
   if (value >= good) return 'badge-good';
@@ -85,6 +112,33 @@ onMounted(load);
             :value="formatPct(report.scorecard.verbosity_ratio * 100)"
             sub="output / input · target ≤ 30%"
           />
+        </section>
+
+        <section class="card export">
+          <div class="export-copy">
+            <h3>Export for AI analysis</h3>
+            <p class="muted small">
+              Download a self-contained Markdown report with an embedded prompt
+              to paste into your AI agent for optimization advice.
+            </p>
+          </div>
+          <div class="export-actions">
+            <button
+              class="btn"
+              :disabled="exporting !== null"
+              @click="downloadExport('compact')"
+            >
+              {{ exporting === 'compact' ? 'Preparing…' : 'Compact' }}
+            </button>
+            <button
+              class="btn"
+              :disabled="exporting !== null"
+              @click="downloadExport('full')"
+            >
+              {{ exporting === 'full' ? 'Preparing…' : 'Full' }}
+            </button>
+          </div>
+          <p v-if="exportError" class="error small">{{ exportError }}</p>
         </section>
 
         <section class="card">
@@ -302,5 +356,43 @@ td {
 }
 .num {
   text-align: right;
+}
+.export {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.export-copy {
+  flex: 1 1 240px;
+}
+.export-copy h3 {
+  margin-bottom: 0.35rem;
+}
+.export-copy p {
+  margin: 0;
+}
+.export-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.btn {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.error {
+  color: var(--status-critical);
+  flex-basis: 100%;
+  margin: 0;
 }
 </style>

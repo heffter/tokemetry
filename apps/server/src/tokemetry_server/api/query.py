@@ -11,6 +11,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import require_token
@@ -40,7 +41,14 @@ from tokemetry_server.api.schemas_query import (
 )
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db import models
-from tokemetry_server.services import analytics, insights, queries, report, rollups
+from tokemetry_server.services import (
+    analytics,
+    insights,
+    queries,
+    report,
+    report_export,
+    rollups,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["query"])
 
@@ -314,6 +322,44 @@ async def optimization_report(
     start, end = _default_range(date_from, date_to)
     built = await report.build_report(session, start, end, settings.project_root_markers)
     return ReportOut.model_validate(built)
+
+
+@router.get("/report/export")
+async def optimization_report_export(
+    size: str = Query("compact", pattern="^(compact|full)$"),
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_token),
+) -> Response:
+    """Return the optimization report as an LLM-ready Markdown download.
+
+    The document embeds an analysis prompt, a data dictionary, and the report
+    tables so it can be pasted into any AI agent. ``size=full`` additionally
+    embeds the top sessions and detected anomalies.
+    """
+    start, end = _default_range(date_from, date_to)
+    roots = settings.project_root_markers
+    built = await report.build_report(session, start, end, roots)
+
+    sessions = None
+    anomalies = None
+    if size == "full":
+        sessions = await queries.list_sessions(
+            session, report_export.FULL_SESSION_LIMIT, roots
+        )
+        anomalies = (await insights.detect_anomalies(session, roots)).anomalies
+
+    markdown = report_export.render_report_markdown(
+        built, size=size, sessions=sessions, anomalies=anomalies
+    )
+    filename = f"tokemetry-report-{start.isoformat()}-{end.isoformat()}-{size}.md"
+    return Response(
+        content=markdown,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/insights/anomalies", response_model=AnomalyReportOut)

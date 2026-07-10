@@ -177,6 +177,31 @@ def test_report_endpoint(client: TestClient, auth: dict[str, str]) -> None:
     assert "cache_hit_rate" in data["scorecard"]
 
 
+def test_report_export_compact(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    response = client.get(f"/api/v1/report/export?size=compact&{_WIDE_RANGE}", headers=auth)
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/markdown")
+    assert "attachment" in response.headers["content-disposition"]
+    body = response.text
+    assert "## Your task" in body
+    assert "## Scorecard" in body
+    assert "## Top sessions" not in body
+
+
+def test_report_export_full_has_sessions(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    response = client.get(f"/api/v1/report/export?size=full&{_WIDE_RANGE}", headers=auth)
+    assert response.status_code == 200
+    assert "## Top sessions" in response.text
+    assert "## Anomalies" in response.text
+
+
+def test_report_export_rejects_bad_size(client: TestClient, auth: dict[str, str]) -> None:
+    response = client.get("/api/v1/report/export?size=huge", headers=auth)
+    assert response.status_code == 422
+
+
 def test_insights_anomalies_endpoint(client: TestClient, auth: dict[str, str]) -> None:
     _seed_events(client, auth)
     data = _get(client, auth, "/api/v1/insights/anomalies")

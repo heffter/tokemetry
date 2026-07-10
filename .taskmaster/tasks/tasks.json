@@ -2153,10 +2153,11 @@
         "description": "GET /api/v1/report/export: self-contained markdown with embedded analysis prompt (Max framing + requested output structure), data dictionary, compact aggregated tables; compact/full sizes; export buttons on Report page. Size-budget test.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:53:31.648Z"
       },
       {
         "id": "58",
@@ -2183,9 +2184,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T20:40:12.709Z",
+      "lastModified": "2026-07-10T20:53:31.649Z",
       "taskCount": 59,
-      "completedCount": 56,
+      "completedCount": 57,
       "tags": [
         "master"
       ]
