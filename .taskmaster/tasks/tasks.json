@@ -2177,17 +2177,18 @@
         "description": "Document that every usage event is retained indefinitely (no pruning) and only backup dumps are pruned, so the report relies on full history. docs/architecture/retention.md; no code change.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-07-10T21:00:20.667Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T20:58:28.947Z",
+      "lastModified": "2026-07-10T21:00:20.668Z",
       "taskCount": 59,
-      "completedCount": 58,
+      "completedCount": 59,
       "tags": [
         "master"
       ]

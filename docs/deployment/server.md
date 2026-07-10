@@ -29,7 +29,10 @@ from a machine on the VPN and enter the bootstrap token to connect.
 |---|---|
 | `server` | FastAPI API + dashboard SPA (from `TOKEMETRY_STATIC_DIR=/app/static`), migrations on startup, alert loop |
 | `db` | Postgres 16 with a persistent volume |
-| `backup` | nightly `pg_dump` to the `backups` volume, 14-day retention (`deploy/backup.sh`) |
+| `backup` | nightly `pg_dump` to the `backups` volume, 14-day file retention (`deploy/backup.sh`) |
+
+Usage rows themselves are never pruned — only backup files age out. See
+[data retention](../architecture/retention.md).
 
 ## Configuration
 
