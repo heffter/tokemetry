@@ -24,6 +24,7 @@ const { loading, error, run, retry } = useAsync();
 const sessions = ref<SessionSummary[]>([]);
 const anomalies = ref<Anomaly[]>([]);
 const enoughData = ref(true);
+const anomaliesError = ref(false);
 
 // Map session id -> its anomaly, for row flags and the insights card.
 const anomalyById = computed(
@@ -104,6 +105,14 @@ const maxTokens = computed(() =>
   Math.max(1, ...filtered.value.map((s) => s.total_tokens))
 );
 
+// Log-scaled inline bar width: a linear scale over a 1000x spread renders all
+// but the top few rows at sub-pixel width. Log keeps small sessions visible.
+function barWidth(tokens: number): number {
+  const max = maxTokens.value;
+  if (tokens <= 0 || max <= 1) return 0;
+  return (Math.log10(tokens + 1) / Math.log10(max + 1)) * 100;
+}
+
 const totals = computed(() => ({
   count: filtered.value.length,
   tokens: filtered.value.reduce((sum, s) => sum + s.total_tokens, 0),
@@ -115,8 +124,10 @@ const topChart = computed(() => {
   const top = [...filtered.value]
     .sort((a, b) => b.total_tokens - a.total_tokens)
     .slice(0, 10);
+  // Label by session id so every bar is distinct (project labels collide when
+  // several top sessions share one project).
   return barOption(
-    top.map((s) => `${s.project ?? s.session_id.slice(0, 8)}`),
+    top.map((s) => s.session_id.slice(0, 8)),
     top.map((s) => s.total_tokens),
     'tokens'
   );
@@ -143,12 +154,14 @@ async function load(): Promise<void> {
 }
 
 async function loadAnomalies(): Promise<void> {
+  anomaliesError.value = false;
   try {
     const report = await useClient().insightsAnomalies();
     enoughData.value = report.enough_data;
     anomalies.value = report.anomalies;
   } catch {
     anomalies.value = [];
+    anomaliesError.value = true;
   }
 }
 
@@ -192,7 +205,7 @@ onMounted(() => {
       <EChart :option="topChart" height="220px" />
 
       <div v-if="topAnomalies.length" class="insights">
-        <h4>Insights — sessions that stand out</h4>
+        <h4>Insights — sessions that stand out (ranked by cost x low cache)</h4>
         <ul>
           <li
             v-for="a in topAnomalies"
@@ -201,8 +214,16 @@ onMounted(() => {
             @click="toggleDetail(a.session_id)"
           >
             <span class="mono">{{ a.session_id.slice(0, 8) }}</span>
-            <span>{{ a.project ?? '—' }}</span>
-            <span class="tabular">{{ formatTokens(a.total_tokens) }}</span>
+            <span class="proj">{{ a.project ?? '—' }}</span>
+            <span class="tabular metric">{{
+              formatTokens(a.total_tokens)
+            }}</span>
+            <span class="tabular metric">{{
+              a.cost_usd === null ? 'unpriced' : formatCost(String(a.cost_usd))
+            }}</span>
+            <span class="tabular metric"
+              >{{ formatPct(a.cache_hit_rate * 100) }} cache</span
+            >
             <span class="reasons">
               <span v-for="r in a.reasons" :key="r" class="chip warn">{{
                 r
@@ -211,8 +232,14 @@ onMounted(() => {
           </li>
         </ul>
       </div>
+      <p v-else-if="anomaliesError" class="muted small note">
+        Couldn't load insights — the anomaly service is unavailable.
+      </p>
       <p v-else-if="!enoughData" class="muted small note">
         Anomaly detection needs at least 20 sessions to learn your baseline.
+      </p>
+      <p v-else class="muted small note">
+        No anomalies — your recent sessions are within your usual range.
       </p>
 
       <table>
@@ -255,7 +282,7 @@ onMounted(() => {
                 <div class="magnitude">
                   <div
                     class="mbar"
-                    :style="{ width: `${(s.total_tokens / maxTokens) * 100}%` }"
+                    :style="{ width: `${barWidth(s.total_tokens)}%` }"
                   ></div>
                   <span>{{ formatTokens(s.total_tokens) }}</span>
                 </div>
@@ -299,16 +326,32 @@ onMounted(() => {
                       {{ detail.stats.inflection_index + 1 }}
                     </span>
                   </div>
-                  <Sparkline
+                  <div
                     v-if="detailCumulative.length > 1"
-                    :values="detailCumulative"
-                    :max="detailCumulative[detailCumulative.length - 1]"
-                    :marker-index="detail.stats.inflection_index"
-                    color="var(--series-1, #2a78d6)"
-                    :width="360"
-                    :height="48"
-                  />
-                  <span class="muted small">cumulative tokens over turns</span>
+                    class="spark-wrap"
+                    :title="`Cumulative tokens over ${detail.events.length} turns${
+                      detail.stats.inflection_index !== null
+                        ? `; the marker is the suggested /clear point (turn ${detail.stats.inflection_index + 1})`
+                        : ''
+                    }`"
+                  >
+                    <Sparkline
+                      :values="detailCumulative"
+                      :max="detailCumulative[detailCumulative.length - 1]"
+                      :marker-index="detail.stats.inflection_index"
+                      color="var(--series-1)"
+                      :width="360"
+                      :height="48"
+                    />
+                  </div>
+                  <span class="muted small">
+                    cumulative tokens over turns<template
+                      v-if="detail.stats.inflection_index !== null"
+                    >
+                      · dashed line = suggested /clear (turn
+                      {{ detail.stats.inflection_index + 1 }})</template
+                    >
+                  </span>
                 </div>
               </td>
             </tr>
@@ -435,11 +478,24 @@ td {
   padding: 0.35rem 0;
   border-bottom: 1px solid var(--border);
 }
+.insight .proj {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.insight .metric {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
 .insight .reasons {
   display: flex;
   gap: 0.3rem;
   flex-wrap: wrap;
-  margin-left: auto;
+}
+.spark-wrap {
+  cursor: help;
 }
 .flag {
   font-size: 0.7rem;
