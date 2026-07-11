@@ -262,8 +262,10 @@ class ScorecardOut(BaseModel):
     output_tokens: int
     cache_read_tokens: int
     cache_write_tokens: int
+    total_turns: int
     cache_hit_rate: float
-    verbosity_ratio: float
+    output_per_turn: float
+    generation_share: float
     median_tokens_per_turn: float
     sidechain_share: float
     unattributed_share: float
@@ -281,7 +283,8 @@ class DimensionRowOut(BaseModel):
     total_tokens: int
     cache_hit_rate: float
     median_tokens_per_turn: float
-    verbosity_ratio: float
+    output_per_turn: float
+    generation_share: float
     sidechain_share: float
     session_count: int
 

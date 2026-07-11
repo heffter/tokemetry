@@ -121,8 +121,10 @@ export interface Scorecard {
   output_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
+  total_turns: number;
   cache_hit_rate: number;
-  verbosity_ratio: number;
+  output_per_turn: number;
+  generation_share: number;
   median_tokens_per_turn: number;
   sidechain_share: number;
   unattributed_share: number;
@@ -136,7 +138,8 @@ export interface ReportDimension {
   total_tokens: number;
   cache_hit_rate: number;
   median_tokens_per_turn: number;
-  verbosity_ratio: number;
+  output_per_turn: number;
+  generation_share: number;
   sidechain_share: number;
   session_count: number;
 }

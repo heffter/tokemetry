@@ -107,8 +107,11 @@ and the rule-engine recommendations, then produce concrete, prioritized advice.
   tool definitions, CLAUDE.md) is being reused. A low rate means it is being
   re-sent -- usually from an oversized or churning CLAUDE.md, mid-session tool
   or model switches, or frequent `/clear`.
-- **Output/input (verbosity) ratio <= 30%.** High verbosity is long assistant
-  turns: verbose explanations, echoed file contents, unfiltered command output.
+- **Output ~1,000 tokens/turn.** Verbosity is measured as mean output tokens
+  per turn (cache-invariant, unlike an output/input ratio which explodes when
+  prompt-cache reads dominate the input). Much above ~2,000/turn means long
+  assistant turns: verbose explanations, echoed file contents, unfiltered
+  command output.
 - **CLAUDE.md and MCP tool definitions are pure overhead** -- they are re-sent
   every turn. Aim for a CLAUDE.md under ~500 tokens; disable MCP servers not in
   active use.
@@ -143,9 +146,13 @@ _DATA_DICTIONARY = """\
 - **total tokens** -- input + output + cache-read + cache-write over the range.
 - **cache-hit-rate** -- cache-read / (cache-read + fresh input). Higher is
   better; target >= 85%.
-- **verbosity** -- output / input tokens. Lower is better; target <= 30%.
-- **tokens/turn** -- median tokens per assistant turn in a session; a proxy for
-  context size and turn heaviness.
+- **output/turn** -- mean output tokens per assistant turn. The verbosity
+  signal; lower is better; healthy is ~1,000, over-verbose is ~2,000+.
+  Cache-invariant, so it stays meaningful even at high cache-hit-rates.
+- **generation share** -- output / (input + cache-read): output's share of
+  everything the model read. A bounded companion to output/turn.
+- **tokens/turn** -- median total tokens per assistant turn in a session; a
+  proxy for context size and turn heaviness.
 - **subagent share** -- fraction of tokens that ran inside a subagent
   (is_sidechain); a proxy for exploration isolation.
 - **unattributed share** -- fraction of tokens with no project attribution
@@ -173,7 +180,8 @@ def _scorecard_section(report: Report) -> list[str]:
         f"| Cache-read tokens | {_fmt_tokens(s.cache_read_tokens)} |",
         f"| Cache-write tokens | {_fmt_tokens(s.cache_write_tokens)} |",
         f"| Cache-hit-rate | {_fmt_pct(s.cache_hit_rate)} |",
-        f"| Verbosity (output/input) | {_fmt_pct(s.verbosity_ratio)} |",
+        f"| Output tokens/turn | {_fmt_tokens(s.output_per_turn)} |",
+        f"| Generation share | {_fmt_pct(s.generation_share)} |",
         f"| Median tokens/turn | {_fmt_tokens(s.median_tokens_per_turn)} |",
         f"| Subagent share | {_fmt_pct(s.sidechain_share)} |",
         f"| Unattributed share | {_fmt_pct(s.unattributed_share)} |",
@@ -189,7 +197,7 @@ def _dimension_section(title: str, rows: Sequence[DimensionRow]) -> list[str]:
     lines = [
         f"## {title}",
         "",
-        "| Name | Tokens | Cache hit | Tokens/turn | Verbosity | Sessions |",
+        "| Name | Tokens | Cache hit | Out/turn | Gen share | Sessions |",
         "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in rows:
@@ -197,8 +205,8 @@ def _dimension_section(title: str, rows: Sequence[DimensionRow]) -> list[str]:
         lines.append(
             f"| {name} | {_fmt_tokens(r.total_tokens)} "
             f"| {_fmt_pct(r.cache_hit_rate)} "
-            f"| {_fmt_tokens(r.median_tokens_per_turn)} "
-            f"| {_fmt_pct(r.verbosity_ratio)} | {r.session_count} |"
+            f"| {_fmt_tokens(r.output_per_turn)} "
+            f"| {_fmt_pct(r.generation_share)} | {r.session_count} |"
         )
     if not rows:
         lines.append("| (no data) | - | - | - | - | - |")

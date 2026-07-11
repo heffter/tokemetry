@@ -16,8 +16,10 @@ def _scorecard(**overrides: Any) -> Scorecard:
         "output_tokens": 200_000,
         "cache_read_tokens": 9_000_000,
         "cache_write_tokens": 500_000,
+        "total_turns": 10_000,
         "cache_hit_rate": 0.9,
-        "verbosity_ratio": 0.2,
+        "output_per_turn": 900.0,
+        "generation_share": 0.02,
         "median_tokens_per_turn": 1000.0,
         "sidechain_share": 0.1,
         "unattributed_share": 0.05,
@@ -35,7 +37,8 @@ def _dim(name: str, **overrides: Any) -> DimensionRow:
         "total_tokens": 5_000_000,
         "cache_hit_rate": 0.9,
         "median_tokens_per_turn": 1000.0,
-        "verbosity_ratio": 0.2,
+        "output_per_turn": 900.0,
+        "generation_share": 0.02,
         "sidechain_share": 0.1,
         "session_count": 20,
     }
@@ -57,14 +60,21 @@ def test_low_cache_hit_rate_flagged() -> None:
 
 
 def test_verbosity_flagged_with_impact() -> None:
+    # Output averages 3000 tokens/turn (> 2000 warn) over 1000 turns.
     recs = evaluate_rules(
-        _scorecard(verbosity_ratio=0.8, input_tokens=1_000_000, output_tokens=800_000),
+        _scorecard(output_per_turn=3000.0, total_turns=1000, output_tokens=3_000_000),
         [],
         [],
     )
     verbosity = next(r for r in recs if r.id == "verbosity")
-    # output(800k) - 0.3 * input(1M) = 500k reclaimable
-    assert verbosity.impact_tokens == 500_000
+    # output(3M) - 1000 target * 1000 turns = 2M reclaimable
+    assert verbosity.impact_tokens == 2_000_000
+
+
+def test_healthy_output_per_turn_not_flagged() -> None:
+    # ~900 tokens/turn is healthy and must not trigger the verbosity rule.
+    recs = evaluate_rules(_scorecard(output_per_turn=900.0), [], [])
+    assert "verbosity" not in _ids(recs)
 
 
 def test_opus_concentration_flags_routing() -> None:
@@ -89,7 +99,7 @@ def test_recommendations_sorted_by_severity() -> None:
     recs = evaluate_rules(
         _scorecard(
             cache_hit_rate=0.4,
-            verbosity_ratio=0.9,
+            output_per_turn=3000.0,
             unattributed_share=0.3,
         ),
         [],

@@ -26,10 +26,15 @@ from tokemetry_server.db import models
 CACHE_HIT_WARN = 0.7
 #: Per-machine cache-hit-rate this far below the fleet median flags config drift.
 DRIFT_MARGIN = 0.15
-#: Output/input ratio above this suggests over-verbose responses.
-VERBOSITY_WARN = 0.5
-#: A healthy verbosity target used to estimate reclaimable output tokens.
-VERBOSITY_TARGET = 0.3
+#: Mean output tokens per turn above this suggests over-verbose responses.
+#: Derived from the fleet distribution (~p90 of substantial sessions, ~2x the
+#: typical ~1k/turn). Cache-invariant: unlike an output/input ratio it does not
+#: distort when prompt-cache reads dominate the input (which inflates the ratio
+#: toward infinity as fresh input shrinks).
+OUTPUT_PER_TURN_WARN = 2000.0
+#: A healthy output-per-turn baseline (~the fleet mean) used to estimate the
+#: reclaimable output tokens above target.
+OUTPUT_PER_TURN_TARGET = 1000.0
 #: Sidechain (subagent) token share below this with heavy usage suggests no
 #: exploration isolation.
 SIDECHAIN_MIN = 0.02
@@ -50,8 +55,14 @@ class Scorecard:
     output_tokens: int
     cache_read_tokens: int
     cache_write_tokens: int
+    total_turns: int
     cache_hit_rate: float
-    verbosity_ratio: float
+    #: Mean output tokens per assistant turn. The cache-invariant verbosity
+    #: signal (does not divide by the cache-distorted input).
+    output_per_turn: float
+    #: output / (input + cache_read): output's bounded share of everything the
+    #: model read. For display; never explodes under prompt caching.
+    generation_share: float
     median_tokens_per_turn: float
     sidechain_share: float
     unattributed_share: float
@@ -68,7 +79,8 @@ class DimensionRow:
     total_tokens: int
     cache_hit_rate: float
     median_tokens_per_turn: float
-    verbosity_ratio: float
+    output_per_turn: float
+    generation_share: float
     sidechain_share: float
     session_count: int
 
@@ -136,10 +148,13 @@ def evaluate_rules(
             )
         )
 
-    if scorecard.verbosity_ratio > VERBOSITY_WARN and scorecard.input_tokens:
+    if scorecard.output_per_turn > OUTPUT_PER_TURN_WARN and scorecard.total_turns:
         reclaim = max(
             0,
-            int(scorecard.output_tokens - VERBOSITY_TARGET * scorecard.input_tokens),
+            int(
+                scorecard.output_tokens
+                - OUTPUT_PER_TURN_TARGET * scorecard.total_turns
+            ),
         )
         recs.append(
             Recommendation(
@@ -147,11 +162,17 @@ def evaluate_rules(
                 title="Reduce output verbosity",
                 severity="warning",
                 evidence=(
-                    f"Output is {scorecard.verbosity_ratio:.0%} of input tokens "
-                    f"(target <=30%). Ask for terser answers and route bulky "
-                    f"build/test logs to a file, showing only failing lines."
+                    f"Output averages {scorecard.output_per_turn:,.0f} tokens per "
+                    f"turn (healthy is ~{OUTPUT_PER_TURN_TARGET:,.0f}). Ask for "
+                    f"terser answers and route bulky build/test logs to a file, "
+                    f"showing only the failing lines."
                 ),
-                affected=[],
+                affected=[
+                    p.name
+                    for p in projects
+                    if p.output_per_turn > OUTPUT_PER_TURN_WARN
+                    and p.total_tokens >= MIN_DIMENSION_TOKENS
+                ],
                 impact_tokens=reclaim,
                 effort="S",
             )
@@ -280,6 +301,7 @@ def _dimension_rows(
         inp = sum(s.input for s in sessions)
         out = sum(s.output for s in sessions)
         side = sum(s.sidechain for s in sessions)
+        turns = sum(s.turns for s in sessions)
         per_turn = [s.total / s.turns for s in sessions if s.turns]
         rows.append(
             DimensionRow(
@@ -287,7 +309,8 @@ def _dimension_rows(
                 total_tokens=total,
                 cache_hit_rate=_cache_hit_rate(cache_read, inp),
                 median_tokens_per_turn=statistics.median(per_turn) if per_turn else 0.0,
-                verbosity_ratio=out / inp if inp else 0.0,
+                output_per_turn=out / turns if turns else 0.0,
+                generation_share=out / (inp + cache_read) if (inp + cache_read) else 0.0,
                 sidechain_share=side / total if total else 0.0,
                 session_count=len(sessions),
             )
@@ -378,6 +401,7 @@ async def build_report(
     cache_write = sum(s.cache_write for s in sessions)
     side = sum(s.sidechain for s in sessions)
     unattributed = sum(s.total for s in sessions if not s.project)
+    total_turns = sum(s.turns for s in sessions)
     per_turn = [s.total / s.turns for s in sessions if s.turns]
 
     scorecard = Scorecard(
@@ -386,8 +410,10 @@ async def build_report(
         output_tokens=out,
         cache_read_tokens=cache_read,
         cache_write_tokens=cache_write,
+        total_turns=total_turns,
         cache_hit_rate=_cache_hit_rate(cache_read, inp),
-        verbosity_ratio=out / inp if inp else 0.0,
+        output_per_turn=out / total_turns if total_turns else 0.0,
+        generation_share=out / (inp + cache_read) if (inp + cache_read) else 0.0,
         median_tokens_per_turn=statistics.median(per_turn) if per_turn else 0.0,
         sidechain_share=side / total if total else 0.0,
         unattributed_share=unattributed / total if total else 0.0,

@@ -108,9 +108,9 @@ onMounted(load);
             sub="from the recommendations below"
           />
           <StatTile
-            label="Verbosity"
-            :value="formatPct(report.scorecard.verbosity_ratio * 100)"
-            sub="output / input · target ≤ 30%"
+            label="Output/turn"
+            :value="formatTokens(report.scorecard.output_per_turn)"
+            sub="verbosity · healthy ~1,000/turn"
           />
         </section>
 
@@ -155,10 +155,16 @@ onMounted(load);
             <div class="metric">
               <span
                 class="badge"
-                :class="goodLow(report.scorecard.verbosity_ratio, 0.3, 0.5)"
-                >{{ formatPct(report.scorecard.verbosity_ratio * 100) }}</span
+                :class="goodLow(report.scorecard.output_per_turn, 1000, 2000)"
+                >{{ formatTokens(report.scorecard.output_per_turn) }}</span
               >
-              <span class="muted">verbosity</span>
+              <span class="muted">output/turn</span>
+            </div>
+            <div class="metric">
+              <span class="badge badge-muted">{{
+                formatPct(report.scorecard.generation_share * 100)
+              }}</span>
+              <span class="muted">generation share</span>
             </div>
             <div class="metric">
               <span class="badge badge-muted">{{
@@ -224,7 +230,7 @@ onMounted(load);
                   <th class="num">Tokens</th>
                   <th class="num">Cache hit</th>
                   <th class="num">Tokens/turn</th>
-                  <th class="num">Verbosity</th>
+                  <th class="num">Output/turn</th>
                   <th class="num">Sessions</th>
                 </tr>
               </thead>
@@ -241,7 +247,7 @@ onMounted(load);
                     {{ formatTokens(Math.round(d.median_tokens_per_turn)) }}
                   </td>
                   <td class="num tabular">
-                    {{ formatPct(d.verbosity_ratio * 100) }}
+                    {{ formatTokens(Math.round(d.output_per_turn)) }}
                   </td>
                   <td class="num tabular">{{ d.session_count }}</td>
                 </tr>
@@ -260,7 +266,7 @@ onMounted(load);
                   <th class="num">Tokens</th>
                   <th class="num">Cache hit</th>
                   <th class="num">Tokens/turn</th>
-                  <th class="num">Verbosity</th>
+                  <th class="num">Output/turn</th>
                   <th class="num">Sessions</th>
                 </tr>
               </thead>
@@ -277,7 +283,7 @@ onMounted(load);
                     {{ formatTokens(Math.round(d.median_tokens_per_turn)) }}
                   </td>
                   <td class="num tabular">
-                    {{ formatPct(d.verbosity_ratio * 100) }}
+                    {{ formatTokens(Math.round(d.output_per_turn)) }}
                   </td>
                   <td class="num tabular">{{ d.session_count }}</td>
                 </tr>
