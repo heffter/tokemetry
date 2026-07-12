@@ -1,9 +1,11 @@
 """Notification channels: ntfy, Telegram, and SMTP email.
 
-Each notifier is constructed from server settings, reports whether it is
-configured, and sends a title/body. Connection secrets live in settings, so
-alert rows in the database only reference channels by name. HTTP notifiers
-use an injected async client (mockable); SMTP runs in a worker thread.
+Each notifier is constructed from the effective settings (env defaults with
+UI/DB overrides merged in by channel_config), reports whether it is configured,
+and sends a title/body. Alert rows in the database only reference channels by
+name -- the connection secrets live in settings/app_settings, never on a rule.
+HTTP notifiers use an injected async client (mockable); SMTP runs in a worker
+thread.
 """
 
 from __future__ import annotations

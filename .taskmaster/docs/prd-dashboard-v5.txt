@@ -1,0 +1,74 @@
+tokemetry Dashboard v5 -- Cache Defaults, Channel Settings, Branding, Optimization Report, Service Packaging
+
+OVERVIEW
+Third feedback round after v2-v4 merged to master. Cache-read is misleading and
+should be hidden by default on all composition charts, with percent math that
+re-normalizes to the selected components and survives auto-refresh. Alert
+channel settings become editable in the UI (stored in the server DB, secrets
+masked, env as fallback). Brand icons get wired into the dashboard. A mystery
+"control" under the Now-page gauges (actually the flat sparkline) is fixed. A
+full token-optimization report (per-project and per-machine) with
+community-researched recommendations plus an LLM-ready markdown export with an
+embedded analysis prompt. Service packaging and setup docs for every platform.
+
+TASK 1 -- Gauge trend readability
+The element under each gauge progress bar is the 24h utilization sparkline; with
+few near-flat points it looks like a slider. Render it only with >=4 points
+(else keep the "collecting trend" placeholder), add a small "24h trend" caption,
+thin the stroke, and shrink or drop the end dot so it reads as a chart.
+
+TASK 2 -- Cache-read off by default with selection-aware percent and sticky selection
+Extend EChart to emit legendselectchanged. stackedTokenBarOption/stackedAreaOption
+accept a selected map, set legend.selected, and in normalized mode divide by the
+sum of the SELECTED components (not total_tokens). Views hold a selection ref
+defaulting cache-read off, updated from the legend event and passed to the
+builders so auto-refresh keeps the selection; persist per-view selection to
+localStorage. Unit-test the normalize-by-selected math.
+
+TASK 3 -- Brand assets on the dashboard
+Add apps/dashboard/public with the brand SVGs. Wire the favicon in index.html and
+replace the text brand in App.vue header and the token gate with the icon plus
+wordmark, switching light/dark variants with the existing theme mechanism.
+
+TASK 4 -- Alert channel settings backend
+Add an app_settings KV table (migration), a channel_config service that merges DB
+values over env settings (DB wins when set), notifier reconfiguration so saved
+changes apply without a restart, and GET/PUT /api/v1/alerts/channels endpoints
+returning per-channel configured state with secrets masked. Update the
+secrets-in-env docstrings to describe the new precedence. Tests for masking,
+precedence, reconfigure, and clearing back to env.
+
+TASK 5 -- Alert channel settings UI
+A Channels card on the Alerts page with per-channel forms (ntfy, telegram, smtp),
+masked placeholders for saved secrets, save-then-test, and a configured badge.
+Client methods to get and put channel config.
+
+TASK 6 -- Optimization report backend
+A report service producing a global scorecard (cache-hit-rate, tokens/turn,
+verbosity ratio, model mix, sidechain share, unattributed share, session-length
+distribution, inflection frequency, tokens/day trend), per-project and
+per-machine tables, and per-machine config drift; plus a rule engine mapping
+metric thresholds to recommendation text with estimated impact in tokens/week and
+percent of the weekly cap. GET /api/v1/report endpoint. Unit-test the rule engine.
+
+TASK 7 -- Optimization report dashboard page
+A Report view and nav entry: range filter, executive summary tiles, a scorecard
+with red/yellow/green badges, a ranked recommendations table, and per-project and
+per-machine tables with drift callouts.
+
+TASK 8 -- LLM-ready export
+GET /api/v1/report/export returning a self-contained markdown document with an
+embedded analysis prompt (Max-subscription framing and requested output
+structure), a data dictionary, and compact aggregated tables; compact and full
+sizes. Export buttons on the Report page. Test that the prompt and tables are
+present and within a size budget.
+
+TASK 9 -- Service packaging and per-platform docs
+A native systemd unit for the server, polished collector units (Windows Scheduled
+Task plus an NSSM note, launchd, systemd), and per-platform setup docs for the
+collector (Windows, Linux, macOS) plus the native server path, with README links
+updated. shellcheck any new scripts.
+
+TASK 10 -- Data retention documentation
+Document that every usage event is retained indefinitely (no pruning exists) and
+that only backup dump files are pruned, so the report can rely on full history.

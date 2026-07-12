@@ -15,11 +15,21 @@ from tokemetry_server.api.schemas_alerts import (
     AlertEventOut,
     AlertRuleIn,
     AlertRuleOut,
+    ChannelConfigIn,
+    ChannelFieldOut,
+    ChannelOut,
+    ChannelsResponse,
     EvaluateResult,
     TestChannelResult,
 )
 from tokemetry_server.db import models
+from tokemetry_server.services.alerting.notifiers import build_notifiers
 from tokemetry_server.services.alerting.rules import EVALUATORS
+from tokemetry_server.services.channel_config import (
+    channel_views,
+    resolve_channel_settings,
+    save_channel_config,
+)
 
 router = APIRouter(prefix="/api/v1/alerts", tags=["alerts"])
 
@@ -158,6 +168,57 @@ async def list_events(
         )
         for event in result.scalars()
     ]
+
+
+async def _channels_response(session: AsyncSession, request: Request) -> ChannelsResponse:
+    """Build the masked channel-config response from the effective settings."""
+    views = await channel_views(session, request.app.state.settings)
+    return ChannelsResponse(
+        channels=[
+            ChannelOut(
+                name=view.name,
+                configured=view.configured,
+                fields=[
+                    ChannelFieldOut(
+                        name=f.name, value=f.value, is_secret=f.is_secret, is_set=f.is_set
+                    )
+                    for f in view.fields
+                ],
+            )
+            for view in views
+        ]
+    )
+
+
+@router.get("/channels", response_model=ChannelsResponse)
+async def get_channels(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> ChannelsResponse:
+    """Return each channel's configured state and its masked fields."""
+    return await _channels_response(session, request)
+
+
+@router.put("/channels/{name}", response_model=ChannelsResponse)
+async def update_channel(
+    name: str,
+    payload: ChannelConfigIn,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _: str = Depends(require_token),
+) -> ChannelsResponse:
+    """Save a channel's settings and hot-swap the notifiers (no restart)."""
+    try:
+        await save_channel_config(session, name, payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await session.flush()
+    # Rebuild notifiers from the new effective settings and apply immediately.
+    effective = await resolve_channel_settings(session, request.app.state.settings)
+    notifiers = build_notifiers(effective, request.app.state.http_client)
+    request.app.state.alert_engine.reconfigure(notifiers)
+    return await _channels_response(session, request)
 
 
 @router.post("/test/{channel}", response_model=TestChannelResult)

@@ -22,6 +22,7 @@ import {
   modelLabel,
 } from '@/lib/format';
 import { enumerateDays, presetRange } from '@/lib/filters';
+import { loadSelection, saveSelection } from '@/composables/useSettings';
 import type { UsageFilter } from '@/lib/filters';
 import type { Overview, UsageBucket } from '@/api/types';
 
@@ -61,6 +62,14 @@ const projects = ref<string[]>([]);
 // Default matches the FilterBar's initial 30d preset until it emits.
 const filter = ref<UsageFilter>(presetRange('30d'));
 
+// Cache-read is deselected by default across both composition charts (it
+// dominates and misleads); the selection survives auto-refresh and reloads.
+const selection = ref(loadSelection('trends', { 'cache read': false }));
+function onLegend(sel: Record<string, boolean>): void {
+  selection.value = sel;
+  saveSelection('trends', sel);
+}
+
 // Gap-fill the daily series over its own span so days with no usage render as
 // zero instead of being silently collapsed out of the axis.
 const option = computed(() => {
@@ -75,7 +84,8 @@ const option = computed(() => {
     TOKEN_COMPONENTS.map((component) => ({
       name: component.label,
       values: filled.map(component.get),
-    }))
+    })),
+    { selected: selection.value }
   );
 });
 
@@ -93,7 +103,7 @@ const dimChart = computed(() =>
         : b.key || '(unattributed)'
     ),
     dimSorted.value,
-    { normalized: true }
+    { normalized: true, selected: selection.value }
   )
 );
 
@@ -202,7 +212,7 @@ onMounted(() => {
     >
       <section class="card">
         <h3>Daily tokens</h3>
-        <EChart :option="option" height="320px" />
+        <EChart :option="option" height="320px" @legend-select="onLegend" />
         <p class="muted note">Days are bucketed in UTC; gaps show as zero.</p>
       </section>
       <section class="card">
@@ -219,7 +229,7 @@ onMounted(() => {
             </button>
           </div>
         </div>
-        <EChart :option="dimChart" height="320px" />
+        <EChart :option="dimChart" height="320px" @legend-select="onLegend" />
       </section>
     </AsyncState>
   </div>

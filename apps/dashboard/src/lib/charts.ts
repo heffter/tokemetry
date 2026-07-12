@@ -200,6 +200,18 @@ function ink(): ThemeInk {
 export interface StackOptions {
   /** Render each category as a 0-100% composition instead of absolute tokens. */
   normalized?: boolean;
+  /** Legend selection: series name -> visible. Absent name = visible. Drives
+   *  legend.selected AND the normalized denominator (which sums only visible
+   *  series, so hiding cache-read re-normalizes the rest to 100%). */
+  selected?: Record<string, boolean>;
+}
+
+/** True when a series name is currently visible (absent = visible). */
+function isSelected(
+  selected: Record<string, boolean> | undefined,
+  name: string
+): boolean {
+  return selected?.[name] !== false;
 }
 
 /** Options for single-measure bar charts over skewed data. */
@@ -349,12 +361,23 @@ export function stackedTokenBarOption(
   const dark = isDark();
   const norm = opts.normalized === true;
   const { axis, bottom } = categoryAxis(categories, theme);
-  const totals = buckets.map((b) => b.total_tokens || 1);
+  // Normalized denominator sums only the visible components, so hiding
+  // cache-read re-normalizes the remaining components to fill 100%.
+  const visible = TOKEN_COMPONENTS.filter((c) =>
+    isSelected(opts.selected, c.label)
+  );
+  const totals = buckets.map(
+    (b) => visible.reduce((sum, c) => sum + c.get(b), 0) || 1
+  );
   const pct = (value: unknown): string => `${Number(value).toFixed(1)}%`;
   return {
     grid: { top: 28, right: 16, bottom, left: 64 },
     tooltip: { trigger: 'axis', valueFormatter: norm ? pct : tokenValue },
-    legend: { top: 0, textStyle: { color: theme.text } },
+    legend: {
+      top: 0,
+      textStyle: { color: theme.text },
+      selected: opts.selected,
+    },
     xAxis: axis,
     yAxis: {
       type: 'value',
@@ -392,14 +415,24 @@ export function stackedAreaOption(
   const theme = ink();
   const dark = isDark();
   const norm = opts.normalized === true;
+  // Denominator sums only visible series so hiding one re-normalizes the rest.
   const totals = categories.map((_, i) =>
-    series.reduce((sum, entry) => sum + (entry.values[i] ?? 0), 0)
+    series.reduce(
+      (sum, entry) =>
+        sum +
+        (isSelected(opts.selected, entry.name) ? (entry.values[i] ?? 0) : 0),
+      0
+    )
   );
   const pct = (value: unknown): string => `${Number(value).toFixed(1)}%`;
   return {
     grid: { top: 24, right: 16, bottom: 48, left: 64 },
     tooltip: { trigger: 'axis', valueFormatter: norm ? pct : tokenValue },
-    legend: { top: 0, textStyle: { color: theme.text } },
+    legend: {
+      top: 0,
+      textStyle: { color: theme.text },
+      selected: opts.selected,
+    },
     xAxis: {
       type: 'category',
       boundaryGap: false,

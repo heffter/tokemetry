@@ -69,13 +69,18 @@ const resetTitle = computed(() => {
     <div class="track">
       <div class="fill" :style="{ width, background: color }"></div>
     </div>
-    <Sparkline
-      v-if="history.length > 1"
-      :values="history"
-      :projected="projected"
-      :color="color"
-    />
-    <div v-else class="muted spark-empty">collecting trend…</div>
+    <div v-if="history.length >= 4" class="trend">
+      <span class="muted trend-label">24h trend</span>
+      <Sparkline
+        :values="history"
+        :projected="projected"
+        :color="color"
+        :area="true"
+        :end-dot="false"
+        :height="28"
+      />
+    </div>
+    <div v-else class="muted spark-empty">collecting 24h trend…</div>
     <div class="foot muted">
       <span>
         {{ limit.provenance }}
@@ -127,5 +132,15 @@ const resetTitle = computed(() => {
   height: 34px;
   display: flex;
   align-items: center;
+}
+.trend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.trend-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 </style>

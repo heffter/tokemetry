@@ -71,3 +71,45 @@ class TestChannelResult(BaseModel):
 
     channel: str
     delivered: bool
+
+
+class ChannelFieldOut(BaseModel):
+    """One channel config field as shown in the UI (secrets masked)."""
+
+    name: str
+    value: str
+    is_secret: bool
+    is_set: bool
+
+
+class ChannelOut(BaseModel):
+    """A notification channel's configured state and (masked) fields."""
+
+    name: str
+    configured: bool
+    fields: list[ChannelFieldOut]
+
+
+class ChannelsResponse(BaseModel):
+    """All notification channels' current configuration."""
+
+    channels: list[ChannelOut]
+
+
+class ChannelConfigIn(BaseModel):
+    """Editable channel fields; absent field = unchanged, "" = clear to env."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ntfy_url: str | None = None
+    ntfy_topic: str | None = None
+    dashboard_url: str | None = None
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    smtp_host: str | None = None
+    smtp_port: str | None = None
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    smtp_to: str | None = None
+    smtp_use_tls: str | None = None

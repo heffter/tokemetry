@@ -77,8 +77,11 @@ class Settings(BaseSettings):
         return tuple(part.strip() for part in self.project_roots.split(",") if part.strip())
 
     # --- Notification channel settings (all optional; a channel is only
-    # available when its required settings are present). Secrets stay here on
-    # the server, never in the database alert rows. ---
+    # available when its required settings are present). These are the
+    # environment defaults; the UI can override any of them via the
+    # ``app_settings`` table (a non-empty stored value wins, blank falls back
+    # here). Channel secrets are still never stored on alert_rules rows --
+    # rules reference channels by name only. ---
     ntfy_url: str = Field(default="https://ntfy.sh")
     ntfy_topic: str | None = Field(default=None)
     #: Dashboard base URL added as an ntfy Click action so a tapped

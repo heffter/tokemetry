@@ -5,6 +5,34 @@
 import { ref } from 'vue';
 
 const TIMEZONE_KEY = 'tokemetry.timezone';
+const SELECTION_PREFIX = 'tokemetry.chartsel.';
+
+/** Load a persisted chart legend selection, merged over a default. */
+export function loadSelection(
+  key: string,
+  fallback: Record<string, boolean>
+): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(SELECTION_PREFIX + key);
+    return raw
+      ? { ...fallback, ...(JSON.parse(raw) as Record<string, boolean>) }
+      : { ...fallback };
+  } catch {
+    return { ...fallback };
+  }
+}
+
+/** Persist a chart legend selection under a per-view key. */
+export function saveSelection(
+  key: string,
+  selected: Record<string, boolean>
+): void {
+  try {
+    localStorage.setItem(SELECTION_PREFIX + key, JSON.stringify(selected));
+  } catch {
+    // Storage unavailable (private mode); selection just won't persist.
+  }
+}
 
 /** The browser's IANA timezone, used as the default ("auto"). */
 export function browserTimezone(): string {

@@ -115,6 +115,55 @@ export interface SessionDetail {
   stats: SessionStats;
 }
 
+export interface Scorecard {
+  total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_turns: number;
+  cache_hit_rate: number;
+  output_per_turn: number;
+  generation_share: number;
+  median_tokens_per_turn: number;
+  sidechain_share: number;
+  unattributed_share: number;
+  session_count: number;
+  machine_count: number;
+  top_models: [string, number][];
+}
+
+export interface ReportDimension {
+  name: string;
+  total_tokens: number;
+  cache_hit_rate: number;
+  median_tokens_per_turn: number;
+  output_per_turn: number;
+  generation_share: number;
+  sidechain_share: number;
+  session_count: number;
+}
+
+export interface Recommendation {
+  id: string;
+  title: string;
+  severity: string;
+  evidence: string;
+  affected: string[];
+  impact_tokens: number | null;
+  effort: string;
+}
+
+export interface Report {
+  start: string;
+  end: string;
+  scorecard: Scorecard;
+  projects: ReportDimension[];
+  machines: ReportDimension[];
+  trend: [string, number][];
+  recommendations: Recommendation[];
+}
+
 export interface Anomaly {
   session_id: string;
   project: string | null;

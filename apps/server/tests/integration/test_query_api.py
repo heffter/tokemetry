@@ -166,6 +166,42 @@ def test_project_grouping_folds_variants(client: TestClient, auth: dict[str, str
     assert all(s["project"] == "Foo" for s in sessions if s["session_id"].startswith("psess"))
 
 
+def test_report_endpoint(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    data = _get(client, auth, f"/api/v1/report?{_WIDE_RANGE}")
+    assert "scorecard" in data
+    assert data["scorecard"]["session_count"] == 2
+    assert isinstance(data["projects"], list)
+    assert isinstance(data["machines"], list)
+    assert isinstance(data["recommendations"], list)
+    assert "cache_hit_rate" in data["scorecard"]
+
+
+def test_report_export_compact(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    response = client.get(f"/api/v1/report/export?size=compact&{_WIDE_RANGE}", headers=auth)
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/markdown")
+    assert "attachment" in response.headers["content-disposition"]
+    body = response.text
+    assert "## Your task" in body
+    assert "## Scorecard" in body
+    assert "## Top sessions" not in body
+
+
+def test_report_export_full_has_sessions(client: TestClient, auth: dict[str, str]) -> None:
+    _seed_events(client, auth)
+    response = client.get(f"/api/v1/report/export?size=full&{_WIDE_RANGE}", headers=auth)
+    assert response.status_code == 200
+    assert "## Top sessions" in response.text
+    assert "## Anomalies" in response.text
+
+
+def test_report_export_rejects_bad_size(client: TestClient, auth: dict[str, str]) -> None:
+    response = client.get("/api/v1/report/export?size=huge", headers=auth)
+    assert response.status_code == 422
+
+
 def test_insights_anomalies_endpoint(client: TestClient, auth: dict[str, str]) -> None:
     _seed_events(client, auth)
     data = _get(client, auth, "/api/v1/insights/anomalies")

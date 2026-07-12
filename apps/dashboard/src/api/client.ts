@@ -13,6 +13,7 @@ import type {
   MachineSummary,
   Overview,
   PricingRow,
+  Report,
   SessionDetail,
   SessionSummary,
   SummaryNow,
@@ -126,6 +127,31 @@ export class ApiClient {
     return this.request<AnomalyReport>('/api/v1/insights/anomalies');
   }
 
+  report(from?: string, to?: string): Promise<Report> {
+    return this.request<Report>(`/api/v1/report?${rangeParams(from, to)}`);
+  }
+
+  // The export is a Markdown document, not JSON, so it bypasses request<T>()
+  // and returns raw text for the caller to save as a file.
+  async reportExport(
+    size: 'compact' | 'full',
+    from?: string,
+    to?: string
+  ): Promise<string> {
+    const params = new URLSearchParams(rangeParams(from, to));
+    params.set('size', size);
+    const response = await this.fetchFn(
+      `${this.baseUrl}/api/v1/report/export?${params}`,
+      {
+        headers: { Authorization: `Bearer ${this.token}` },
+      }
+    );
+    if (!response.ok) {
+      throw new ApiError(response.status, `export failed (${response.status})`);
+    }
+    return response.text();
+  }
+
   machines(): Promise<MachineSummary[]> {
     return this.request<MachineSummary[]>('/api/v1/machines');
   }
@@ -221,6 +247,21 @@ export class ApiClient {
     );
   }
 
+  getChannels(): Promise<ChannelsResponse> {
+    return this.request<ChannelsResponse>('/api/v1/alerts/channels');
+  }
+
+  putChannel(
+    name: string,
+    fields: Record<string, string>
+  ): Promise<ChannelsResponse> {
+    return this.request<ChannelsResponse>(
+      `/api/v1/alerts/channels/${encodeURIComponent(name)}`,
+      'PUT',
+      fields
+    );
+  }
+
   listTokens(): Promise<TokenInfo[]> {
     return this.request<TokenInfo[]>('/api/v1/tokens');
   }
@@ -277,6 +318,23 @@ export interface AlertRuleInput {
   channels: string[];
   cooldown_seconds: number;
   enabled: boolean;
+}
+
+export interface ChannelField {
+  name: string;
+  value: string;
+  is_secret: boolean;
+  is_set: boolean;
+}
+
+export interface Channel {
+  name: string;
+  configured: boolean;
+  fields: ChannelField[];
+}
+
+export interface ChannelsResponse {
+  channels: Channel[];
 }
 
 export interface AlertEvent {

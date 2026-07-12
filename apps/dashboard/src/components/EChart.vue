@@ -9,6 +9,13 @@ const props = defineProps<{
   height?: string;
 }>();
 
+// Surfaces a legend toggle so the parent view can persist the selection; the
+// option is rebuilt with notMerge on every update, which would otherwise wipe
+// the user's choice, so selection state must live in the view.
+const emit = defineEmits<{
+  'legend-select': [selected: Record<string, boolean>];
+}>();
+
 const container = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
 
@@ -25,6 +32,11 @@ function resize(): void {
 onMounted(() => {
   if (container.value) {
     chart = echarts.init(container.value);
+    chart.on('legendselectchanged', (params: unknown) => {
+      const selected = (params as { selected?: Record<string, boolean> })
+        .selected;
+      if (selected) emit('legend-select', { ...selected });
+    });
     render();
     window.addEventListener('resize', resize);
   }

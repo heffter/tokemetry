@@ -1914,13 +1914,281 @@
           }
         ],
         "updatedAt": "2026-07-10T10:42:51.784Z"
+      },
+      {
+        "id": "50",
+        "title": "Gauge trend readability (fix slider-lookalike)",
+        "description": "GaugeCard: render sparkline only with >=4 points (else show 'collecting 24h trend…'), add '24h trend' caption, thin stroke (2→1.75px), and pass filled area wash + no end dot via new Sparkline props (endDot default true, area default false; other usages unchanged) so it reads as a chart not a slider.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "The 'extra control' under the gauge bars was the 24h sparkline: 3 near-flat points rendered as a thin line + end dot looked like a slider thumb. GaugeCard now renders the sparkline only with >=4 points, adds a '24h trend' caption, and passes a filled area wash + no end dot via new Sparkline props. Line thinned from 2px to 1.75px. 68 dashboard tests passed; build+lint clean.",
+        "testStrategy": "Verify sparkline is hidden and shows 'collecting 24h trend…' when points < 4; confirm sparkline renders with >=4 points. Validate '24h trend' caption appears. Check stroke width is 1.75px, filled area wash is applied, and end dot is absent. Run 68 dashboard tests; ensure build and lint are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T19:48:12.563Z"
+      },
+      {
+        "id": "51",
+        "title": "Cache-read off by default, selection-aware percent, sticky selection",
+        "description": "EChart emits legendselectchanged (chart.on 'legendselectchanged') because notMerge wipes selection each render. stackedTokenBarOption/stackedAreaOption accept a selected map → set legend.selected AND compute the normalized denominator from only visible components, so hiding cache-read re-normalizes the rest to 100%. Views hold a selection ref (default {'cache read': false}), feed it to builders (auto-refresh preserves it), update from the legend event, and persist per-view via loadSelection/saveSelection in useSettings (localStorage). Cache-read is OFF by default on every composition chart (Now model, Trends daily+dimension, Breakdowns 3 stacks). Unit test covers the re-normalize math. 70 dashboard tests pass; build+lint clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Implementation: 1) Set cache-read OFF by default on all composition charts. 2) Wire EChart legendselectchanged event to update view selection ref. 3) Pass selected map to stacked builders; builders set legend.selected and compute normalized percent over visible components only. 4) Views persist selection per-view using loadSelection/saveSelection in useSettings (localStorage). 5) Auto-refresh feeds existing selection ref to builders. 6) Unit test validates re-normalize math. Verification: 70 dashboard tests pass; build+lint+format clean.",
+        "testStrategy": "Unit test: validate re-normalize math (hiding cache-read → rest re-normalizes to 100%). Dashboard: 70 tests pass. Build/lint: clean. Verify: cache-read OFF by default on all composition charts; legend event updates selection; selection persists via localStorage; auto-refresh preserves selection.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Default cache-read OFF",
+            "description": "Set cache-read OFF by default on all composition charts (Now model, Trends daily+dimension, Breakdowns 3 stacks).",
+            "dependencies": [],
+            "details": "Update chart builder defaults to disable cache-read across composition chart types.",
+            "status": "done",
+            "testStrategy": "Verify default cache-read is false in chart options for Now, Trends, and Breakdowns composition charts.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Wire legend event + persist selection",
+            "description": "Wire EChart legendselectchanged event to update view selection ref and persist via localStorage.",
+            "dependencies": [
+              1
+            ],
+            "details": "Add chart.on('legendselectchanged') handler in views; update selection ref; call loadSelection/saveSelection in useSettings.",
+            "status": "done",
+            "testStrategy": "Test that legend selection updates view selection ref and persists across reloads via localStorage.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Selection-aware percent normalization",
+            "description": "Implement selection-aware percent normalization in stacked builders.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "stackedTokenBarOption/stackedAreaOption accept selected map → set legend.selected AND compute normalized denominator from visible components only.",
+            "status": "done",
+            "testStrategy": "Unit test covers re-normalize math: hiding cache-read re-normalizes rest to 100%.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Auto-refresh preserves selection",
+            "description": "Ensure auto-refresh preserves selection by feeding selection ref to builders.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Views hold selection ref; auto-refresh passes it to builders so selection survives refresh.",
+            "status": "done",
+            "testStrategy": "Verify selection persists after auto-refresh without user re-interaction.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Unit test + dashboard tests",
+            "description": "Write unit test for re-normalize math and run 70 dashboard tests.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Unit test validates that hiding cache-read re-normalizes visible components to 100%. Run full dashboard test suite.",
+            "status": "done",
+            "testStrategy": "Unit test: re-normalize math. Dashboard: 70 tests pass; build+lint+format clean.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-10T19:58:40.817Z"
+      },
+      {
+        "id": "52",
+        "title": "Brand assets on the dashboard",
+        "description": "Brand assets wired: copied favicon.svg + horizontal/vertical logo SVGs (light+dark bg variants) into apps/dashboard/public/; index.html wired with <link rel=icon type=image/svg+xml href=/favicon.svg>; App.vue header displays horizontal logo (RouterLink to home) and token gate displays vertical logo; light/dark variants switch via global .brand-logo rules in theme.css matching prefers-color-scheme + data-theme mechanism. 70 dashboard tests; build+lint clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Implementation completed:\n- Copied favicon.svg and horizontal/vertical logo SVGs (light+dark variants) to apps/dashboard/public/\n- Vite serves assets at root; confirmed copied to dist\n- index.html: added <link rel=icon type=image/svg+xml href=/favicon.svg>\n- App.vue header: horizontal logo with RouterLink to home\n- Token gate: vertical logo\n- theme.css: global .brand-logo rules handle light/dark switching via prefers-color-scheme + data-theme\n- 70 dashboard tests passing\n- Build and lint clean",
+        "testStrategy": "Verify favicon appears in browser tab. Confirm horizontal logo in App.vue header links to home. Confirm vertical logo appears in token gate. Test light/dark variant switching by toggling prefers-color-scheme and data-theme. Run dashboard tests (70 tests). Validate build and lint pass with zero issues.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:05:07.886Z"
+      },
+      {
+        "id": "53",
+        "title": "Alert channel settings backend (DB-stored, env fallback), ",
+        "description": "Alert channel settings now DB-editable with env fallback. Migration 0003 adds an app_settings KV table and AppSetting model. services/channel_config.py: resolve_channel_settings merges non-empty channel.* DB values over env Settings (model_copy), coercing port->int/tls->bool. channel_views returns per-channel configured state + masked secrets (last-4). save_channel_config upserts (absent field = unchanged, '' = clear to env). AlertEngine.reconfigure hot-swaps notifiers. app.py resolves channel settings at startup; PUT rebuilds+reconfigutes without restart. API: GET /api/v1/alerts/channels + PUT /channels/{name} beside the test endpoint. Updated secrets-in-env docstrings. Tests (7): precedence, clear-to-env, masking, port coercion, API get/put+hot-swap, unknown-channel 404. 145 server tests; ruff/mypy/trivy clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Implementation complete:\n- Migration 0003: app_settings KV table + AppSetting model\n- services/channel_config.py: resolve_channel_settings (DB over env, model_copy, port->int/tls->bool coercion)\n- channel_views: per-channel state + masked secrets (last-4)\n- save_channel_config: upsert logic (absent=unchanged, ''=clear to env)\n- AlertEngine.reconfigure: hot-swap notifiers\n- app.py: startup resolution + PUT rebuild/reconfigure without restart\n- API endpoints: GET /api/v1/alerts/channels, PUT /channels/{name}\n- Documentation: updated secrets-in-env docstrings\n- Tests: 7 tests covering precedence, clear-to-env, masking, port coercion, API get/put+hot-swap, unknown-channel 404\n- Quality: 145 server tests; ruff/mypy/trivy clean",
+        "testStrategy": "Test precedence (DB wins when set), clear-to-env ('' clears to env), secret masking (last-4 visible), port/tls coercion (port->int, tls->bool), API get/put with hot-swap reconfigure, unknown-channel 404. Run pytest with coverage >= 80%. Validate ruff/mypy strict/trivy zero issues. Verify 145 server tests pass.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:16:18.983Z"
+      },
+      {
+        "id": "54",
+        "title": "Alert channel settings UI",
+        "description": "Alerts page gains a Notification channels card: per-channel (ntfy/telegram/smtp) field forms with humanized labels, secrets shown as password inputs with a 'saved (...last4)' placeholder (blank = leave unchanged), non-secrets pre-filled, a configured/not-set badge, Save + Test buttons, and per-channel status. saveChannel omits blank secrets (unchanged) and sends the rest (empty non-secret clears to env), then reloads. client.ts getChannels/putChannel + Channel/ChannelField types. 70 dashboard tests; build+lint clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "Dashboard: verify Notification channels card renders with per-channel forms (ntfy/telegram/smtp), humanized labels, password inputs for secrets with 'saved (...last4)' placeholder, blank secrets leave unchanged, non-secrets pre-fill, configured/not-set badge, per-channel status, Save + Test buttons work with save-then-test flow (blank secrets omitted, empty non-secrets clear to env, reloads). Backend integration: test getChannels/putChannel via client.ts. Run 70 dashboard tests; confirm build+lint clean.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Notification channels card UI structure",
+            "description": "Implement Notification channels card on Alerts page with per-channel forms for ntfy/telegram/smtp",
+            "dependencies": [],
+            "details": "Forms must include humanized labels for all fields",
+            "status": "pending",
+            "testStrategy": "Verify card renders with three channel form sections and humanized labels appear correctly",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Secret masking and placeholder logic",
+            "description": "Implement password inputs for secrets with 'saved (...last4)' placeholder and blank = leave unchanged behavior",
+            "dependencies": [
+              1
+            ],
+            "details": "Non-secrets must be pre-filled from existing values",
+            "status": "pending",
+            "testStrategy": "Test that secrets show as password inputs with last4 placeholder, blank input leaves unchanged, non-secrets pre-fill correctly",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Channel status badges",
+            "description": "Add configured/not-set badge and per-channel status indicators",
+            "dependencies": [
+              2
+            ],
+            "details": "Badge reflects whether channel is configured in DB",
+            "status": "pending",
+            "testStrategy": "Verify badge shows 'configured' when DB has values, 'not-set' otherwise; status indicator updates correctly",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Save and test button functionality",
+            "description": "Implement Save + Test buttons with save-then-test flow",
+            "dependencies": [
+              3
+            ],
+            "details": "saveChannel omits blank secrets, sends rest (empty non-secret clears to env), then reloads channels",
+            "status": "pending",
+            "testStrategy": "Test save-then-test flow: blank secrets omitted, empty non-secrets clear to env, channels reload after save",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Client API methods and types",
+            "description": "Add client.ts getChannels/putChannel methods and Channel/ChannelField types",
+            "dependencies": [
+              4
+            ],
+            "details": "Types must match backend Channel/ChannelField schema from Task 53",
+            "status": "pending",
+            "testStrategy": "Verify getChannels returns Channel array, putChannel sends ChannelField correctly, types match backend",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Dashboard test coverage",
+            "description": "Write 70 dashboard tests for Notification channels card",
+            "dependencies": [
+              5
+            ],
+            "details": "Cover all UI states, save/test flow, secret masking, badge logic",
+            "status": "pending",
+            "testStrategy": "Run 70 dashboard tests covering card rendering, form interactions, save/test, secret masking, badges",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Build and lint cleanup",
+            "description": "Ensure build and lint are clean",
+            "dependencies": [
+              6
+            ],
+            "details": "No TypeScript errors, ESLint warnings, or formatting issues",
+            "status": "pending",
+            "testStrategy": "Run build and lint commands, verify zero errors/warnings",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-07-10T20:22:25.439Z"
+      },
+      {
+        "id": "55",
+        "title": "Optimization report backend",
+        "description": "report service: global Scorecard (total, cache-hit-rate, verbosity ratio, median tokens/turn, sidechain share, unattributed share, session/machine counts, top model mix) + per-project and per-machine DimensionRows (grouped from a single per-session SQL aggregate, project normalized via project_group); rule engine (threshold->ranked Recommendations with estimated reclaimable tokens: low cache-hit-rate, high verbosity [impact = output - 0.3*input], no-subagent-isolation, high unattributed, opus concentration, per-machine config drift [cache-hit below fleet median]); GET /api/v1/report?from&to (ReportOut via from_attributes). Tests: 6 rule-engine units + endpoint integration. 152 server tests; ruff/mypy/trivy clean.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "services/report.py: build_report aggregates usage over a range into a global Scorecard and per-project/per-machine DimensionRows. Pure evaluate_rules maps thresholds to ranked Recommendations with estimated impact. Endpoint supports date range filtering via ?from&to parameters.",
+        "testStrategy": "Unit tests: 6 rule-engine tests covering all recommendation types (low cache-hit, high verbosity, no-subagent-isolation, high unattributed, opus concentration, config drift). Integration tests: endpoint integration for GET /api/v1/report?from&to with ReportOut validation. Full suite: 152 server tests. Quality gates: ruff, mypy, and trivy must pass cleanly.",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:32:14.149Z"
+      },
+      {
+        "id": "56",
+        "title": "Optimization report dashboard page",
+        "description": "Report view + nav: range filter, exec summary tiles, scorecard with r/y/g badges, ranked recommendations table, per-project + per-machine tables with drift callouts.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:40:12.709Z"
+      },
+      {
+        "id": "57",
+        "title": "LLM-ready optimization export",
+        "description": "GET /api/v1/report/export: self-contained markdown with embedded analysis prompt (Max framing + requested output structure), data dictionary, compact aggregated tables; compact/full sizes; export buttons on Report page. Size-budget test.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:53:31.648Z"
+      },
+      {
+        "id": "58",
+        "title": "Service packaging and per-platform docs",
+        "description": "Native systemd unit for the server; polish collector units (Win Scheduled Task + NSSM note, launchd, systemd); per-platform collector docs (Windows/Linux/macOS) + native server doc; README links; shellcheck new scripts.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T20:58:28.946Z"
+      },
+      {
+        "id": "59",
+        "title": "Data retention documentation",
+        "description": "Document that every usage event is retained indefinitely (no pruning) and only backup dumps are pruned, so the report relies on full history. docs/architecture/retention.md; no code change.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "low",
+        "subtasks": [],
+        "updatedAt": "2026-07-10T21:00:20.667Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-10T10:42:51.790Z",
-      "taskCount": 49,
-      "completedCount": 49,
+      "lastModified": "2026-07-10T21:00:20.668Z",
+      "taskCount": 59,
+      "completedCount": 59,
       "tags": [
         "master"
       ]
