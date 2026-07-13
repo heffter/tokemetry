@@ -6,6 +6,8 @@
 *.key
 .claude/settings.local.json
 .claude/worktrees/
+local-collector.toml
+tmp_inspect/
 
 # Python
 __pycache__/
