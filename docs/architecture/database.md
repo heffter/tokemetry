@@ -23,6 +23,9 @@ directly; the only dialect-specific element is the JSON column type
 | `models` | PK `(provider, native_model_id)` | Model registry: `lifecycle` enum-as-string, `capabilities` JSON, `first_seen`/`last_seen` (last_seen indexed). |
 | `model_aliases` | `id`, unique `(provider, alias)` | Maps a provider-specific model spelling to a canonical model id; `rule_version` records the ruleset. |
 | `data_quality_events` | `id` (indexes on `kind`, `ts`) | Pipeline-anomaly sink: `kind`, `subject`, `detail` JSON, nullable `source_id`, `resolved` flag. |
+| `usage_events_v2` | PK `(provider, event_id)` | The v2 ledger: active attempt-event state flattened from the v2 wire model (finality/sequence, six token counters plus reasoning, success/outcome, routing/dimensions/extra JSON, trace ids). |
+| `usage_event_revisions` | `id` (index `(provider, event_id)`) | Archive of superseded/conflicting/corrected states: `sequence`, `finality`, `payload` snapshot, `reason`, `actor`, `ts`. |
+| `logical_requests` | PK `(provider, logical_request_id)` | Non-billable grouping of attempts: routing, `attempt_count`, `fallback_count`, `winning_attempt_id`, `ts_first`/`ts_last`. |
 
 Money columns use `Numeric(20, 10)` for exact micro-USD arithmetic;
 timestamps are `DateTime(timezone=True)`.
@@ -88,14 +91,40 @@ FR-MODEL-006, FR-IDEMP-008, FR-PRICE-022, FR-LIMIT-013, and Epic TOK-9.
 - `open_events` / `resolve_open` back the future `/api/v2/data-quality`
   endpoint and alert queries.
 
+### v2 usage-event ledger
+
+Migration `0006` adds the three tables that hold the v2 attempt-event lifecycle
+(design Section 3.1, Epic TOK-3). They are additive: the physical `usage_events`
+table is left untouched here and is not replaced by a compatibility view until
+the backfill is verified (subtask 62.10).
+
+- `usage_events_v2` holds the **active** state of each event, keyed by
+  `(provider, event_id)` like v1 but carrying the full v2 shape: `schema_version`,
+  `event_kind`, `finality`, `sequence`, the correlation ids, separate
+  requested/routed/native models, three lifecycle timestamps, six `BigInteger`
+  token counters plus `reasoning_tokens`, `success`/`outcome`, latency metrics,
+  `provenance`, an integer `source_id` (a plain reference until Task 63 adds the
+  `sources` table and its foreign key), and the `routing`/`dimensions`/`extra`/
+  `tool_histogram` JSON columns and trace ids. Indexes cover the query and
+  correlation dimensions: `ts_started`, `machine`, `session_id`, `native_model`,
+  `logical_request_id`, `provider_request_id` (FR-EVENT-011), `outcome`,
+  `source_id`, and the three trace ids.
+- `usage_event_revisions` archives every superseded, conflicting, or corrected
+  state (`reason` one of `superseded`/`conflict`/`correction`) with its `payload`
+  snapshot, `actor`, and `ts`, indexed by `(provider, event_id)` for per-event
+  history (FR-IDEMP-006). The revision engine (subtask 62.4) writes these.
+- `logical_requests` groups the attempts of one logical request (D-003),
+  populated from attempt events in subtask 62.11. No usage is stored here --
+  only on the attempt rows (FR-EVENT-004).
+
 ## Migrations
 
 Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
 `upgrade_to_head(sync_url)` / `downgrade_to_base(sync_url)` for server
 startup and tests. Alembic runs with a synchronous driver
 (`postgresql+psycopg` or `sqlite`) derived from the async application URL by
-`Settings.sync_database_url`. Migrations are hand-authored (through `0005`,
-which adds the registry and data-quality tables) and kept in sync with the ORM
+`Settings.sync_database_url`. Migrations are hand-authored (through `0006`,
+which adds the v2 usage-event ledger tables) and kept in sync with the ORM
 by a drift test
 (`test_migration_matches_orm_metadata`) that reflects the migrated schema
 and compares columns against `Base.metadata`.

@@ -28,6 +28,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -81,6 +82,120 @@ class UsageEvent(Base):
     provenance: Mapped[str] = mapped_column(String(30))
     source: Mapped[str | None] = mapped_column(String(50))
     extra: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+
+
+class UsageEventV2(Base):
+    """The active (current) state of one v2 attempt-level usage event.
+
+    Keyed by ``(provider, event_id)`` like v1, but flattened from the full v2
+    wire model (``tokemetry_core.usage_v2.UsageEventV2``): finality/sequence for
+    streamed snapshots, separate requested/routed/native models, reasoning
+    tokens, success/outcome, and OpenTelemetry ids. Superseded and conflicting
+    states are archived in ``usage_event_revisions`` (the revision engine, task
+    62.4). ``source_id`` is a plain integer reference to the ``sources`` table
+    that Task 63 adds; the foreign key is introduced with that table so this
+    migration stays self-contained.
+    """
+
+    __tablename__ = "usage_events_v2"
+
+    provider: Mapped[str] = mapped_column(String(50), primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    schema_version: Mapped[int] = mapped_column(Integer, default=2)
+    event_kind: Mapped[str] = mapped_column(String(30))
+    finality: Mapped[str] = mapped_column(String(20))
+    sequence: Mapped[int] = mapped_column(Integer, default=0)
+    logical_request_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    attempt_id: Mapped[str | None] = mapped_column(String(200))
+    provider_request_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    provider_response_id: Mapped[str | None] = mapped_column(String(200))
+    requested_model: Mapped[str | None] = mapped_column(String(200))
+    routed_model: Mapped[str | None] = mapped_column(String(200))
+    native_model: Mapped[str] = mapped_column(String(200), index=True)
+    ts_started: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    ts_first_token: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ts_completed: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    machine: Mapped[str | None] = mapped_column(String(200), index=True)
+    project: Mapped[str | None] = mapped_column(String(500))
+    session_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    agent_id: Mapped[str | None] = mapped_column(String(200))
+    environment: Mapped[str | None] = mapped_column(String(50))
+    input_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    cache_read_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    cache_write_short_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    cache_write_long_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    reasoning_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    success: Mapped[bool] = mapped_column(Boolean, default=False)
+    outcome: Mapped[str | None] = mapped_column(String(50), index=True)
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    stop_reason: Mapped[str | None] = mapped_column(String(50))
+    service_tier: Mapped[str | None] = mapped_column(String(50))
+    streaming: Mapped[bool | None] = mapped_column(Boolean)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    time_to_first_token_ms: Mapped[int | None] = mapped_column(Integer)
+    tool_call_count: Mapped[int] = mapped_column(Integer, default=0)
+    tool_histogram: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    provenance: Mapped[str] = mapped_column(String(30))
+    source_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    routing: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    dimensions: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    extra: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    trace_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    span_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    parent_span_id: Mapped[str | None] = mapped_column(String(200), index=True)
+
+
+class UsageEventRevision(Base):
+    """An archived superseded, conflicting, or corrected event state.
+
+    Every time a newer event replaces the active row -- a higher-sequence
+    snapshot, a final over a snapshot, a rejected same-sequence conflict, or an
+    admin correction -- the prior state is written here with a ``reason`` of
+    ``superseded``, ``conflict``, or ``correction`` and the ``actor`` that
+    caused it, so the full history of an event id is auditable (FR-IDEMP-006).
+    Indexed by ``(provider, event_id)`` for per-event history lookups.
+    """
+
+    __tablename__ = "usage_event_revisions"
+    __table_args__ = (
+        Index("ix_usage_event_revisions_provider_event", "provider", "event_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(50))
+    event_id: Mapped[str] = mapped_column(String(200))
+    sequence: Mapped[int] = mapped_column(Integer)
+    finality: Mapped[str] = mapped_column(String(20))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    reason: Mapped[str] = mapped_column(String(20))
+    actor: Mapped[str | None] = mapped_column(String(200))
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LogicalRequest(Base):
+    """A non-billable grouping of the attempts of one logical request (D-003).
+
+    Keyed by ``(provider, logical_request_id)``. Populated and maintained from
+    attempt events (task 62.11): ``attempt_count`` and ``fallback_count`` track
+    the chain, ``winning_attempt_id`` names the attempt whose usage is billed,
+    and ``ts_first``/``ts_last`` bound the request. Usage is never stored here
+    -- only on the attempt rows (FR-EVENT-004).
+    """
+
+    __tablename__ = "logical_requests"
+
+    provider: Mapped[str] = mapped_column(String(50), primary_key=True)
+    logical_request_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    requested_model: Mapped[str | None] = mapped_column(String(200))
+    session_id: Mapped[str | None] = mapped_column(String(200))
+    routing_policy: Mapped[str | None] = mapped_column(String(100))
+    routing_reason: Mapped[str | None] = mapped_column(String(100))
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    fallback_count: Mapped[int] = mapped_column(Integer, default=0)
+    winning_attempt_id: Mapped[str | None] = mapped_column(String(200))
+    ts_first: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ts_last: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class LimitSnapshot(Base):

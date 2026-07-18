@@ -2405,13 +2405,14 @@
             "id": 3,
             "title": "Ledger tables migration: usage_events_v2, usage_event_revisions, logical_requests",
             "description": "Create the three lifecycle tables with indexes on both engines.",
-            "details": "Alembic migration creating: usage_events_v2 with composite PK (provider, event_id) and all wire fields flattened per the design spec section 3.1 (six BigInteger token counters, Numeric latencies as integers ms, JSONType for routing, dimensions, extra, tool_histogram; schema_version int; source_id FK-less integer reference until Task 63 lands, then FK; trace/span/parent ids as indexed strings); usage_event_revisions (id autoincrement, provider, event_id, sequence, finality, payload JSONType snapshot of the superseded state, reason superseded|conflict|correction, actor, ts) with index on (provider, event_id); logical_requests with PK (provider, logical_request_id), requested_model, session_id, routing_policy, routing_reason, attempt_count, fallback_count, winning_attempt_id, ts_first, ts_last. Indexes on usage_events_v2: ts_started, machine, session_id, native_model, logical_request_id, source_id, provider_request_id (FR-EVENT-011), outcome. Follow db/base.py conventions; keep the existing usage_events table untouched in this migration (the swap happens in subtask 10). Test strategy: upgrade and downgrade tests on SQLite and Postgres; index existence assertions; insert round-trip for every column including JSON payloads on both engines.",
-            "status": "pending",
+            "details": "Alembic migration creating: usage_events_v2 with composite PK (provider, event_id) and all wire fields flattened per the design spec section 3.1 (six BigInteger token counters, Numeric latencies as integers ms, JSONType for routing, dimensions, extra, tool_histogram; schema_version int; source_id FK-less integer reference until Task 63 lands, then FK; trace/span/parent ids as indexed strings); usage_event_revisions (id autoincrement, provider, event_id, sequence, finality, payload JSONType snapshot of the superseded state, reason superseded|conflict|correction, actor, ts) with index on (provider, event_id); logical_requests with PK (provider, logical_request_id), requested_model, session_id, routing_policy, routing_reason, attempt_count, fallback_count, winning_attempt_id, ts_first, ts_last. Indexes on usage_events_v2: ts_started, machine, session_id, native_model, logical_request_id, source_id, provider_request_id (FR-EVENT-011), outcome. Follow db/base.py conventions; keep the existing usage_events table untouched in this migration (the swap happens in subtask 10). Test strategy: upgrade and downgrade tests on SQLite and Postgres; index existence assertions; insert round-trip for every column including JSON payloads on both engines.\n<info added on 2026-07-18T20:51:01.225Z>\nAdded migration 0006 (down_revision 0005) creating `usage_events_v2`, `usage_event_revisions`, and `logical_requests` tables with matching ORM models in `db/models.py`. `usage_events_v2` uses a composite primary key `(provider, event_id)` and flattens all v2 wire fields: `schema_version` (int), `event_kind`/`finality` (strings), `sequence` (int), six `BigInteger` token counters plus `reasoning_tokens`, `success` (bool), `outcome`, latencies as `Integer` ms, `tool_histogram`/`routing`/`dimensions`/`extra` as `JSONType`, `provenance`, `source_id` as plain `Integer` (FK deferred to Task 63), and `trace_id`/`span_id`/`parent_span_id`. It includes 11 single-column indexes named `ix_usage_events_v2_<col>` for `ts_started`, `machine`, `session_id`, `native_model`, `logical_request_id`, `provider_request_id`, `outcome`, `source_id`, `trace_id`, `span_id`, and `parent_span_id`. `usage_event_revisions` has `id` as PK, columns `(provider, event_id, sequence, finality, payload JSON, reason, actor, ts)`, and a composite index `ix_usage_event_revisions_provider_event`. `logical_requests` has PK `(provider, logical_request_id)` with fields for `routing_policy`, `attempt_count`, `fallback_count`, `winning_attempt_id`, `ts_first`, and `ts_last`. The physical `usage_events` table remains untouched (view swap occurs in subtask 62.10). Tests include `test_usage_events_v2_tables.py` covering full-column round-trips (including JSON), nullability checks, composite-PK duplicate rejection, same-id-different-provider cases, index existence assertions, revisions round-trip+index, and logical_requests round-trip+PK; all tests are engine-parametrized via `migrated_engine`. The three tables were added to `test_migrations.py` `_EXPECTED_TABLES` to ensure upgrade/downgrade and ORM-drift coverage. Postgres tests run in CI (skipped locally due to missing `TOKEMETRY_TEST_POSTGRES_URL` and Docker), while SQLite tests pass green, including `test_migration_matches_orm_metadata` confirming ORM matches migration columns. Documentation updated in `docs/architecture/database.md`. Quality gates: 455 pytest passed/18 skipped, ruff clean, mypy strict clean (85 files), and trivy no HIGH/CRITICAL issues.\n</info added on 2026-07-18T20:51:01.225Z>",
+            "status": "done",
             "dependencies": [
               "62.1"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T20:51:35.998Z"
           },
           {
             "id": 4,
@@ -2527,7 +2528,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T20:38:10.830Z"
+        "updatedAt": "2026-07-18T20:51:35.998Z"
       },
       {
         "id": "63",
@@ -3522,7 +3523,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T20:38:10.831Z",
+      "lastModified": "2026-07-18T20:51:36.000Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [
