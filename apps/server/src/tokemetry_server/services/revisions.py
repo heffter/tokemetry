@@ -36,6 +36,7 @@ import enum
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -179,13 +180,16 @@ def _to_utc(value: datetime | None) -> datetime | None:
 
 
 def usage_event_v2_row(
-    event: UsageEventV2, source_id: int | None = None
+    event: UsageEventV2, source_id: int | None = None, cost: Decimal | None = None
 ) -> dict[str, Any]:
     """Project a v2 wire event onto a ``usage_events_v2`` row dict.
 
     Shared by the revision engine, the v2 ingest service (task 62.5), and the
     v1-to-v2 mapper (task 62.9) so every path writes an identical row shape.
-    ``source_id`` stays ``None`` until Task 63 resolves source identity.
+    ``source_id`` stays ``None`` until Task 63 resolves source identity. ``cost``
+    fills the transitional ``cost_usd`` column (task 62.9): the v1 ingest path
+    passes its keep-max cost; native v2 ingest leaves it ``None`` (priced later
+    by the cost engine, Task 64).
     """
     return {
         "provider": event.provider,
@@ -226,6 +230,7 @@ def usage_event_v2_row(
         "tool_call_count": event.tool_call_count,
         "tool_histogram": event.tool_histogram,
         "provenance": str(event.provenance),
+        "cost_usd": cost,
         "source_id": source_id,
         "routing": event.routing.model_dump(mode="json") if event.routing else None,
         "dimensions": dict(event.dimensions),
@@ -296,6 +301,7 @@ class RevisionEngine:
         actor: str | None = None,
         reason_text: str | None = None,
         source_id: int | None = None,
+        cost: Decimal | None = None,
     ) -> Outcome:
         """Resolve and persist one event; return its outcome.
 
@@ -303,7 +309,7 @@ class RevisionEngine:
         state when superseding or correcting, writes the new active state, and
         records a ``sequence_conflict`` data-quality event on a conflict.
         """
-        row = usage_event_v2_row(event, source_id=source_id)
+        row = usage_event_v2_row(event, source_id=source_id, cost=cost)
         existing_obj = await self._session.get(
             models.UsageEventV2, (event.provider, event.event_id)
         )

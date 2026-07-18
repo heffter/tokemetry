@@ -125,6 +125,7 @@ def _v2_row(row: sa.RowMapping) -> dict[str, Any]:
         "tool_call_count": 0,
         "tool_histogram": None,
         "provenance": row["provenance"],
+        "cost_usd": cost,
         "source_id": None,
         "routing": None,
         "dimensions": {},
@@ -204,6 +205,49 @@ def remove_backfilled_rows(
         if len(rows) < chunk_size:
             break
     return removed
+
+
+def populate_transitional_cost(
+    connection: Connection, chunk_size: int = DEFAULT_CHUNK_SIZE
+) -> int:
+    """Fill the transitional ``cost_usd`` column from ``extra['_v1']['cost_usd']``.
+
+    Backfilled rows written before the column existed (migration 0008) keep the
+    v1 cost only in ``extra``; migration 0009 calls this to copy it into the new
+    column so the v1 compatibility view can expose cost. Returns rows updated.
+    """
+    v2 = models.UsageEventV2.__table__
+    updated = 0
+    last: tuple[str, str] | None = None
+    while True:
+        stmt = (
+            sa.select(v2.c.provider, v2.c.event_id, v2.c.extra)
+            .order_by(v2.c.provider, v2.c.event_id)
+            .limit(chunk_size)
+        )
+        if last is not None:
+            stmt = stmt.where(_after(v2.c.provider, v2.c.event_id, last))
+        rows = connection.execute(stmt).mappings().all()
+        if not rows:
+            break
+        last = (rows[-1]["provider"], rows[-1]["event_id"])
+        for row in rows:
+            extra = row["extra"] if isinstance(row["extra"], dict) else {}
+            stored = extra.get(V1_NAMESPACE, {}).get("cost_usd")
+            if stored is None:
+                continue
+            connection.execute(
+                sa.update(models.UsageEventV2)
+                .where(
+                    models.UsageEventV2.provider == row["provider"],
+                    models.UsageEventV2.event_id == row["event_id"],
+                )
+                .values(cost_usd=Decimal(stored))
+            )
+            updated += 1
+        if len(rows) < chunk_size:
+            break
+    return updated
 
 
 @dataclass(frozen=True)

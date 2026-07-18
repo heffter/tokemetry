@@ -137,6 +137,10 @@ class UsageEventV2(Base):
     tool_call_count: Mapped[int] = mapped_column(Integer, default=0)
     tool_histogram: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     provenance: Mapped[str] = mapped_column(String(30))
+    # Transitional: preserves the v1 keep-max cost so the v1 compatibility view
+    # exposes cost during migration. Cost moves to computed_costs in Task 64,
+    # which drops this column (design Section 3.4).
+    cost_usd: Mapped[Decimal | None] = mapped_column(_MONEY)
     source_id: Mapped[int | None] = mapped_column(Integer, index=True)
     routing: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     dimensions: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)

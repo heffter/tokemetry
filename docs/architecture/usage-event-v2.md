@@ -179,3 +179,23 @@ transport-agnostic and never commits: the route (task 62.6) owns the transaction
 and does the post-commit WebSocket publish, so a publish failure can never roll
 back accepted ingest (NFR-REL-008). A request-id middleware stamps every
 response with an `X-Request-ID` (FR-INGEST-016), honoring a client-supplied one.
+
+## V1 ingest repoint (task 62.9)
+
+The v1 ingest path (`services/ingest.py`) now mirrors every batch into the v2
+ledger: after the existing keep-max upsert to the physical `usage_events`
+table, each deduped event is mapped to a `UsageEventV2` (`event_kind='attempt'`,
+`finality='final'`, `sequence=0`, v1-only fields under `extra['_v1']`, a
+synthesized collector source) and applied through the revision engine in
+`ConflictMode.KEEP_MAX` (FR-IDEMP-012). The keep-max cost is written to a
+**transitional** `cost_usd` column on `usage_events_v2` (migration `0009`;
+backfilled rows are populated from `extra['_v1']['cost_usd']`), which the v1
+compatibility view will expose until cost moves to `computed_costs` (Task 64
+drops the column).
+
+The physical `usage_events` table stays the read source in this subtask, so
+every v1 ingest and query response is byte-identical (verified by the Task 60.4
+golden suite) and in-batch dedupe counts are unchanged. Swapping reads onto the
+v1-shaped compatibility view over `usage_events_v2` -- the highest-risk,
+cross-dialect step -- is isolated in subtask 62.10, gated on the backfill
+verification passing.

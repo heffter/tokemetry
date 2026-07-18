@@ -145,8 +145,8 @@ Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
 `upgrade_to_head(sync_url)` / `downgrade_to_base(sync_url)` for server
 startup and tests. Alembic runs with a synchronous driver
 (`postgresql+psycopg` or `sqlite`) derived from the async application URL by
-`Settings.sync_database_url`. Migrations are hand-authored (through `0008`,
-the v1-to-v2 usage-event backfill) and kept in sync with the ORM
+`Settings.sync_database_url`. Migrations are hand-authored (through `0009`,
+the transitional cost column) and kept in sync with the ORM
 by a drift test
 (`test_migration_matches_orm_metadata`) that reflects the migrated schema
 and compares columns against `Base.metadata`.

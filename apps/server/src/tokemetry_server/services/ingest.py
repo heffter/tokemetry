@@ -16,6 +16,13 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.models import DailyAggregate, LimitSnapshot, UsageEvent
 from tokemetry_core.projects import DEFAULT_ROOTS
+from tokemetry_core.usage_v2 import (
+    EventKind,
+    Finality,
+    SourceRef,
+    SourceType,
+    UsageEventV2,
+)
 
 from tokemetry_server.api.schemas import IngestResult, MachineInfo
 from tokemetry_server.db import models
@@ -29,6 +36,7 @@ from tokemetry_server.services.registries import (
     ModelRegistryService,
     ProviderRegistryService,
 )
+from tokemetry_server.services.revisions import ConflictMode, RevisionEngine
 from tokemetry_server.services.rollups import refresh_rollups_for_days
 from tokemetry_server.services.validation import ValidationError, validate_event, validate_limit
 
@@ -53,6 +61,51 @@ def _dedupe_keep_max(events: list[UsageEvent]) -> list[UsageEvent]:
         elif event.output_tokens >= current.output_tokens:
             best[key] = event
     return [best[key] for key in order]
+
+
+def _v1_to_v2(event: UsageEvent, machine: str) -> UsageEventV2:
+    """Map a v1 core usage event onto a v2 wire event (FR-EVENT-023).
+
+    Mirrors the backfill mapping (``db/backfill.py``): ``event_kind='attempt'``,
+    ``finality='final'``, ``sequence=0``, no reasoning, and the v1-only fields
+    preserved under ``extra['_v1']`` so the compatibility view reproduces them.
+    A minimal collector source is synthesized (source attribution is Task 63).
+    """
+    extra = dict(event.extra)
+    extra["_v1"] = {
+        "git_branch": event.git_branch,
+        "client_version": event.client_version,
+        "entrypoint": event.entrypoint,
+        "is_sidechain": event.is_sidechain,
+        "session_kind": event.session_kind,
+        "speed": event.speed,
+        "source": "collector",
+    }
+    return UsageEventV2(
+        schema_version=2,
+        event_id=event.event_id,
+        event_kind=EventKind.ATTEMPT,
+        finality=Finality.FINAL,
+        sequence=0,
+        provider=event.provider,
+        native_model=event.native_model,
+        ts_started=event.ts,
+        ts_completed=event.ts,
+        machine=event.machine or machine,
+        session_id=event.session_id,
+        project=event.project,
+        input_tokens=event.input_tokens,
+        output_tokens=event.output_tokens,
+        cache_read_tokens=event.cache_read_tokens,
+        cache_write_short_tokens=event.cache_write_short_tokens,
+        cache_write_long_tokens=event.cache_write_long_tokens,
+        reasoning_tokens=0,
+        success=True,
+        service_tier=event.service_tier,
+        provenance=event.provenance,
+        source=SourceRef(type=SourceType.COLLECTOR, name="collector", version="v1"),
+        extra=extra,
+    )
 
 
 class IngestService:
@@ -111,6 +164,13 @@ class IngestService:
         stmt = usage_events_upsert(self._dialect, models.UsageEvent.__table__, rows)
         await self._session.execute(stmt)
 
+        # Mirror the batch into the v2 ledger through the revision engine in
+        # keep-max compatibility mode (FR-IDEMP-012), so the ledger tracks v1
+        # ingest ahead of the read swap to the compatibility view (subtask
+        # 62.10). The physical usage_events table above remains the read source
+        # until that swap, keeping v1 responses byte-identical.
+        await self._mirror_to_v2(deduped, machine.name)
+
         # Recompute the touched days' rollups from the now-current events.
         affected_days = {event.ts.date() for event in deduped}
         await refresh_rollups_for_days(
@@ -121,6 +181,17 @@ class IngestService:
             accepted=len(deduped),
             duplicates_merged=len(events) - len(deduped),
         )
+
+    async def _mirror_to_v2(self, events: list[UsageEvent], machine: str) -> None:
+        """Project deduped v1 events into ``usage_events_v2`` (keep-max mode)."""
+        engine = RevisionEngine(self._session, self._data_quality)
+        for event in events:
+            cost = self._cost_fn(event) if self._cost_fn is not None else None
+            await engine.apply(
+                _v1_to_v2(event, machine),
+                mode=ConflictMode.KEEP_MAX,
+                cost=cost,
+            )
 
     async def _apply_registry_policy(self, events: list[UsageEvent]) -> None:
         """Enforce the provider policy and observe models for ``events``.

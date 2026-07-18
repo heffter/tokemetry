@@ -2484,14 +2484,15 @@
             "id": 9,
             "title": "Repoint v1 ingest and server services to the v2 ledger",
             "description": "All reads and writes go through usage_events_v2; v1 endpoints stay wire-identical.",
-            "details": "Switch the server to the v2 ledger: the v1 ingest path (api/ingest.py, services/ingest.py) maps EventIn to a v2 event (event_kind attempt, finality final, keep-max compatibility conflict mode) and writes through the revision engine; queries in services/queries.py, analytics.py, insights.py, session_stats.py, report.py, and rollups.py read from usage_events_v2; cost stamping moves to the computed_costs flow only when Task 64 lands, so in this subtask the existing cost_usd semantics are preserved by writing cost into the v2 row-compatible location the view exposes (transitional column, removed in Task 64 subtask 4 cutover; document in task log). The golden v1 fixture suite from 60.4 is the acceptance gate: every v1 ingest and query response must be byte-identical. In-batch dedupe semantics (accepted plus duplicates_merged counts) must match current behavior exactly. Test strategy: full existing pytest suite green with reads/writes on the v2 ledger; golden suite unchanged; targeted tests that v1 duplicate handling produces identical stored rows as before (fixture comparison against 62.4 keep-max tests).",
-            "status": "pending",
+            "details": "Switch the server to the v2 ledger: the v1 ingest path (api/ingest.py, services/ingest.py) maps EventIn to a v2 event (event_kind attempt, finality final, keep-max compatibility conflict mode) and writes through the revision engine; queries in services/queries.py, analytics.py, insights.py, session_stats.py, report.py, and rollups.py read from usage_events_v2; cost stamping moves to the computed_costs flow only when Task 64 lands, so in this subtask the existing cost_usd semantics are preserved by writing cost into the v2 row-compatible location the view exposes (transitional column, removed in Task 64 subtask 4 cutover; document in task log). The golden v1 fixture suite from 60.4 is the acceptance gate: every v1 ingest and query response must be byte-identical. In-batch dedupe semantics (accepted plus duplicates_merged counts) must match current behavior exactly. Test strategy: full existing pytest suite green with reads/writes on the v2 ledger; golden suite unchanged; targeted tests that v1 duplicate handling produces identical stored rows as before (fixture comparison against 62.4 keep-max tests).\n<info added on 2026-07-18T22:30:03.274Z>\nRepointed the v1 ingest write path to the v2 ledger and added the transitional cost_usd column. Design decision (documented): to keep the highest-risk cross-dialect view swap isolated in dedicated subtask 62.10, subtask 62.9 delivers the WRITE-side repoint as an additive mirror while the physical usage_events table remains the read source, ensuring all v1 ingest AND query responses are byte-identical (Task 60.4 golden suite green). In services/ingest.py, IngestService.ingest_events now maps each deduped core UsageEvent to UsageEventV2 after the existing keep-max physical upsert via _v1_to_v2 (event_kind=attempt, finality=final, sequence=0, reasoning=0; v1-only fields git_branch, client_version, entrypoint, is_sidechain, session_kind, speed, source mirrored under extra['_v1'] per the backfill scheme; synthesized collector SourceRef) and applies it via RevisionEngine in ConflictMode.KEEP_MAX (FR-IDEMP-012) with the keep-max cost. Added transitional cost_usd Numeric column to usage_events_v2 (ORM + migration 0009); v1 ingest and backfill (_v2_row) write it; populate_transitional_cost() fills it from extra['_v1']['cost_usd'] for rows backfilled before the column existed. In revisions.py, usage_event_v2_row(event, source_id, cost) and RevisionEngine.apply(cost=...) thread cost into the row (native v2 ingest leaves it None, priced by Task 64 which drops the column at cutover). In-batch dedupe (accepted + duplicates_merged) unchanged (_dedupe_keep_max retained). Tests: test_v1_v2_mirror.py confirms v1 ingest mirrors into v2 with attempt/final/seq0 + is_sidechain preserved, cost matches physical, and keep-max dedupe agrees across both tables; full golden suite plus all query/ingest/revision/backfill/migration tests green. Read swap to the v1 compatibility view, Grafana continuity, and verify-gating occur in 62.10. Gates: pytest 531 passed/23 skipped, ruff clean, mypy strict clean (94 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T22:30:03.274Z>",
+            "status": "done",
             "dependencies": [
               "62.4",
               "62.8"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T22:30:33.084Z"
           },
           {
             "id": 10,
@@ -2533,7 +2534,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T22:09:26.857Z"
+        "updatedAt": "2026-07-18T22:30:33.084Z"
       },
       {
         "id": "63",
@@ -3528,7 +3529,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T22:09:26.859Z",
+      "lastModified": "2026-07-18T22:30:33.086Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [
