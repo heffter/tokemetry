@@ -3,6 +3,7 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+from conftest import make_v1_event
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_server.db import models
 from tokemetry_server.services import queries
@@ -37,7 +38,7 @@ async def _add_rollup(
 
 async def _add_event(session: AsyncSession, event_id: str, session_id: str, tokens: int) -> None:
     session.add(
-        models.UsageEvent(
+        make_v1_event(
             provider="anthropic",
             event_id=event_id,
             ts=datetime(2026, 7, 9, 12, 0, 0, tzinfo=UTC),

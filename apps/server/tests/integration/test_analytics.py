@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+from conftest import make_v1_event
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_server.db import models
 from tokemetry_server.services import analytics
@@ -18,7 +19,7 @@ async def _add_event(
     cost: Decimal | None = None,
 ) -> None:
     session.add(
-        models.UsageEvent(
+        make_v1_event(
             provider="anthropic",
             event_id=event_id,
             ts=ts,

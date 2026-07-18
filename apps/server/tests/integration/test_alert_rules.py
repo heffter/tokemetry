@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from conftest import make_v1_event
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_server.db import models
 from tokemetry_server.services.alerting.rules import AlertFinding, evaluate_rule
@@ -80,7 +81,7 @@ async def test_predicted_exhaustion(async_session: AsyncSession) -> None:
 
 async def test_burn_rate(async_session: AsyncSession) -> None:
     async_session.add(
-        models.UsageEvent(
+        make_v1_event(
             provider="anthropic",
             event_id="e1",
             ts=_NOW - timedelta(minutes=5),
@@ -112,7 +113,7 @@ async def test_collector_stale(async_session: AsyncSession) -> None:
 
 async def test_unknown_model(async_session: AsyncSession) -> None:
     async_session.add(
-        models.UsageEvent(
+        make_v1_event(
             provider="anthropic",
             event_id="e1",
             ts=_NOW - timedelta(hours=1),

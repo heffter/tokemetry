@@ -10,9 +10,11 @@ import sqlalchemy as sa
 from tokemetry_server.db.base import Base
 from tokemetry_server.db.migrate import downgrade_to_base, upgrade_to_head
 
+# After migration 0010, ``usage_events`` is a view, not a table; the physical
+# rows live in ``usage_events_v1_archive`` (retained until Task 70 retention).
 _EXPECTED_TABLES = {
     "machines",
-    "usage_events",
+    "usage_events_v1_archive",
     "limit_snapshots",
     "sessions",
     "daily_rollups",
@@ -55,6 +57,22 @@ def test_downgrade_removes_domain_tables(migration_url: str) -> None:
         engine.dispose()
     domain_tables = _EXPECTED_TABLES - {"alembic_version"}
     assert not (domain_tables & tables)
+
+
+def test_usage_events_is_a_view_with_v1_columns(migration_url: str) -> None:
+    """After the swap, usage_events is a view exposing the exact v1 columns."""
+    upgrade_to_head(migration_url)
+
+    engine = sa.create_engine(migration_url)
+    try:
+        inspector = sa.inspect(engine)
+        assert "usage_events" in inspector.get_view_names()
+        assert "usage_events" not in inspector.get_table_names()
+        orm_columns = {col.name for col in Base.metadata.tables["usage_events"].columns}
+        view_columns = {col["name"] for col in inspector.get_columns("usage_events")}
+        assert view_columns == orm_columns
+    finally:
+        engine.dispose()
 
 
 def test_migration_matches_orm_metadata(migration_url: str) -> None:

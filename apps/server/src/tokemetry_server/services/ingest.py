@@ -29,7 +29,6 @@ from tokemetry_server.db import models
 from tokemetry_server.db.upsert import (
     daily_rollups_upsert,
     machine_upsert,
-    usage_events_upsert,
 )
 from tokemetry_server.services.data_quality import DataQualityService
 from tokemetry_server.services.registries import (
@@ -160,15 +159,11 @@ class IngestService:
         await self._apply_registry_policy(deduped)
         await self._touch_machine(machine)
 
-        rows = [self._event_row(event, machine.name) for event in deduped]
-        stmt = usage_events_upsert(self._dialect, models.UsageEvent.__table__, rows)
-        await self._session.execute(stmt)
-
-        # Mirror the batch into the v2 ledger through the revision engine in
-        # keep-max compatibility mode (FR-IDEMP-012), so the ledger tracks v1
-        # ingest ahead of the read swap to the compatibility view (subtask
-        # 62.10). The physical usage_events table above remains the read source
-        # until that swap, keeping v1 responses byte-identical.
+        # The v2 ledger is the sole store: v1 events are written through the
+        # revision engine in keep-max compatibility mode (FR-IDEMP-012), and
+        # reads (including the rollup refresh below) go through the v1-shaped
+        # ``usage_events`` compatibility view over ``usage_events_v2`` (subtask
+        # 62.10). The keep-max resolution keeps v1 wire behavior identical.
         await self._mirror_to_v2(deduped, machine.name)
 
         # Recompute the touched days' rollups from the now-current events.
@@ -286,35 +281,6 @@ class IngestService:
         }
         stmt = machine_upsert(self._dialect, models.Machine.__table__, row)
         await self._session.execute(stmt)
-
-    def _event_row(self, event: UsageEvent, machine: str) -> dict[str, object]:
-        """Build a usage_events row dict from a core event."""
-        cost = self._cost_fn(event) if self._cost_fn is not None else None
-        return {
-            "provider": event.provider,
-            "event_id": event.event_id,
-            "machine": machine,
-            "session_id": event.session_id,
-            "ts": event.ts,
-            "model": event.native_model,
-            "project": event.project,
-            "git_branch": event.git_branch,
-            "client_version": event.client_version,
-            "entrypoint": event.entrypoint,
-            "is_sidechain": event.is_sidechain,
-            "session_kind": event.session_kind,
-            "input_tokens": event.input_tokens,
-            "output_tokens": event.output_tokens,
-            "cache_read_tokens": event.cache_read_tokens,
-            "cache_write_short_tokens": event.cache_write_short_tokens,
-            "cache_write_long_tokens": event.cache_write_long_tokens,
-            "service_tier": event.service_tier,
-            "speed": event.speed,
-            "cost_usd": cost,
-            "provenance": str(event.provenance),
-            "source": "collector",
-            "extra": event.extra,
-        }
 
     def _rollup_row(self, aggregate: DailyAggregate, machine: str) -> dict[str, object]:
         """Build a daily_rollups row dict from a bootstrap aggregate."""

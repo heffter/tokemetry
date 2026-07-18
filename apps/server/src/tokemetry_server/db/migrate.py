@@ -33,6 +33,16 @@ def upgrade_to_head(sync_url: str) -> None:
     command.upgrade(alembic_config(sync_url), "head")
 
 
+def upgrade_to_revision(sync_url: str, revision: str) -> None:
+    """Upgrade the database at ``sync_url`` to a specific revision.
+
+    Used by tests that need a schema state before a later migration (for
+    example the v1-to-v2 backfill, which operates on the physical
+    ``usage_events`` table that migration 0010 later replaces with a view).
+    """
+    command.upgrade(alembic_config(sync_url), revision)
+
+
 def downgrade_to_base(sync_url: str) -> None:
     """Downgrade the database at ``sync_url`` to an empty schema."""
     command.downgrade(alembic_config(sync_url), "base")

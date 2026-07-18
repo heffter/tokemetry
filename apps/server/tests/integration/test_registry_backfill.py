@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import sqlalchemy as sa
+from conftest import make_v1_event
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,8 +32,8 @@ def _utc(value: datetime | None) -> datetime | None:
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
-def _usage_event(event_id: str, model: str, ts: datetime, **overrides: Any) -> models.UsageEvent:
-    row = models.UsageEvent(
+def _usage_event(event_id: str, model: str, ts: datetime, **overrides: Any) -> models.UsageEventV2:
+    row = make_v1_event(
         provider="anthropic",
         event_id=event_id,
         ts=ts,

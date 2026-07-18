@@ -77,13 +77,19 @@ async def load_pricing_table(session: AsyncSession) -> PricingTable:
     return table
 
 
-def _event_from_row(row: models.UsageEvent) -> UsageEvent:
-    """Reconstruct the minimal core event needed to recompute cost."""
+def _event_from_row(row: models.UsageEventV2) -> UsageEvent:
+    """Reconstruct the minimal core event needed to recompute cost.
+
+    Reads the v2 ledger (``usage_events`` is a read-only view after migration
+    0010); cost is written to the transitional ``cost_usd`` column until the
+    cost engine (Task 64) takes over.
+    """
+    started = row.ts_started
     return UsageEvent(
         event_id=row.event_id,
         provider=row.provider,
-        native_model=row.model,
-        ts=row.ts if row.ts.tzinfo else row.ts.replace(tzinfo=UTC),
+        native_model=row.native_model,
+        ts=started if started.tzinfo else started.replace(tzinfo=UTC),
         input_tokens=row.input_tokens,
         output_tokens=row.output_tokens,
         cache_read_tokens=row.cache_read_tokens,
@@ -97,18 +103,20 @@ async def recompute_costs(
     engine: CostEngine,
     only_missing: bool = False,
 ) -> int:
-    """Recompute ``cost_usd`` for stored events; return the count updated.
+    """Recompute ``cost_usd`` for stored attempts; return the count updated.
 
     Args:
         session: Active session (the caller owns the transaction).
         engine: Cost engine holding the current pricing table.
-        only_missing: When true, only reprice events whose cost is null
+        only_missing: When true, only reprice attempts whose cost is null
             (for example after adding a price for a previously unknown
-            model); otherwise reprice every event.
+            model); otherwise reprice every attempt.
     """
-    statement = select(models.UsageEvent)
+    statement = select(models.UsageEventV2).where(
+        models.UsageEventV2.event_kind == "attempt"
+    )
     if only_missing:
-        statement = statement.where(models.UsageEvent.cost_usd.is_(None))
+        statement = statement.where(models.UsageEventV2.cost_usd.is_(None))
     result = await session.execute(statement)
 
     updated = 0

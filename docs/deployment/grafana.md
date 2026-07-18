@@ -19,6 +19,18 @@ directly alongside the built-in dashboard.
    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO grafana;
    ```
 
+## The `usage_events` view (v1 compatibility)
+
+As of the provider-neutral v2 migration, `usage_events` is a **read-only view**
+projecting the active attempt rows of `usage_events_v2` back to the exact v1
+column shape (`ts`, `model`, `cost_usd`, `is_sidechain`, the five token
+counters, ...), per decision D-001. Existing Grafana queries against
+`usage_events` keep working unchanged and return identical results; the guarantee
+is that the view's column list and semantics stay v1-compatible. The physical v1
+rows are retained in `usage_events_v1_archive` until the retention policy (Task
+70) handles them. New reasoning tokens and other v2-only fields are available on
+`usage_events_v2` directly.
+
 ## Useful queries
 
 Daily tokens by model:

@@ -139,14 +139,30 @@ band with `python -m tokemetry_server backfill-usage-events` and
 `python -m tokemetry_server verify-backfill` (the latter exits non-zero on a
 mismatch and prints a machine-readable report).
 
+### usage_events compatibility view (migration `0010`)
+
+Once the backfill verifies, migration `0010` swaps `usage_events` for a
+read-only view (D-001): it runs `verify_backfill` as a pre-check (aborting the
+migration on any mismatch), renames the physical table to
+`usage_events_v1_archive` (retained until the Task 70 retention policy), and
+creates a view named `usage_events` selecting the active attempt rows of
+`usage_events_v2` projected to the exact v1 column shape -- `ts` from
+`ts_started`, `model` from `native_model`, `cost_usd` from the transitional
+column, and the v1-only fields (`git_branch`, `is_sidechain`, ...) extracted
+from `extra['_v1']`, with `extra` itself cleaned of the internal `_v1`/`_backfill`
+keys. The view DDL is dialect-specific (SQLite JSON1 `json_extract`/`json_remove`;
+Postgres `#>>`/`-`). From this point the v2 ledger is the sole store: v1 ingest
+writes only through the revision engine, and all reads (services and Grafana)
+flow through the view. The downgrade drops the view and renames the archive back.
+
 ## Migrations
 
 Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
 `upgrade_to_head(sync_url)` / `downgrade_to_base(sync_url)` for server
 startup and tests. Alembic runs with a synchronous driver
 (`postgresql+psycopg` or `sqlite`) derived from the async application URL by
-`Settings.sync_database_url`. Migrations are hand-authored (through `0009`,
-the transitional cost column) and kept in sync with the ORM
+`Settings.sync_database_url`. Migrations are hand-authored (through `0010`,
+the `usage_events` compatibility-view swap) and kept in sync with the ORM
 by a drift test
 (`test_migration_matches_orm_metadata`) that reflects the migrated schema
 and compares columns against `Base.metadata`.

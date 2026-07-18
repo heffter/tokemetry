@@ -3,6 +3,7 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+from conftest import make_v1_event
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.models import PriceRow
 from tokemetry_server.db import models
@@ -58,7 +59,7 @@ async def test_upsert_overrides_price(async_session: AsyncSession) -> None:
 
 async def _add_event(session: AsyncSession, event_id: str, model: str, input_tokens: int) -> None:
     session.add(
-        models.UsageEvent(
+        make_v1_event(
             provider="anthropic",
             event_id=event_id,
             ts=datetime(2026, 7, 1, 12, 0, 0, tzinfo=UTC),

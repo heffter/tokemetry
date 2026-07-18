@@ -13,8 +13,66 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from tokemetry_server.app import create_app
 from tokemetry_server.config import Settings
 from tokemetry_server.db import models
-from tokemetry_server.db.migrate import upgrade_to_head
+from tokemetry_server.db.migrate import upgrade_to_head, upgrade_to_revision
 from tokemetry_server.services.registries import seed_default_providers
+
+#: v1-only usage-event fields that live under ``extra['_v1']`` in the v2 ledger.
+_V1_ONLY_FIELDS = (
+    "git_branch",
+    "client_version",
+    "entrypoint",
+    "is_sidechain",
+    "session_kind",
+    "speed",
+    "source",
+)
+
+
+def make_v1_event(**fields: object) -> models.UsageEventV2:
+    """Build a ``usage_events_v2`` attempt row from v1-style event fields.
+
+    Since migration 0010 replaced the physical ``usage_events`` table with a
+    read-only view over ``usage_events_v2``, tests seed the ledger instead. This
+    maps v1 fields the same way v1 ingest does: ``ts`` -> ``ts_started``,
+    ``model`` -> ``native_model``, the v1-only columns into ``extra['_v1']``, and
+    ``cost_usd`` into the transitional column, so the compatibility view and all
+    reads project the row exactly as the old v1 row would have.
+    """
+    data = dict(fields)
+    extra = dict(data.pop("extra", {}) or {})
+    v1_only = {name: data.pop(name, None) for name in _V1_ONLY_FIELDS}
+    v1_only.setdefault("source", "collector")
+    if v1_only.get("is_sidechain") is None:
+        v1_only["is_sidechain"] = False
+    extra["_v1"] = v1_only
+    ts = data.pop("ts")
+    return models.UsageEventV2(
+        provider=data.pop("provider"),
+        event_id=data.pop("event_id"),
+        schema_version=2,
+        event_kind="attempt",
+        finality="final",
+        sequence=0,
+        native_model=data.pop("model"),
+        ts_started=ts,
+        ts_completed=ts,
+        machine=data.pop("machine", None),
+        session_id=data.pop("session_id", None),
+        project=data.pop("project", None),
+        input_tokens=data.pop("input_tokens", 0),
+        output_tokens=data.pop("output_tokens", 0),
+        cache_read_tokens=data.pop("cache_read_tokens", 0),
+        cache_write_short_tokens=data.pop("cache_write_short_tokens", 0),
+        cache_write_long_tokens=data.pop("cache_write_long_tokens", 0),
+        reasoning_tokens=0,
+        success=True,
+        service_tier=data.pop("service_tier", None),
+        provenance=str(data.pop("provenance", "local_estimate")),
+        cost_usd=data.pop("cost_usd", None),
+        dimensions={},
+        extra=extra,
+        **data,
+    )
 
 #: Bootstrap token wired into the test app for authenticated requests.
 BOOTSTRAP_TOKEN = "tkm_test_bootstrap_token_value"
@@ -116,6 +174,22 @@ def migration_url(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[st
 def migrated_engine(migration_url: str) -> Iterator[sa.Engine]:
     """A synchronous engine over a database migrated to head, per engine."""
     upgrade_to_head(migration_url)
+    engine = sa.create_engine(migration_url)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+#: The last revision before the ``usage_events`` view swap (migration 0010), so
+#: tests that need the physical v1 table (the backfill) can still seed it.
+PRE_VIEW_REVISION = "0009"
+
+
+@pytest.fixture
+def pre_view_engine(migration_url: str) -> Iterator[sa.Engine]:
+    """A synchronous engine migrated to just before the view swap, per engine."""
+    upgrade_to_revision(migration_url, PRE_VIEW_REVISION)
     engine = sa.create_engine(migration_url)
     try:
         yield engine

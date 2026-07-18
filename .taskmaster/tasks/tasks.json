@@ -2498,13 +2498,14 @@
             "id": 10,
             "title": "Replace usage_events with the v1 compatibility view",
             "description": "Swap the physical v1 table for a read-only view projecting v2 data in the v1 column shape.",
-            "details": "Alembic migration that, only after the verification report from subtask 8 passes (enforced by a migration pre-check that runs the verifier), renames usage_events to usage_events_v1_archive and creates a view named usage_events selecting the v1 columns from usage_events_v2 (provider, event_id, machine, session_id, ts from ts_started, model from native_model, project, git_branch and other v1 columns from their v2 locations or archived values, five token counters, cost_usd from the transitional cost location, provenance, source, extra) per decision D-001. The archive table is retained until Task 70 retention policy handles it (documented). SQLite and Postgres both support the view; ORM code no longer references the old model class (removed in subtask 9), so the view exists purely for external readers such as Grafana dashboards and docs/deployment/grafana.md examples. Update docs/deployment/grafana.md to state the view guarantee. Downgrade recreates the physical table from the archive. Test strategy: migration tests on both engines asserting view queryability with the exact v1 column list and types; a Grafana-style raw SQL query fixture returning identical results before and after the swap; downgrade round-trip test.",
-            "status": "pending",
+            "details": "Alembic migration that, only after the verification report from subtask 8 passes (enforced by a migration pre-check that runs the verifier), renames usage_events to usage_events_v1_archive and creates a view named usage_events selecting the v1 columns from usage_events_v2 (provider, event_id, machine, session_id, ts from ts_started, model from native_model, project, git_branch and other v1 columns from their v2 locations or archived values, five token counters, cost_usd from the transitional cost location, provenance, source, extra) per decision D-001. The archive table is retained until Task 70 retention policy handles it (documented). SQLite and Postgres both support the view; ORM code no longer references the old model class (removed in subtask 9), so the view exists purely for external readers such as Grafana dashboards and docs/deployment/grafana.md examples. Update docs/deployment/grafana.md to state the view guarantee. Downgrade recreates the physical table from the archive. Test strategy: migration tests on both engines asserting view queryability with the exact v1 column list and types; a Grafana-style raw SQL query fixture returning identical results before and after the swap; downgrade round-trip test.\n<info added on 2026-07-18T23:17:24.864Z>\nReplaced `usage_events` with the v1 compatibility view per decision D-001. Migration 0010 enforces a pre-check running `verify_backfill` (aborts with `RuntimeError` on mismatch), renames `usage_events` → `usage_events_v1_archive` (retained until Task 70 retention), and creates a read-only `usage_events` view selecting only `event_kind='attempt'` rows from `usage_events_v2` projected to the exact v1 shape: `ts` from `ts_started`, `model` from `native_model`, `cost_usd` from the transitional column, and v1-only fields (`git_branch`, `client_version`, `entrypoint`, `is_sidechain`, `session_kind`, `speed`, `source`) extracted from `extra['_v1']` while cleaning `extra` of internal `_v1`/`_backfill` keys. Dialect-specific DDL uses SQLite `json_extract`/`json_remove` and Postgres `#>>`/`-`. Downgrade drops the view and restores the archive table. The v2 ledger is now the sole store. Writers repointed: `services/ingest.py` removed `usage_events_upsert` (v2 revision-engine keep-max mirror from 62.9 is the sole write); `services/pricing_repo.recompute_costs` now reads `usage_events_v2` attempts and writes the transitional `cost_usd` column. Added `db/migrate.upgrade_to_revision` for pre-view schema tests. Test infrastructure updated: `conftest.make_v1_event(**v1_fields)` builds a `usage_events_v2` attempt row (view projects it identically); `pre_view_engine` fixture uses revision 0009; `_EXPECTED_TABLES` swaps `usage_events` → `usage_events_v1_archive` + new view-queryability test; ~24 seeding tests across 7 files repointed from `models.UsageEvent(...)` to `make_v1_event`/v2 (view reads intact); backfill tests use `pre_view_engine`. New `test_usage_events_view.py` covers v1 projection, non-attempt exclusion, `extra` cleaning, and Grafana raw-SQL. Golden v1 suite is byte-identical through the view. Docs updated: `grafana.md` states the view guarantee; `database.md` updated. Gates passed: pytest 535 passed/27 skipped, ruff clean, mypy strict clean (95 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T23:17:24.864Z>",
+            "status": "done",
             "dependencies": [
               "62.9"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T23:17:56.451Z"
           },
           {
             "id": 11,
@@ -2534,7 +2535,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T22:30:33.084Z"
+        "updatedAt": "2026-07-18T23:17:56.451Z"
       },
       {
         "id": "63",
@@ -3529,7 +3530,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T22:30:33.086Z",
+      "lastModified": "2026-07-18T23:17:56.452Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [

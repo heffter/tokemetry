@@ -70,14 +70,14 @@ def _backfill(engine: sa.Engine, chunk_size: int = 10_000) -> int:
         return backfill_usage_events_v2(connection, chunk_size=chunk_size)
 
 
-def test_backfill_maps_all_columns(migrated_engine: sa.Engine) -> None:
-    with Session(migrated_engine) as session:
+def test_backfill_maps_all_columns(pre_view_engine: sa.Engine) -> None:
+    with Session(pre_view_engine) as session:
         _add_v1(session, "a1")
         session.commit()
 
-    _backfill(migrated_engine)
+    _backfill(pre_view_engine)
 
-    with Session(migrated_engine) as session:
+    with Session(pre_view_engine) as session:
         row = session.get(models.UsageEventV2, ("anthropic", "a1"))
         assert row is not None
         assert row.event_kind == "attempt"
@@ -95,37 +95,37 @@ def test_backfill_maps_all_columns(migrated_engine: sa.Engine) -> None:
         assert row.extra[V1_NAMESPACE]["cost_usd"] == "1.2345000000"
 
 
-def test_verify_reports_all_equal(migrated_engine: sa.Engine) -> None:
-    with Session(migrated_engine) as session:
+def test_verify_reports_all_equal(pre_view_engine: sa.Engine) -> None:
+    with Session(pre_view_engine) as session:
         _seed_representative(session)
         session.commit()
 
-    _backfill(migrated_engine)
+    _backfill(pre_view_engine)
 
-    with migrated_engine.connect() as connection:
+    with pre_view_engine.connect() as connection:
         report = verify_backfill(connection)
     assert report.ok
     assert report.groups_checked >= 3
     assert report.mismatches == ()
 
 
-def test_backfill_is_idempotent_and_resumable(migrated_engine: sa.Engine) -> None:
-    with Session(migrated_engine) as session:
+def test_backfill_is_idempotent_and_resumable(pre_view_engine: sa.Engine) -> None:
+    with Session(pre_view_engine) as session:
         _seed_representative(session)
         session.commit()
 
     # chunk_size=1 exercises the keyset pagination; a second run must not dup.
-    _backfill(migrated_engine, chunk_size=1)
-    _backfill(migrated_engine, chunk_size=1)
+    _backfill(pre_view_engine, chunk_size=1)
+    _backfill(pre_view_engine, chunk_size=1)
 
-    with Session(migrated_engine) as session:
+    with Session(pre_view_engine) as session:
         v1_count = session.scalar(sa.select(sa.func.count()).select_from(models.UsageEvent))
         v2_count = session.scalar(sa.select(sa.func.count()).select_from(models.UsageEventV2))
     assert v1_count == v2_count == 4
 
 
-def test_downgrade_removes_only_backfilled(migrated_engine: sa.Engine) -> None:
-    with Session(migrated_engine) as session:
+def test_downgrade_removes_only_backfilled(pre_view_engine: sa.Engine) -> None:
+    with Session(pre_view_engine) as session:
         _add_v1(session, "a1")
         # A natively-ingested v2 row (no backfill marker) must survive downgrade.
         session.add(
@@ -146,31 +146,31 @@ def test_downgrade_removes_only_backfilled(migrated_engine: sa.Engine) -> None:
         )
         session.commit()
 
-    _backfill(migrated_engine)
-    with migrated_engine.begin() as connection:
+    _backfill(pre_view_engine)
+    with pre_view_engine.begin() as connection:
         removed = remove_backfilled_rows(connection)
     assert removed == 1
 
-    with Session(migrated_engine) as session:
+    with Session(pre_view_engine) as session:
         assert session.get(models.UsageEventV2, ("anthropic", "a1")) is None
         assert session.get(models.UsageEventV2, ("anthropic", "native-1")) is not None
 
 
-def test_verify_detects_mismatch(migrated_engine: sa.Engine) -> None:
-    with Session(migrated_engine) as session:
+def test_verify_detects_mismatch(pre_view_engine: sa.Engine) -> None:
+    with Session(pre_view_engine) as session:
         _add_v1(session, "a1")
         session.commit()
-    _backfill(migrated_engine)
+    _backfill(pre_view_engine)
 
     # Corrupt a backfilled row so the token sums no longer match v1.
-    with migrated_engine.begin() as connection:
+    with pre_view_engine.begin() as connection:
         connection.execute(
             sa.update(models.UsageEventV2)
             .where(models.UsageEventV2.event_id == "a1")
             .values(output_tokens=99999)
         )
 
-    with migrated_engine.connect() as connection:
+    with pre_view_engine.connect() as connection:
         report = verify_backfill(connection)
     assert not report.ok
     assert report.mismatches
