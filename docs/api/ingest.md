@@ -82,6 +82,26 @@ Runs the same schema and privacy checks and returns `{ "valid": bool,
 "errors": [...], "request_id": ... }` **without persisting anything**
 (FR-INGEST-007), so an exporter can pre-flight a batch.
 
+### `POST /api/v2/ingest/limits`
+
+Batch envelope `{ "schema_version": 2, "snapshots": [ ...LimitSnapshotV2... ] }`.
+Provider-neutral limit snapshots with an opaque `window_kind` and the v2
+dimensions (`account`, `organization`, `machine`, `source`, `utilization_pct`,
+`remaining`, `limit_amount`, `unit`, `resets_at`, `provenance`
+official/estimated; FR-LIMIT-002..004). Snapshots are **append-only** (v1
+parity): replaying a batch appends again. The dedicated columns for the extended
+dimensions land in Task 69; until then they are preserved in each row's `raw`
+JSON under `v2_dimensions`.
+
+### `POST /api/v2/ingest/aggregates`
+
+Batch envelope `{ "schema_version": 2, "aggregates": [ ...AggregateImportV2... ] }`.
+Historical per-day, per-model token totals for importer bootstraps
+(`provenance: imported`), upserted onto the `daily_rollups` grain exactly like
+the v1 bootstrap path -- re-importing a day **replaces**, never accumulates.
+`reasoning_tokens` folds into `total_tokens` until the rollup grain gains a
+reasoning column (Task 66).
+
 ### `GET /api/v2/ready`
 
 Unauthenticated readiness probe reporting `{ "status", "database", "migration" }`

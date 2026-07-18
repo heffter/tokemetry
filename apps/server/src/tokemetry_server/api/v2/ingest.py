@@ -28,18 +28,20 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from tokemetry_core.usage_v2 import UsageEventV2
+from tokemetry_core.usage_v2 import AggregateImportV2, LimitSnapshotV2, UsageEventV2
 
 from tokemetry_server.api.auth import require_token
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.v2.schemas import (
     IngestEventsResponse,
+    MetaIngestResponse,
     ValidateResponse,
     ValidationErrorItem,
 )
 from tokemetry_server.config import Settings
 from tokemetry_server.services.data_quality import DataQualityService
 from tokemetry_server.services.ingest_v2 import BatchValidationError, IngestV2Service
+from tokemetry_server.services.ingest_v2_meta import MetaIngestV2Service
 from tokemetry_server.services.privacy import PrivacyPolicy, PrivacyValidator
 
 router = APIRouter(prefix="/api/v2", tags=["ingest"])
@@ -297,3 +299,95 @@ async def readiness(request: Request) -> JSONResponse:
     }
     code = status.HTTP_200_OK if database_ok else status.HTTP_503_SERVICE_UNAVAILABLE
     return JSONResponse(payload, status_code=code)
+
+
+def _validate_batch(
+    data: dict[str, Any],
+    list_key: str,
+    model: type[LimitSnapshotV2] | type[AggregateImportV2],
+    max_events: int,
+) -> tuple[list[Any], list[ValidationErrorItem]]:
+    """Validate a ``{schema_version, <list_key>: [...]}`` batch of ``model``."""
+    errors: list[ValidationErrorItem] = []
+    if data.get("schema_version") != 2:
+        errors.append(
+            ValidationErrorItem(
+                index=-1,
+                field_path="schema_version",
+                code="invalid_schema_version",
+                message="schema_version must be 2",
+            )
+        )
+    raw_items = data.get(list_key)
+    if not isinstance(raw_items, list) or not raw_items:
+        errors.append(
+            ValidationErrorItem(
+                index=-1,
+                field_path=list_key,
+                code="invalid",
+                message=f"{list_key} must be a non-empty list",
+            )
+        )
+        return [], errors
+    if len(raw_items) > max_events:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            f"batch has {len(raw_items)} items, over the {max_events} limit",
+        )
+    items: list[Any] = []
+    for index, raw in enumerate(raw_items):
+        try:
+            items.append(model.model_validate(raw))
+        except ValidationError as exc:
+            errors.extend(_pydantic_items(exc, index))
+    return items, errors
+
+
+@router.post("/ingest/limits", response_model=MetaIngestResponse)
+async def ingest_limits(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    label: str = Depends(enforce_ingest_rate),
+) -> MetaIngestResponse:
+    """Append a batch of provider-neutral limit snapshots (append-only)."""
+    settings: Settings = request.app.state.settings
+    request_id = getattr(request.state, "request_id", None)
+    data = await _load_body(request, settings.ingest_max_bytes)
+
+    snapshots, errors = _validate_batch(
+        data, "snapshots", LimitSnapshotV2, settings.ingest_max_events
+    )
+    if errors:
+        _raise_validation(errors, request_id)
+
+    service = MetaIngestV2Service(session, request.app.state.dialect_name)
+    batch_id, accepted = await service.ingest_limits(
+        snapshots, token_label=label, request_id=request_id
+    )
+    await session.commit()
+    return MetaIngestResponse(batch_id=batch_id, request_id=request_id, accepted=accepted)
+
+
+@router.post("/ingest/aggregates", response_model=MetaIngestResponse)
+async def ingest_aggregates(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    label: str = Depends(enforce_ingest_rate),
+) -> MetaIngestResponse:
+    """Upsert a batch of historical daily aggregate imports."""
+    settings: Settings = request.app.state.settings
+    request_id = getattr(request.state, "request_id", None)
+    data = await _load_body(request, settings.ingest_max_bytes)
+
+    aggregates, errors = _validate_batch(
+        data, "aggregates", AggregateImportV2, settings.ingest_max_events
+    )
+    if errors:
+        _raise_validation(errors, request_id)
+
+    service = MetaIngestV2Service(session, request.app.state.dialect_name)
+    batch_id, accepted = await service.ingest_aggregates(
+        aggregates, token_label=label, request_id=request_id
+    )
+    await session.commit()
+    return MetaIngestResponse(batch_id=batch_id, request_id=request_id, accepted=accepted)

@@ -90,3 +90,13 @@ class ValidateResponse(BaseModel):
     valid: bool
     request_id: str | None
     errors: list[ValidationErrorItem]
+
+
+class MetaIngestResponse(BaseModel):
+    """Result of the v2 limits and aggregates ingest endpoints."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_id: str
+    request_id: str | None
+    accepted: int

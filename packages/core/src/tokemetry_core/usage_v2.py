@@ -20,10 +20,10 @@ and ``extra=forbid`` makes wire drift fail loudly in tests.
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 
 from tokemetry_core.models import Provenance, _FrozenModel, _require_tz
 
@@ -208,3 +208,87 @@ def usage_event_json_schema() -> dict[str, Any]:
     schema["title"] = "UsageEventV2"
     schema["x-tokemetry-schema-version"] = SCHEMA_VERSION
     return schema
+
+
+class LimitSnapshotV2(_FrozenModel):
+    """A provider-neutral rate-limit window snapshot (FR-LIMIT-002..004).
+
+    ``window_kind`` is an opaque, provider-defined label (Anthropic's
+    ``five_hour``, a Codex window, a Z.ai coding-plan window), so new providers
+    need no schema change. The extended dimensions -- ``account``,
+    ``organization``, ``source``, ``remaining``, ``limit_amount``, ``unit`` --
+    are the v2 additions over v1's utilization-only snapshot; the dedicated
+    ``limit_snapshots`` columns for them land in Task 69, so until then the
+    ingest endpoint preserves them in the row's ``raw`` JSON. Snapshots are
+    append-only.
+    """
+
+    schema_version: Literal[2]
+    provider: str = Field(min_length=1)
+    window_kind: str = Field(min_length=1)
+    ts: datetime
+    utilization_pct: float = Field(ge=0.0)
+    account: str | None = None
+    organization: str | None = None
+    machine: str | None = None
+    source: SourceRef | None = None
+    remaining: float | None = Field(default=None, ge=0.0)
+    limit_amount: float | None = Field(default=None, ge=0.0)
+    unit: str | None = None
+    resets_at: datetime | None = None
+    provenance: Provenance = Provenance.OFFICIAL
+
+    @field_validator("ts")
+    @classmethod
+    def _validate_ts(cls, value: datetime) -> datetime:
+        """The snapshot timestamp must be timezone-aware."""
+        return _require_tz(value)
+
+    @field_validator("resets_at")
+    @classmethod
+    def _validate_resets_at(cls, value: datetime | None) -> datetime | None:
+        """The reset time, when present, must be timezone-aware."""
+        if value is None:
+            return None
+        return _require_tz(value)
+
+
+class AggregateImportV2(_FrozenModel):
+    """A historical per-day, per-model aggregate for importer bootstraps.
+
+    The v2 counterpart of v1's ``DailyAggregate``: coarse daily token totals a
+    historical importer backfills, mapped onto the ``daily_rollups`` upsert path
+    with ``provenance`` ``imported``. ``reasoning_tokens`` is the v2 addition;
+    it is folded into ``total_tokens`` until the rollup grain gains a reasoning
+    column (Task 66).
+    """
+
+    schema_version: Literal[2]
+    provider: str = Field(min_length=1)
+    day: date
+    native_model: str = Field(min_length=1)
+    machine: str | None = None
+    input_tokens: int = Field(ge=0, default=0)
+    output_tokens: int = Field(ge=0, default=0)
+    cache_read_tokens: int = Field(ge=0, default=0)
+    cache_write_short_tokens: int = Field(ge=0, default=0)
+    cache_write_long_tokens: int = Field(ge=0, default=0)
+    reasoning_tokens: int = Field(ge=0, default=0)
+    total_tokens: int = Field(ge=0, default=0, validate_default=True)
+    message_count: int = Field(ge=0, default=0)
+    provenance: Provenance = Provenance.IMPORTED
+
+    @field_validator("total_tokens")
+    @classmethod
+    def _default_total(cls, value: int, info: ValidationInfo) -> int:
+        """Derive the total from the split fields (incl. reasoning) when unset."""
+        if value:
+            return value
+        return int(
+            info.data.get("input_tokens", 0)
+            + info.data.get("output_tokens", 0)
+            + info.data.get("cache_read_tokens", 0)
+            + info.data.get("cache_write_short_tokens", 0)
+            + info.data.get("cache_write_long_tokens", 0)
+            + info.data.get("reasoning_tokens", 0)
+        )

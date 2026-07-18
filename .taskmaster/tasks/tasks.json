@@ -2458,13 +2458,14 @@
             "id": 7,
             "title": "V2 limits and aggregates ingest endpoints",
             "description": "POST /api/v2/ingest/limits and /api/v2/ingest/aggregates with source identity.",
-            "details": "Add POST /api/v2/ingest/limits accepting provider-neutral limit snapshots carrying the v2 dimensions (provider, window_kind opaque, account, organization, machine, source identity, utilization, remaining, limit_amount, unit, resets_at, provenance official|estimated per FR-LIMIT-002..004) and POST /api/v2/ingest/aggregates for historical importer bootstraps (daily aggregate rows with provenance imported, mapping onto the rollup upsert path the way v1 bootstrap does today). Both share the batch envelope, structured errors, gzip, request ids, and transactional semantics from subtask 6, with scopes ingest:limits and ingest:aggregates respectively once Task 63 lands. Limit snapshots remain append-only. The limit_snapshots dimension columns themselves are added in Task 69 subtask 2; until that lands the endpoint validates the wire shape and stores what the current table supports, feature-flagging the extended dimensions (document the flag in the task log). Test strategy: integration tests for both endpoints covering append-only behavior, provenance labeling, batch bounds from schemas, and scope placeholders; wire-schema unit tests; replay safety (identical snapshot batches do not duplicate beyond append semantics documented for v1 parity).",
-            "status": "pending",
+            "details": "Add POST /api/v2/ingest/limits accepting provider-neutral limit snapshots carrying the v2 dimensions (provider, window_kind opaque, account, organization, machine, source identity, utilization, remaining, limit_amount, unit, resets_at, provenance official|estimated per FR-LIMIT-002..004) and POST /api/v2/ingest/aggregates for historical importer bootstraps (daily aggregate rows with provenance imported, mapping onto the rollup upsert path the way v1 bootstrap does today). Both share the batch envelope, structured errors, gzip, request ids, and transactional semantics from subtask 6, with scopes ingest:limits and ingest:aggregates respectively once Task 63 lands. Limit snapshots remain append-only. The limit_snapshots dimension columns themselves are added in Task 69 subtask 2; until that lands the endpoint validates the wire shape and stores what the current table supports, feature-flagging the extended dimensions (document the flag in the task log). Test strategy: integration tests for both endpoints covering append-only behavior, provenance labeling, batch bounds from schemas, and scope placeholders; wire-schema unit tests; replay safety (identical snapshot batches do not duplicate beyond append semantics documented for v1 parity).\n<info added on 2026-07-18T21:52:45.192Z>\nAdded POST /api/v2/ingest/limits and POST /api/v2/ingest/aggregates. Core wire models in usage_v2.py: LimitSnapshotV2 (schema_version, provider, opaque window_kind, ts tz-aware, utilization_pct, extended dims account/organization/machine/source/remaining/limit_amount/unit, resets_at, provenance official|estimated FR-LIMIT-002..004) and AggregateImportV2 (day/native_model/token counters incl reasoning_tokens, total derived incl reasoning, provenance imported). Endpoints reuse the 62.6 infra (gzip _load_body, size/count limits, structured errors, rate limiting, request id) via a generic _validate_batch helper. Persistence in services/ingest_v2_meta.py MetaIngestV2Service(session, dialect): ingest_limits appends limit_snapshots rows (append-only, v1 parity) with the v2 extended dimensions preserved in raw.v2_dimensions until Task 69.2 adds columns (feature-flag/interim documented); ingest_aggregates upserts daily_rollups on its grain like v1 bootstrap (replace-not-accumulate), deduping same-grain rows within a batch, reasoning folded into total_tokens until Task 66 rollups add a column. Both write an ingest_batches row (batch_id, token_label, request_id, accepted count) for traceability. Scopes ingest:limits/ingest:aggregates enforced in Task 63. No WS publish for meta endpoints (matches v1 bootstrap). Tests: core test_usage_v2_meta.py (tz enforcement, extended dims, negative bounds, estimated provenance, total-with-reasoning derivation) and integration test_ingest_v2_meta_api.py (limits append-only, extended dims in raw, structured error index, aggregates upsert idempotency, reasoning-in-total, in-batch same-grain dedupe, count-limit 413, ingest_batches row). Docs: docs/api/ingest.md. Gates: pytest 523 passed/18 skipped, ruff clean, mypy strict clean (91 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T21:52:45.192Z>",
+            "status": "done",
             "dependencies": [
               "62.5"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T21:53:12.213Z"
           },
           {
             "id": 8,
@@ -2531,7 +2532,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T21:39:49.808Z"
+        "updatedAt": "2026-07-18T21:53:12.213Z"
       },
       {
         "id": "63",
@@ -3526,7 +3527,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T21:39:49.809Z",
+      "lastModified": "2026-07-18T21:53:12.214Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [
