@@ -75,6 +75,9 @@ show_error_codes = true
 testpaths = ["apps/server/tests", "apps/collector/tests", "packages/core/tests"]
 addopts = "-ra"
 asyncio_mode = "auto"
+markers = [
+  "perf: performance and throughput smoke tests (select with -m perf)",
+]
 filterwarnings = [
   # Third-party deprecation from Starlette's TestClient httpx integration.
   "ignore:Using `httpx` with `starlette.testclient`",

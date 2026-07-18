@@ -2370,7 +2370,7 @@
         "description": "Add the v2 attempt-event lifecycle (finality, sequence, revisions, corrections), the new usage_events_v2 ledger with v1 backfill and compatibility view, logical_requests, privacy validation, and the /api/v2/ingest endpoints while keeping v1 endpoints wire-identical. PRD-TOK-002 Sections 11, 12.3, 12.4, 12.5; Epic TOK-3; decision D-001.",
         "details": "Objective: provider-neutral event lifecycle and ingest (Migration Phase 2, v2 behind the api surface only; existing collectors stay on v1).\n\nDesign decisions: new usage_events_v2 table rather than in-place evolution (D-001); usage_event_revisions for superseded and conflicting states and corrections; logical_requests dedicated table (D-003); event identity (provider, event_id) with event_kind attempt|logical_request|import|adjustment, finality snapshot|final, increasing sequence; final supersedes snapshot; final-to-final requires admin correction (D-002); same-sequence conflicts rejected to data_quality_events (FR-IDEMP-008); replay is a no-op (FR-IDEMP-007); batches transactional (FR-IDEMP-009). V1 ingest maps into v2 rows with event_kind attempt and finality final, applying legacy keep-max-output as documented compatibility conflict mode (FR-IDEMP-012, FR-EVENT-023). After verified backfill the physical usage_events table is replaced by a read-only v1-shaped compatibility view. Privacy: content fields rejected (FR-EVENT-021/022, FR-PRIV-001/002), dimensions allowlist with bounds 16 keys, 64-char keys, 256-char values (D-004), tool-name histogram accepted only behind server-side opt-in and default off (D-005), maximum event size and JSON depth enforced (FR-EVENT-028, NFR-SEC-004).\n\nEndpoints: POST /api/v2/ingest/events, /api/v2/ingest/limits, /api/v2/ingest/aggregates, /api/v2/ingest/validate (schema plus semantic checks without persistence, FR-INGEST-007), GET /api/v2/schemas/usage-event. Structured validation errors with event index, field path, code, message (FR-INGEST-006); server batch IDs and ingest_batches table (FR-INGEST-008); request IDs on every response (FR-INGEST-016); gzip support (FR-INGEST-010); OpenAPI for all v2 schemas (FR-INGEST-012).\n\nAcceptance criteria (PRD Epic TOK-3): v2 schema and OpenAPI published; attempts, logical request IDs, finality, sequence, outcomes, source, routing, and reasoning supported; v1 events map into internal v2 representation; v1 endpoints retain behavior; validation endpoint exists; batch tests cover duplicates, snapshots, finality, and conflicts.\n\nTest strategy: unit tests for v1-to-v2 conversion, validation, snapshot and finality resolution, conflict and correction behavior; integration tests for duplicate batches, snapshot followed by final, conflicting same-sequence events; golden v1 fixtures from Task 60 must pass unchanged; migration tests on SQLite and Postgres including the backfill count and sum verification; performance tests for 100-event batch p95 under 200 ms and a 5000-event compatibility batch.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "60",
           "61"
@@ -2524,8 +2524,8 @@
             "id": 12,
             "title": "OpenAPI v2 publication, schema endpoint, ingest docs, and performance tests",
             "description": "Publish the v2 contract and prove the ingest performance targets.",
-            "details": "Publish GET /api/v2/schemas/usage-event serving the JSON schema from subtask 1; ensure the FastAPI OpenAPI document fully describes all v2 ingest schemas, error formats, and version negotiation notes (FR-INGEST-011/012); write docs/api/ingest-v2.md covering the envelope, event lifecycle semantics (snapshot, final, correction), idempotency guidance for exporters (replay on ambiguous transport failure is safe), batch limits, gzip, scopes, and the validate endpoint; add docs/architecture/event-model-v2.md describing the ledger, revisions, and logical requests. Performance tests (pytest markers, runnable in CI nightly and locally): 100-event batch ingest p95 under 200 ms on reference hardware (NFR-PERF-001), a 5000-event v1 compatibility batch (PRD 18.5), and a sustained-throughput smoke preparing the full 1000 events per second gate that Task 70 owns (NFR-PERF-002). Record measured numbers in the task log and docs. Test strategy: OpenAPI snapshot test pinning the v2 paths; docs build check; the two performance suites with recorded baselines; epic acceptance walkthrough of PRD Epic TOK-3 criteria before marking the parent done.",
-            "status": "pending",
+            "details": "Publish GET /api/v2/schemas/usage-event serving the JSON schema from subtask 1; ensure the FastAPI OpenAPI document fully describes all v2 ingest schemas, error formats, and version negotiation notes (FR-INGEST-011/012); write docs/api/ingest-v2.md covering the envelope, event lifecycle semantics (snapshot, final, correction), idempotency guidance for exporters (replay on ambiguous transport failure is safe), batch limits, gzip, scopes, and the validate endpoint; add docs/architecture/event-model-v2.md describing the ledger, revisions, and logical requests. Performance tests (pytest markers, runnable in CI nightly and locally): 100-event batch ingest p95 under 200 ms on reference hardware (NFR-PERF-001), a 5000-event v1 compatibility batch (PRD 18.5), and a sustained-throughput smoke preparing the full 1000 events per second gate that Task 70 owns (NFR-PERF-002). Record measured numbers in the task log and docs. Test strategy: OpenAPI snapshot test pinning the v2 paths; docs build check; the two performance suites with recorded baselines; epic acceptance walkthrough of PRD Epic TOK-3 criteria before marking the parent done.\n<info added on 2026-07-18T23:42:41.646Z>\nFinalized Epic TOK-3. Added GET /api/v2/schemas/usage-event serving usage_event_json_schema() (generated from UsageEventV2 so served schema never drifts from enforcement, FR-INGEST-012; require_token). Added version-negotiation notes to the FastAPI OpenAPI document via the app description (v1/v2 coexist, path-based selection, no content negotiation, FR-INGEST-011/014). OpenAPI snapshot test (test_openapi_v2.py) pins the 8 v2 paths + response-model components + version-negotiation description; schema-endpoint test asserts title/x-tokemetry-schema-version/required, and 401 without auth. Docs: docs/api/ingest-v2.md (envelope, snapshot/final/correction lifecycle, exporter idempotency guidance incl. replay-safe-on-ambiguous-failure, batch limits, gzip, scopes, validate endpoint, schema+OpenAPI, perf) and docs/architecture/event-model-v2.md (ledger + revisions + logical requests + relationship diagram). Performance suite (test_performance.py, @pytest.mark.perf registered in pyproject): 100-event batch p95, 5000-event v1 compatibility batch (PRD 18.5), sustained-throughput smoke; loose ceilings catch regressions, strict NFR-PERF-001/002 gates on reference hardware are Task 70. MEASURED on dev hardware (SQLite): 100-event p95 = 240 ms, 5000-event v1 batch = 10.5 s, sustained = 446 events/s. Epic TOK-3 acceptance verified: v2 schema+OpenAPI published; attempts/logical-request-ids/finality/sequence/outcomes/source/routing/reasoning supported; v1 events map into v2; v1 endpoints byte-identical (golden green); validate endpoint exists; batch tests cover duplicates/snapshots/finality/conflicts. Gates: pytest 546 passed/27 skipped, ruff clean, mypy strict clean (96 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T23:42:41.646Z>",
+            "status": "done",
             "dependencies": [
               "62.6",
               "62.7",
@@ -2533,10 +2533,11 @@
               "62.11"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T23:43:11.635Z"
           }
         ],
-        "updatedAt": "2026-07-18T23:29:36.930Z"
+        "updatedAt": "2026-07-18T23:43:11.635Z"
       },
       {
         "id": "63",
@@ -3531,9 +3532,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T23:29:36.932Z",
+      "lastModified": "2026-07-18T23:43:11.637Z",
       "taskCount": 71,
-      "completedCount": 61,
+      "completedCount": 62,
       "tags": [
         "master"
       ]

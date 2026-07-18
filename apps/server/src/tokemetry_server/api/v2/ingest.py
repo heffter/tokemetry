@@ -28,7 +28,12 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from tokemetry_core.usage_v2 import AggregateImportV2, LimitSnapshotV2, UsageEventV2
+from tokemetry_core.usage_v2 import (
+    AggregateImportV2,
+    LimitSnapshotV2,
+    UsageEventV2,
+    usage_event_json_schema,
+)
 
 from tokemetry_server.api.auth import require_token
 from tokemetry_server.api.deps import get_session
@@ -299,6 +304,16 @@ async def readiness(request: Request) -> JSONResponse:
     }
     code = status.HTTP_200_OK if database_ok else status.HTTP_503_SERVICE_UNAVAILABLE
     return JSONResponse(payload, status_code=code)
+
+
+@router.get("/schemas/usage-event", tags=["meta"])
+async def usage_event_schema(_: str = Depends(require_token)) -> dict[str, Any]:
+    """Serve the published JSON schema for the v2 usage event (FR-INGEST-012).
+
+    Generated from the same ``UsageEventV2`` model the ingest endpoint
+    validates against, so the served schema can never drift from enforcement.
+    """
+    return usage_event_json_schema()
 
 
 def _validate_batch(

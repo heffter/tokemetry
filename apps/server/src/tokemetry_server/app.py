@@ -146,6 +146,17 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         title="tokemetry",
         version="0.1.0",
         summary="Self-hosted multi-machine AI token usage tracking",
+        description=(
+            "Two API versions coexist during the provider-neutral migration "
+            "(FR-INGEST-011/014). **v1** (`/api/v1/*`) is the stable collector "
+            "surface and stays wire-compatible for the whole program. **v2** "
+            "(`/api/v2/*`) is the provider-neutral surface: batch ingest "
+            "(`/ingest/events|limits|aggregates`), pre-flight `validate`, the "
+            "published usage-event JSON schema (`/schemas/usage-event`), and "
+            "read-only registries. Version is selected by URL path (there is no "
+            "content negotiation); clients pin a major version and a bearer "
+            "token, and every response carries an `X-Request-ID`."
+        ),
         lifespan=lifespan,
     )
 
