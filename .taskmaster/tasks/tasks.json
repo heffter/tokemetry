@@ -2264,7 +2264,7 @@
         "description": "Introduce canonical provider registry with alias normalization, native model registry with lifecycle states and alias rules, unknown provider and model handling with data quality records, and the /api/v2/providers and /api/v2/models endpoints. PRD-TOK-002 Sections 12.1, 12.2; Epic TOK-2; FR-PROVIDER-001..010, FR-MODEL-001..010.",
         "details": "Objective: canonical registries so every later epic resolves providers and models centrally (Migration Phase 1; no v1 behavior change).\n\nDesign: providers table (id lowercase stable, display_name, aliases JSON, pricing_strategy, limit_semantics, supported_dimensions, registered flag); models table with PK (provider, native_model_id), lifecycle active/deprecated/retired/unknown, capabilities JSON, first_seen/last_seen; model_aliases table (provider, alias) unique mapping to native_model_id with rule_version. Alias normalization is centralized in packages/core (z.ai and zai and legacy names normalize to zai; existing Claude Code provider id anthropic remains valid unchanged per FR-PROVIDER-009). Native model IDs are always retained exactly as reported (FR-MODEL-001); pricing lookups use provider plus native model plus effective date (FR-MODEL-003). Unknown providers may be ingested when policy permits but are marked unregistered and produce data_quality_events records (FR-PROVIDER-005, FR-MODEL-006). Provider registration must not require dashboard code changes (FR-PROVIDER-007). Seed anthropic, openai, zai (FR-PROVIDER-008) plus the fake test provider.\n\nAcceptance criteria (PRD Epic TOK-2): Anthropic, OpenAI, and Z.ai registered; aliases normalize centrally; model IDs remain native and provider-scoped; unknown provider and model data quality records generated; existing Claude data remains queryable.\n\nTest strategy: unit tests for alias normalization and model lookup; migration upgrade and downgrade tests on SQLite and Postgres; regression test proving existing Claude usage remains queryable through v1 endpoints; fixtures for all three providers (NFR-MAIN-007). Reference docs/architecture/provider-neutral-baseline.md.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "60"
         ],
@@ -2274,11 +2274,12 @@
             "id": 1,
             "title": "Core provider descriptors and alias normalization",
             "description": "Extend packages/core with provider descriptors and central alias normalization.",
-            "details": "In packages/core/src/tokemetry_core, add a ProviderDescriptor model (id, display_name, aliases, pricing_strategy id, limit_semantics, supported usage dimensions) and a normalization function that maps any alias to the canonical lowercase provider id (FR-PROVIDER-002/003): z.ai, zai, z-ai to zai; anthropic and claude legacy spellings to anthropic; openai and codex client names to openai. Extend the existing ProviderRegistry (registry.py) so descriptors are registered alongside usage/limits/pricing factories without breaking current register() call sites (anthropic.py, fake.py). Normalization is pure, case-insensitive, and versioned (FR-MODEL-009 pattern applied to providers); unknown ids pass through marked unregistered rather than raising, since ingest policy decides acceptance (FR-PROVIDER-005). Keep mypy strict and frozen pydantic conventions of models.py. Update docs/architecture/core-package.md. Test strategy: unit tests in packages/core/tests/unit covering every alias, casing, idempotent double-normalization, unknown passthrough, and registry retrieval; regression test that ClaudeCodeJsonlSource still resolves under provider anthropic unchanged.",
-            "status": "pending",
+            "details": "In packages/core/src/tokemetry_core, add a ProviderDescriptor model (id, display_name, aliases, pricing_strategy id, limit_semantics, supported usage dimensions) and a normalization function that maps any alias to the canonical lowercase provider id (FR-PROVIDER-002/003): z.ai, zai, z-ai to zai; anthropic and claude legacy spellings to anthropic; openai and codex client names to openai. Extend the existing ProviderRegistry (registry.py) so descriptors are registered alongside usage/limits/pricing factories without breaking current register() call sites (anthropic.py, fake.py). Normalization is pure, case-insensitive, and versioned (FR-MODEL-009 pattern applied to providers); unknown ids pass through marked unregistered rather than raising, since ingest policy decides acceptance (FR-PROVIDER-005). Keep mypy strict and frozen pydantic conventions of models.py. Update docs/architecture/core-package.md. Test strategy: unit tests in packages/core/tests/unit covering every alias, casing, idempotent double-normalization, unknown passthrough, and registry retrieval; regression test that ClaudeCodeJsonlSource still resolves under provider anthropic unchanged.\n<info added on 2026-07-18T11:44:17.465Z>\nAdded core provider descriptors and central alias normalization. New ProviderDescriptor frozen model in models.py enforces lowercase-stripped id via validator, includes display_name, lowercased aliases via validator, pricing_strategy, limit_semantics, and supported_dimensions per FR-PROVIDER-004. New normalization.py defines PROVIDER_NORMALIZATION_VERSION=1, seeds ANTHROPIC/OPENAI/ZAI_DESCRIPTOR and SEED_PROVIDER_DESCRIPTORS, and implements normalize_provider(raw) as a pure, case-insensitive, idempotent function that builds its reverse alias index from descriptors (aliases are data, not code). Aliases: anthropic maps from claude/claude-code/claude_code; openai maps from codex/codex-cli/openai-codex; zai maps from z.ai/z-ai/z_ai. Unknown ids are stripped and lowercased with passthrough (not an error, FR-PROVIDER-005). Registry extended in registry.py with _descriptors dict and new methods register_provider, provider, is_provider_registered, resolve_provider (normalize-then-lookup, returns None if unregistered), and providers(); existing register_pricing/usage_source/limits_source signatures unchanged. providers/anthropic.py and providers/fake.py now register their descriptors (FAKE_DESCRIPTOR added); FR-PROVIDER-009 ensures anthropic id unchanged and ClaudeCodeJsonlSource.provider remains 'anthropic'. Tests in test_normalization.py (36 cases) cover every alias, casing+whitespace, unknown passthrough, idempotent double-normalization, descriptor validators (lowercase id rejected, aliases lowercased, frozen), registry register/lookup/resolve for registered and unregistered cases, seed ids, and a regression confirming anthropic.register() keeps usage_source('anthropic')=ClaudeCodeJsonlSource and resolve_provider('claude')=ANTHROPIC_DESCRIPTOR. Gates: full suite 331 passed, ruff clean, mypy strict clean (removed unused type-ignore), trivy secret clean. docs/architecture/core-package.md updated with ProviderDescriptor row, normalization section, and registry descriptor methods. Seeding into DB and openai/zai adapter registration deferred to subtask 61.3; tables deferred to subtask 61.2.\n</info added on 2026-07-18T11:44:17.465Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 61,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T11:44:36.533Z"
           },
           {
             "id": 2,
@@ -2354,7 +2355,8 @@
             "parentTaskId": 61,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-07-18T11:44:36.533Z"
       },
       {
         "id": "62",
@@ -3511,7 +3513,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T11:18:25.311Z",
+      "lastModified": "2026-07-18T11:44:36.534Z",
       "taskCount": 71,
       "completedCount": 60,
       "tags": [

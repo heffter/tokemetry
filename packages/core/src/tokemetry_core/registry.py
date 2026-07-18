@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from tokemetry_core.interfaces import LimitsSource, PricingStrategy, UsageSource
+from tokemetry_core.models import ProviderDescriptor
+from tokemetry_core.normalization import normalize_provider
 
 
 class UnknownProviderError(KeyError):
@@ -30,6 +32,11 @@ class ProviderRegistry:
         self._usage_sources: dict[str, Callable[[], UsageSource]] = {}
         self._limits_sources: dict[str, Callable[[], LimitsSource]] = {}
         self._pricing: dict[str, PricingStrategy] = {}
+        self._descriptors: dict[str, ProviderDescriptor] = {}
+
+    def register_provider(self, descriptor: ProviderDescriptor) -> None:
+        """Register a provider descriptor under its canonical id."""
+        self._descriptors[descriptor.id] = descriptor
 
     def register_usage_source(self, provider: str, factory: Callable[[], UsageSource]) -> None:
         """Register a factory producing the provider's usage source."""
@@ -75,6 +82,33 @@ class ProviderRegistry:
             return self._pricing[provider]
         except KeyError:
             raise UnknownProviderError(provider) from None
+
+    def provider(self, provider_id: str) -> ProviderDescriptor:
+        """Return the descriptor registered under the canonical ``provider_id``.
+
+        Raises:
+            UnknownProviderError: If no descriptor is registered.
+        """
+        try:
+            return self._descriptors[provider_id]
+        except KeyError:
+            raise UnknownProviderError(provider_id) from None
+
+    def is_provider_registered(self, provider_id: str) -> bool:
+        """Whether a descriptor is registered under the canonical id."""
+        return provider_id in self._descriptors
+
+    def resolve_provider(self, raw: str) -> ProviderDescriptor | None:
+        """Normalize ``raw`` and return its descriptor, or None if unregistered.
+
+        An unregistered provider is not an error here (FR-PROVIDER-005): the
+        caller decides how to handle it (ingest may still accept and mark it).
+        """
+        return self._descriptors.get(normalize_provider(raw))
+
+    def providers(self) -> list[str]:
+        """Canonical ids of all providers with a registered descriptor."""
+        return sorted(self._descriptors)
 
     def usage_providers(self) -> list[str]:
         """Provider names that have a registered usage source."""

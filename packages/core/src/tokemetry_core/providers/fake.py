@@ -25,12 +25,23 @@ from tokemetry_core.models import (
     ParseResult,
     PriceRow,
     Provenance,
+    ProviderDescriptor,
     SourceFile,
     UsageEvent,
 )
 from tokemetry_core.registry import ProviderRegistry
 
 FAKE_PROVIDER = "fake"
+
+#: Registry descriptor for the fake provider (test double, no aliases).
+FAKE_DESCRIPTOR = ProviderDescriptor(
+    id=FAKE_PROVIDER,
+    display_name="Fake",
+    aliases=(),
+    pricing_strategy=FAKE_PROVIDER,
+    limit_semantics="none",
+    supported_dimensions=("machine", "model", "project", "session"),
+)
 
 #: Synthetic byte width of one fake event; offsets advance in these steps so
 #: offset semantics (resume, no re-emission) can be asserted in tests.
@@ -165,6 +176,7 @@ class FakePricingStrategy(PricingStrategy):
 
 def register(registry: ProviderRegistry) -> None:
     """Register all fake adapters on ``registry``."""
+    registry.register_provider(FAKE_DESCRIPTOR)
     registry.register_usage_source(FAKE_PROVIDER, FakeUsageSource)
     registry.register_limits_source(FAKE_PROVIDER, FakeLimitsSource)
     registry.register_pricing(FakePricingStrategy())

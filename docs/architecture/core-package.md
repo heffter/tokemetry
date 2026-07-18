@@ -15,6 +15,7 @@ pydantic.
 | `SourceFile` / `ParseResult` | Incremental parsing contract: discovered file with size; events plus the byte offset the next parse resumes from. |
 | `PriceRow` | Date-versioned per-MTok prices; cost is computed with the row effective at the event timestamp. |
 | `Provenance` | Labels every number as `official`, `local_estimate`, or `stats_cache`. |
+| `ProviderDescriptor` | Canonical registry metadata for one provider: lowercase stable `id`, `display_name`, `aliases`, `pricing_strategy`, `limit_semantics`, `supported_dimensions` (FR-PROVIDER-004). `id` must be lowercase/stripped; aliases are stored lowercased. |
 
 Conventions: all timestamps are timezone-aware (validated), token counts are
 non-negative, models are frozen (immutable) and reject unknown fields, money
@@ -36,12 +37,38 @@ instead of an iterator, and `poll` returns a list instead of a single
 snapshot. Both changes exist because the consumers need the complete result
 atomically (offset advancement, multi-window polls).
 
+## Provider normalization (`normalization.py`)
+
+Alias normalization is centralized here so no other module hardcodes provider
+spellings (FR-PROVIDER-002/003). `normalize_provider(raw)` is pure,
+case-insensitive, and idempotent: a known alias resolves to its canonical
+lowercase id, and an unknown provider passes through stripped and lowercased
+(never an error here — ingest policy decides acceptance, FR-PROVIDER-005).
+
+The alias table is derived from the seed `ProviderDescriptor`s so aliases are
+data, not code:
+
+| Canonical id | Display | Aliases |
+|---|---|---|
+| `anthropic` | Anthropic | `claude`, `claude-code`, `claude_code` |
+| `openai` | OpenAI | `codex`, `codex-cli`, `openai-codex` |
+| `zai` | Z.ai | `z.ai`, `z-ai`, `z_ai` |
+
+`PROVIDER_NORMALIZATION_VERSION` versions the rule set so persisted alias
+mappings record which version produced them. The existing Claude Code provider
+id `anthropic` is unchanged (FR-PROVIDER-009). The `fake` test provider carries
+its own descriptor (`providers/fake.py`).
+
 ## Provider registry (`registry.py`)
 
 `ProviderRegistry` maps provider names to usage-source factories,
-limits-source factories, and pricing strategy instances. Registration is
-explicit: each provider module exposes `register(registry)`, called by the
-application at startup. Unknown lookups raise `UnknownProviderError`.
+limits-source factories, pricing strategy instances, and `ProviderDescriptor`s.
+Registration is explicit: each provider module exposes `register(registry)`,
+called by the application at startup. `register_provider(descriptor)` adds a
+descriptor; `provider(id)` / `is_provider_registered(id)` / `providers()` query
+them, and `resolve_provider(raw)` normalizes then looks up, returning `None` for
+an unregistered provider rather than raising. Unknown source/pricing lookups
+raise `UnknownProviderError`.
 
 ## Fake provider (`providers/fake.py`)
 
