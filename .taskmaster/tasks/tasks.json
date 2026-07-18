@@ -2298,13 +2298,14 @@
             "id": 3,
             "title": "Registry services, seeds, and unknown-entity policy",
             "description": "Server-side registry services seeded with anthropic, openai, zai; unknown providers and models tracked, marked, and policy-gated.",
-            "details": "Add services/registries.py to apps/server: provider registry service (load descriptors from DB, seed anthropic, openai, zai plus display names, aliases, strategies on empty table per FR-PROVIDER-008; expose normalize(provider_string) backed by the core normalizer plus DB aliases) and model registry service (get-or-observe native model: known models update last_seen; unknown models are inserted with lifecycle unknown and produce a data quality record per FR-MODEL-006 once the recording service from subtask 4 exists). Ingest policy setting registry_unknown_provider_policy accept|reject (default accept, marked unregistered per FR-PROVIDER-005). Registration of a new provider is DB plus seed data only, never dashboard code (FR-PROVIDER-007). Wire the service into app.py startup alongside the existing pricing seeding. Test strategy: unit tests for seeding idempotency (second startup does not duplicate), alias resolution merging core and DB aliases, unknown-model observation lifecycle, and policy accept/reject behavior; integration test that v1 ingest of an anthropic event still works and observes the model in the registry.",
-            "status": "pending",
+            "details": "Add services/registries.py to apps/server: provider registry service (load descriptors from DB, seed anthropic, openai, zai plus display names, aliases, strategies on empty table per FR-PROVIDER-008; expose normalize(provider_string) backed by the core normalizer plus DB aliases) and model registry service (get-or-observe native model: known models update last_seen; unknown models are inserted with lifecycle unknown and produce a data quality record per FR-MODEL-006 once the recording service from subtask 4 exists). Ingest policy setting registry_unknown_provider_policy accept|reject (default accept, marked unregistered per FR-PROVIDER-005). Registration of a new provider is DB plus seed data only, never dashboard code (FR-PROVIDER-007). Wire the service into app.py startup alongside the existing pricing seeding. Test strategy: unit tests for seeding idempotency (second startup does not duplicate), alias resolution merging core and DB aliases, unknown-model observation lifecycle, and policy accept/reject behavior; integration test that v1 ingest of an anthropic event still works and observes the model in the registry.\n<info added on 2026-07-18T15:33:27.474Z>\nAdded `services/registries.py` implementing `ProviderRegistryService` (normalize merges core normalizer + DB aliases; resolve applies accept/reject policy, registers known core seeds even without startup seeding, marks unknowns `registered=False` per FR-PROVIDER-005) and `ModelRegistryService` (observe: known model advances `last_seen` tz-robustly, unknown model inserted `lifecycle=unknown` per FR-MODEL-004; returns `newly_observed` signal for the 61.4 data-quality recorder; never clobbers `lifecycle`/`capabilities` per FR-MODEL-007). `seed_default_providers` is idempotent/non-clobbering (get-or-create) per FR-PROVIDER-008. Config: `registry_unknown_provider_policy` is `Literal[accept, reject]` with default `accept`. Wired provider seeding into `app.py` startup; wired model observation + provider policy into `IngestService` via optional injected services (existing direct-construction unit tests unaffected; API deps inject them). `reject` policy raises `ValidationError` → 400. SQLite tz note: `DateTime(timezone=True)` drops `tzinfo`; added `_as_utc` coercion for `last_seen` comparison (dialect-robust, Postgres unaffected). Tests (`test_registry_services.py`, 15 tests): seeding idempotency + edit-preservation, core + DB alias resolution, policy accept/reject/seed-fallback, model observe lifecycle (insert/advance/no-regress/lifecycle-preserved), and v1 anthropic HTTP ingest still 200 + observes model (unknown) + provider registered. Docs: updated `database.md` registry Population section. Gates: full server suite 196 passed / 11 skipped, ruff clean, mypy strict clean (52 files incl. test), trivy repo-root scan clean (uv.lock 0 vulns). Note: trivy must run from repo root with all scanners; `apps/server` alone has no lockfile so vuln scanning no-ops (shows `-` Not scanned, not `0` Clean).\n</info added on 2026-07-18T15:33:27.474Z>",
+            "status": "done",
             "dependencies": [
               "61.2"
             ],
             "parentTaskId": 61,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T15:33:53.722Z"
           },
           {
             "id": 4,
@@ -2357,7 +2358,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T11:59:57.272Z"
+        "updatedAt": "2026-07-18T15:33:53.722Z"
       },
       {
         "id": "62",
@@ -3514,7 +3515,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T11:59:57.273Z",
+      "lastModified": "2026-07-18T15:33:53.724Z",
       "taskCount": 71,
       "completedCount": 60,
       "tags": [

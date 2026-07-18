@@ -24,8 +24,12 @@ from tokemetry_server.db.upsert import (
     machine_upsert,
     usage_events_upsert,
 )
+from tokemetry_server.services.registries import (
+    ModelRegistryService,
+    ProviderRegistryService,
+)
 from tokemetry_server.services.rollups import refresh_rollups_for_days
-from tokemetry_server.services.validation import validate_event, validate_limit
+from tokemetry_server.services.validation import ValidationError, validate_event, validate_limit
 
 #: Callable computing an event's USD cost, or None when no price is known.
 CostFn = Callable[[UsageEvent], "Decimal | None"]
@@ -59,6 +63,9 @@ class IngestService:
         dialect_name: str,
         cost_fn: CostFn | None = None,
         roots: Sequence[str] = DEFAULT_ROOTS,
+        providers: ProviderRegistryService | None = None,
+        models_registry: ModelRegistryService | None = None,
+        unknown_provider_policy: str = "accept",
     ) -> None:
         """Create the service.
 
@@ -67,11 +74,22 @@ class IngestService:
             dialect_name: ``"postgresql"`` or ``"sqlite"`` for upsert syntax.
             cost_fn: Optional per-event cost function.
             roots: Project root markers for directory-to-project grouping.
+            providers: Optional provider registry service; when supplied,
+                ingest applies the unknown-provider policy and records the
+                provider in the registry.
+            models_registry: Optional model registry service; when supplied,
+                ingest observes each event's native model (advancing
+                ``last_seen`` or inserting an unknown model).
+            unknown_provider_policy: ``"accept"`` or ``"reject"``; only
+                consulted when ``providers`` is supplied.
         """
         self._session = session
         self._dialect = dialect_name
         self._cost_fn = cost_fn
         self._roots = roots
+        self._providers = providers
+        self._models_registry = models_registry
+        self._unknown_provider_policy = unknown_provider_policy
 
     async def ingest_events(
         self, machine: MachineInfo, events: list[UsageEvent]
@@ -80,6 +98,7 @@ class IngestService:
         for event in events:
             validate_event(event)
         deduped = _dedupe_keep_max(events)
+        await self._apply_registry_policy(deduped)
         await self._touch_machine(machine)
 
         rows = [self._event_row(event, machine.name) for event in deduped]
@@ -96,6 +115,38 @@ class IngestService:
             accepted=len(deduped),
             duplicates_merged=len(events) - len(deduped),
         )
+
+    async def _apply_registry_policy(self, events: list[UsageEvent]) -> None:
+        """Enforce the provider policy and observe models for ``events``.
+
+        No-op unless the registry services were injected. Provider resolution
+        runs per distinct provider (rejecting the whole batch when the policy
+        forbids an unregistered one); model observation runs per distinct
+        ``(provider, native_model)`` at that pair's newest timestamp.
+        """
+        if self._providers is None and self._models_registry is None:
+            return
+
+        latest: dict[tuple[str, str], datetime] = {}
+        for event in events:
+            key = (event.provider, event.native_model)
+            if key not in latest or event.ts > latest[key]:
+                latest[key] = event.ts
+
+        if self._providers is not None:
+            for provider in {provider for provider, _ in latest}:
+                resolution = await self._providers.resolve(
+                    provider, self._unknown_provider_policy
+                )
+                if not resolution.accepted:
+                    raise ValidationError(
+                        f"provider '{provider}' is not registered and the "
+                        "unknown-provider policy is 'reject'"
+                    )
+
+        if self._models_registry is not None:
+            for (provider, native_model), ts in latest.items():
+                await self._models_registry.observe(provider, native_model, ts)
 
     async def ingest_limits(
         self, machine: MachineInfo, snapshots: list[LimitSnapshot]

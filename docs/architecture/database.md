@@ -37,6 +37,25 @@ is one of `active`, `deprecated`, `retired`, `unknown` (FR-MODEL-004), validated
 in the service layer rather than by a database enum so the schema stays
 dialect-portable.
 
+**Population** (`services/registries.py`):
+
+- `seed_default_providers` runs at startup and inserts the built-in
+  anthropic/openai/zai descriptors on missing ids only (FR-PROVIDER-008) --
+  idempotent and non-clobbering, so UI edits survive a restart.
+- `ProviderRegistryService.normalize` resolves a raw provider string using the
+  core normalizer merged with DB aliases; `resolve` applies the
+  `registry_unknown_provider_policy` setting (`accept` marks an unknown
+  provider `registered=False` per FR-PROVIDER-005; `reject` refuses the batch).
+  A known core seed is always registered even if startup seeding has not run.
+- `ModelRegistryService.observe` is called during event ingest for each distinct
+  `(provider, native_model)`: a known model's `last_seen` advances, an unknown
+  model is inserted with lifecycle `unknown`. The data-quality record for a
+  newly observed unknown model is emitted by the recording service (subtask
+  61.4); the observation already surfaces the `newly_observed` signal.
+
+Registering a new provider is DB plus seed-data work only, never dashboard code
+(FR-PROVIDER-007).
+
 ## Migrations
 
 Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
