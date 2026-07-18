@@ -93,9 +93,35 @@ deliberate.
 | FR-EVENT-017 success and outcome separate | Implemented. |
 | FR-EVENT-018 source identity fields | Implemented (`SourceRef`, required). |
 | FR-EVENT-019 optional gateway-neutral routing | Implemented (`Routing`). |
-| FR-EVENT-020 bounded dimensions | Modeled (`dimensions`); bounds enforced in task 62.2. |
+| FR-EVENT-020 bounded dimensions | Implemented (allowlist + bounds in `services/privacy.py`). |
 | FR-EVENT-021 no content fields | Implemented (asserted by test). |
 | FR-EVENT-024 zero-token failed attempts | Implemented (all counters optional). |
 | FR-EVENT-025 provenance values | Implemented (extended `Provenance`). |
 | FR-OTEL-001 trace/span linkage | Implemented (`trace_id`/`span_id`/`parent_span_id`). |
 | FR-INGEST-012 OpenAPI/JSON schema | Implemented (`usage_event_json_schema`); endpoint in task 62.12. |
+
+## Privacy validation (task 62.2)
+
+`tokemetry_server.services.privacy` is the strict server-side gate that keeps
+the content-free guarantee (FR-EVENT-022, FR-PRIV-001/002). `PrivacyValidator`
+takes a `PrivacyPolicy` and returns a `PrivacyResult` (a possibly-cleaned event,
+a tuple of fatal `ValidationIssue` records, and the list of stripped paths).
+Each open container has one dedicated control:
+
+| Container | Control | Requirement |
+|---|---|---|
+| `extra` | Recursive content-key scan; top-level keys bounded to the event provider plus allowed namespaces (default `gateway`). | FR-EVENT-022, FR-PROVIDER-006 |
+| `dimensions` | Allowlist (default `team`, `cost_center`, `environment`) plus bounds: 16 keys, 64-char keys, 256-char values. | D-004, FR-EVENT-020 |
+| `tool_histogram` | Gated by `tool_names_enabled` (default off); when on, bounded to 32 names of 64 chars with non-negative counts. | D-005 |
+| `routing` | Fixed-schema model (`extra=forbid`); no free-form keys to scan. | FR-EVENT-019 |
+| whole event | Maximum serialized size (default 32 KiB) and JSON depth (default 8). | FR-EVENT-028, NFR-SEC-004 |
+
+The content-key scan flags any key whose alphanumeric-only, lowercased form
+contains a content token (`prompt`, `response`, `message`, `content`, `text`,
+`arguments`, `path`, `code`, `snippet`, `completion`, `body`). Matching is
+deliberately aggressive -- a benign field that merely contains one of these is
+rejected rather than risk leaking content. Under `mode="reject"` (default) each
+hit is a fatal issue; under `mode="strip"` the key is removed and the event
+rebuilt. A seeded fuzz test injects forbidden keys at random depths and asserts
+they are always caught or stripped (AC-011, AC-022). Settings-to-policy wiring
+lands with the ingest endpoints (task 62.6).

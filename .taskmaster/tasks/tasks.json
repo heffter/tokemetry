@@ -2392,13 +2392,14 @@
             "id": 2,
             "title": "Privacy validation layer with prohibited-key fuzzing",
             "description": "Server-side strict privacy enforcement for all v2 metadata.",
-            "details": "Add services/privacy.py implementing FR-EVENT-022 and FR-PRIV-001/002: a prohibited-key detector applied recursively to extra, dimensions, routing, and the tool histogram, rejecting or stripping (strict server policy setting privacy_mode reject|strip, default reject) keys that look like content (prompt, response, message, content, text, input_text, output_text, arguments, file_path, path, code, snippet, reasoning_content and variants); dimension allowlist enforcement per decision D-004 (configurable, defaults team, cost_center, environment; bounds 16 keys, key length 64, value length 256 per FR-EVENT-020); tool-name histogram gate per D-005 (server setting tool_names_enabled default false; when disabled any histogram is rejected; when enabled entries bounded to 32 names of 64 chars with integer counts); extra namespace bounding (top-level keys must be provider ids or gateway, size-capped); maximum serialized event size (default 32 KiB, configurable per FR-EVENT-028) and JSON depth limit (NFR-SEC-004). Violations produce structured field-path errors for the ingest error format. Test strategy: unit tests per rule; property-based prohibited-key fuzz tests (hypothesis) generating nested payloads with forbidden keys at random depths asserting rejection (FR-PRIV-012, AC-011, AC-022); performance sanity that validation of a 100-event batch stays well under the ingest budget.",
-            "status": "pending",
+            "details": "Add services/privacy.py implementing FR-EVENT-022 and FR-PRIV-001/002: a prohibited-key detector applied recursively to extra, dimensions, routing, and the tool histogram, rejecting or stripping (strict server policy setting privacy_mode reject|strip, default reject) keys that look like content (prompt, response, message, content, text, input_text, output_text, arguments, file_path, path, code, snippet, reasoning_content and variants); dimension allowlist enforcement per decision D-004 (configurable, defaults team, cost_center, environment; bounds 16 keys, key length 64, value length 256 per FR-EVENT-020); tool-name histogram gate per D-005 (server setting tool_names_enabled default false; when disabled any histogram is rejected; when enabled entries bounded to 32 names of 64 chars with integer counts); extra namespace bounding (top-level keys must be provider ids or gateway, size-capped); maximum serialized event size (default 32 KiB, configurable per FR-EVENT-028) and JSON depth limit (NFR-SEC-004). Violations produce structured field-path errors for the ingest error format. Test strategy: unit tests per rule; property-based prohibited-key fuzz tests (hypothesis) generating nested payloads with forbidden keys at random depths asserting rejection (FR-PRIV-012, AC-011, AC-022); performance sanity that validation of a 100-event batch stays well under the ingest budget.\n<info added on 2026-07-18T20:37:35.436Z>\nImplemented privacy validation layer in `apps/server/src/tokemetry_server/services/privacy.py`: added `PrivacyValidator` and `PrivacyPolicy` (frozen dataclass with defaults matching decisions D-004/D-005) returning `PrivacyResult` containing the possibly-cleaned event, a tuple of fatal `ValidationIssue` records (with `field_path`, `code`, `message` per FR-INGEST-006), and stripped paths. Controls (one per open container): recursive content-key scan on `extra` only (rejects/strips keys whose alphanumeric-lowercased form contains `prompt`, `response`, `message`, `content`, `text`, `arguments`, `path`, `code`, `snippet`, `completion`, `body`) plus top-level namespace bounding to `provider` and `gateway`; dimension allowlist enforcement (`team`, `cost_center`, `environment`) with 16-key/64-char-key/256-char-value bounds; `tool_histogram` gated by `tool_names_enabled` (default `false`) with 32-name/64-char/non-negative integer bounds; whole-event max serialized size 32 KiB and JSON depth limit 8. Design decisions documented: content scan targets `extra` only (the sole free-form nested container); `dimensions` covered by allowlist, `routing` by fixed schema, `tool names` by the D-005 gate (scanning tool names for content tokens would defeat the gate). Default `mode=reject`; `mode=strip` removes content keys and rebuilds via `model_copy`. Settings-to-policy wiring deferred to subtask 62.6. Tests added in `apps/server/tests/unit/test_privacy.py`: 21 tests including a seeded `stdlib-random` fuzz (300 iterations injecting forbidden keys at random depths; `hypothesis` not installed, used deterministic seeded generation) and a 100-event performance sanity check. Fixed mypy issue by casting the recursive scan result to `dict[str, Any]`. Gates passed: full `pytest` suite, `ruff` clean, `mypy` strict clean, `trivy` no HIGH/CRITICAL issues.\n</info added on 2026-07-18T20:37:35.436Z>",
+            "status": "done",
             "dependencies": [
               "62.1"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T20:38:10.830Z"
           },
           {
             "id": 3,
@@ -2526,7 +2527,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T20:22:02.304Z"
+        "updatedAt": "2026-07-18T20:38:10.830Z"
       },
       {
         "id": "63",
@@ -3521,7 +3522,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T20:22:02.305Z",
+      "lastModified": "2026-07-18T20:38:10.831Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [
