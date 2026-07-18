@@ -228,6 +228,37 @@ class IngestBatch(Base):
     request_id: Mapped[str | None] = mapped_column(String(64))
 
 
+class Source(Base):
+    """A reporting source: a collector, gateway, SDK, importer, or manual actor.
+
+    Source identity is distinct from machine identity (FR-SOURCE-003): one
+    machine may host several sources (FR-SOURCE-009), so the grain is
+    ``(type, name, instance_id)``. Auto-registered from v2 payloads on first
+    sight (D-011); ``last_seen``/``version`` advance thereafter. ``token_label``
+    and ``revoked`` support least-privilege ingest; revoking a source stops
+    accepting its events but never deletes history (FR-SOURCE-012).
+    ``billing_mode`` carries the D-007 cost split (``api_billed`` vs
+    ``subscription``).
+    """
+
+    __tablename__ = "sources"
+    __table_args__ = (
+        UniqueConstraint("type", "name", "instance_id", name="sources_identity"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    type: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(200))
+    version: Mapped[str | None] = mapped_column(String(50))
+    instance_id: Mapped[str | None] = mapped_column(String(200))
+    machine: Mapped[str | None] = mapped_column(String(200))
+    token_label: Mapped[str | None] = mapped_column(String(200))
+    billing_mode: Mapped[str] = mapped_column(String(20), default="api_billed")
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class LimitSnapshot(Base):
     """Utilization of one provider limit window at one point in time."""
 

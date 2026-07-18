@@ -27,6 +27,7 @@ _EXPECTED_TABLES = {
     "usage_event_revisions",
     "logical_requests",
     "ingest_batches",
+    "sources",
     "alert_rules",
     "alert_events",
     "api_tokens",

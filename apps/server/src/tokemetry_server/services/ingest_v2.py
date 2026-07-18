@@ -38,6 +38,7 @@ from tokemetry_server.services.data_quality import DataQualityService
 from tokemetry_server.services.logical_requests import LogicalRequestService
 from tokemetry_server.services.privacy import PrivacyValidator
 from tokemetry_server.services.revisions import ConflictMode, Outcome, RevisionEngine
+from tokemetry_server.services.sources import SourceRegistryService
 
 #: Default cap on the number of ids echoed back per list (FR-INGEST-009).
 DEFAULT_MAX_RETURNED_IDS = 1000
@@ -99,13 +100,13 @@ class IngestV2Service:
         self._privacy = privacy or PrivacyValidator()
         self._engine = RevisionEngine(session, data_quality)
         self._logical_requests = LogicalRequestService(session)
+        self._sources = SourceRegistryService(session)
         self._max_returned_ids = max_returned_ids
 
     async def ingest(
         self,
         events: list[UsageEventV2],
         *,
-        source_id: int | None = None,
         token_label: str | None = None,
         request_id: str | None = None,
         mode: ConflictMode = ConflictMode.REVISION,
@@ -114,6 +115,10 @@ class IngestV2Service:
         return_ids: bool = False,
     ) -> IngestV2Result:
         """Validate and persist ``events``; return per-outcome counts.
+
+        Each event's ``source`` object is resolved to a ``sources`` row
+        (auto-registered on first sight, task 63.1) and stamped onto the ledger
+        row as ``source_id``.
 
         Raises:
             BatchValidationError: If any event fails privacy validation in
@@ -124,7 +129,12 @@ class IngestV2Service:
         counts: Counter[Outcome] = Counter()
         accepted_ids: list[str] = []
         updated_ids: list[str] = []
+        source_cache: dict[tuple[str, str, str | None], int] = {}
+        batch_source_id: int | None = None
         for event in cleaned:
+            source_id = await self._resolve_source(event, token_label, source_cache)
+            if batch_source_id is None:
+                batch_source_id = source_id
             outcome = await self._engine.apply(
                 event,
                 mode=mode,
@@ -155,7 +165,7 @@ class IngestV2Service:
         self._session.add(
             models.IngestBatch(
                 batch_id=batch_id,
-                source_id=source_id,
+                source_id=batch_source_id,
                 token_label=token_label,
                 accepted=counts[Outcome.ACCEPTED],
                 updated=counts[Outcome.UPDATED],
@@ -179,6 +189,25 @@ class IngestV2Service:
             updated_ids=capped_updated,
             ids_truncated=truncated_a or truncated_u,
         )
+
+    async def _resolve_source(
+        self,
+        event: UsageEventV2,
+        token_label: str | None,
+        cache: dict[tuple[str, str, str | None], int],
+    ) -> int:
+        """Resolve an event's source to a source id, caching per distinct source."""
+        key = (str(event.source.type), event.source.name, event.source.instance_id)
+        source_id = cache.get(key)
+        if source_id is None:
+            source_id = await self._sources.resolve_or_create(
+                event.source,
+                event.ts_started,
+                machine=event.machine,
+                token_label=token_label,
+            )
+            cache[key] = source_id
+        return source_id
 
     def _validate(self, events: list[UsageEventV2]) -> list[UsageEventV2]:
         """Run privacy validation; raise on structural failure, else clean."""
