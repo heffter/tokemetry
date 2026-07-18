@@ -235,6 +235,26 @@ class ModelAlias(Base):
     rule_version: Mapped[int] = mapped_column(Integer, default=1)
 
 
+class DataQualityEvent(Base):
+    """A recorded data-quality anomaly (unknown model, drift, skew, ...).
+
+    A sink for ingest and pipeline anomalies that should surface in the UI and
+    alerts without failing ingest. Bursts are collapsed by the recording
+    service: one open (``resolved=False``) row per ``(kind, subject)`` within a
+    configurable window, so a recurring issue is one row, not thousands.
+    """
+
+    __tablename__ = "data_quality_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(50), index=True)
+    subject: Mapped[str] = mapped_column(String(500))
+    detail: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    source_id: Mapped[str | None] = mapped_column(String(200))
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class AlertRule(Base):
     """A configurable alert condition and its delivery settings."""
 

@@ -24,6 +24,7 @@ from tokemetry_server.db.upsert import (
     machine_upsert,
     usage_events_upsert,
 )
+from tokemetry_server.services.data_quality import DataQualityService
 from tokemetry_server.services.registries import (
     ModelRegistryService,
     ProviderRegistryService,
@@ -65,6 +66,7 @@ class IngestService:
         roots: Sequence[str] = DEFAULT_ROOTS,
         providers: ProviderRegistryService | None = None,
         models_registry: ModelRegistryService | None = None,
+        data_quality: DataQualityService | None = None,
         unknown_provider_policy: str = "accept",
     ) -> None:
         """Create the service.
@@ -80,6 +82,9 @@ class IngestService:
             models_registry: Optional model registry service; when supplied,
                 ingest observes each event's native model (advancing
                 ``last_seen`` or inserting an unknown model).
+            data_quality: Optional data-quality sink; when supplied, ingest
+                records unknown providers/models fire-and-forget (a recording
+                failure never rejects otherwise-valid events).
             unknown_provider_policy: ``"accept"`` or ``"reject"``; only
                 consulted when ``providers`` is supplied.
         """
@@ -89,6 +94,7 @@ class IngestService:
         self._roots = roots
         self._providers = providers
         self._models_registry = models_registry
+        self._data_quality = data_quality
         self._unknown_provider_policy = unknown_provider_policy
 
     async def ingest_events(
@@ -122,19 +128,24 @@ class IngestService:
         No-op unless the registry services were injected. Provider resolution
         runs per distinct provider (rejecting the whole batch when the policy
         forbids an unregistered one); model observation runs per distinct
-        ``(provider, native_model)`` at that pair's newest timestamp.
+        ``(provider, native_model)`` at that pair's newest timestamp. Unknown
+        providers and models are recorded as data-quality events
+        fire-and-forget (FR-MODEL-006), never failing accepted ingest.
         """
         if self._providers is None and self._models_registry is None:
             return
 
         latest: dict[tuple[str, str], datetime] = {}
+        provider_ts: dict[str, datetime] = {}
         for event in events:
             key = (event.provider, event.native_model)
             if key not in latest or event.ts > latest[key]:
                 latest[key] = event.ts
+            if event.provider not in provider_ts or event.ts > provider_ts[event.provider]:
+                provider_ts[event.provider] = event.ts
 
         if self._providers is not None:
-            for provider in {provider for provider, _ in latest}:
+            for provider, ts in provider_ts.items():
                 resolution = await self._providers.resolve(
                     provider, self._unknown_provider_policy
                 )
@@ -143,10 +154,21 @@ class IngestService:
                         f"provider '{provider}' is not registered and the "
                         "unknown-provider policy is 'reject'"
                     )
+                if not resolution.registered and self._data_quality is not None:
+                    await self._data_quality.record_safe(
+                        "unknown_provider", resolution.provider, ts, detail={"raw": provider}
+                    )
 
         if self._models_registry is not None:
             for (provider, native_model), ts in latest.items():
-                await self._models_registry.observe(provider, native_model, ts)
+                observation = await self._models_registry.observe(provider, native_model, ts)
+                if observation.newly_observed and self._data_quality is not None:
+                    await self._data_quality.record_safe(
+                        "unknown_model",
+                        f"{provider}/{native_model}",
+                        ts,
+                        detail={"provider": provider, "native_model": native_model},
+                    )
 
     async def ingest_limits(
         self, machine: MachineInfo, snapshots: list[LimitSnapshot]

@@ -2311,13 +2311,14 @@
             "id": 4,
             "title": "data_quality_events table and recording service",
             "description": "Create the data quality ledger that records unknown providers, unknown models, schema drift, conflicts, and unpriced usage.",
-            "details": "Add data_quality_events table (id autoincrement, kind, subject, detail JSONType, source_id nullable, ts, resolved bool default false) with indexes on kind and ts, via Alembic migration. Kinds initially: unknown_provider, unknown_model, schema_drift, sequence_conflict, unpriced_usage, limit_source_failure, clock_skew. Add services/data_quality.py with a record() helper that deduplicates bursts (one open record per kind plus subject within a configurable window rather than one per event) and a query service for the future /api/v2/data-quality endpoint and alerts. Recording is fire-and-forget from ingest paths: a data quality failure must never reject otherwise valid ingest. This subtask provides the sink used by FR-MODEL-006, FR-IDEMP-008, FR-PRICE-022, FR-LIMIT-013, and Epic TOK-9. Test strategy: unit tests for dedup-window behavior, kind coverage, and resolution flagging; integration test that recording from inside an ingest transaction does not roll back accepted events (NFR-REL-008 pattern); migration tests both engines.",
-            "status": "pending",
+            "details": "Add data_quality_events table (id autoincrement, kind, subject, detail JSONType, source_id nullable, ts, resolved bool default false) with indexes on kind and ts, via Alembic migration. Kinds initially: unknown_provider, unknown_model, schema_drift, sequence_conflict, unpriced_usage, limit_source_failure, clock_skew. Add services/data_quality.py with a record() helper that deduplicates bursts (one open record per kind plus subject within a configurable window rather than one per event) and a query service for the future /api/v2/data-quality endpoint and alerts. Recording is fire-and-forget from ingest paths: a data quality failure must never reject otherwise valid ingest. This subtask provides the sink used by FR-MODEL-006, FR-IDEMP-008, FR-PRICE-022, FR-LIMIT-013, and Epic TOK-9. Test strategy: unit tests for dedup-window behavior, kind coverage, and resolution flagging; integration test that recording from inside an ingest transaction does not roll back accepted events (NFR-REL-008 pattern); migration tests both engines.\n<info added on 2026-07-18T15:44:39.190Z>\nAdded data_quality_events table (id PK, kind indexed, subject, detail JSON, source_id nullable, ts indexed, resolved bool) via migration 0005 (down_revision 0004; index names match naming convention). services/data_quality.py: DATA_QUALITY_KINDS constant (unknown_provider/unknown_model/schema_drift/sequence_conflict/unpriced_usage/limit_source_failure/clock_skew); record() validates kind and collapses bursts (one open record per (kind,subject) within dedup window, advancing ts) - unknown kind raises ValueError; record_safe() wraps write in session.begin_nested() SAVEPOINT and swallows all errors so DQ failure never rolls back accepted ingest (NFR-REL-008); resolve_open() flags resolved; open_events(kind=None) query for future /api/v2/data-quality + alerts. Config: data_quality_dedup_window_seconds default 3600. Wired into IngestService (optional injected DataQualityService): records unknown_provider when resolve marks registered=False, unknown_model when observe.newly_observed (completes the deferred FR-MODEL-006 hook from 61.3), both via record_safe. deps.py injects it with the window from settings. tz: _as_utc coercion for window comparison (SQLite drops tzinfo). Tests (test_data_quality.py, 11): record/kinds/unknown-kind-rejected, dedup within/beyond window + distinct subjects, resolution flagging + reopen-after-resolve, open_events filter, record_safe swallow + persist, and HTTP ingest of a novel model records unknown_model while keeping the accepted event. Extended test_migrations expected tables with data_quality_events. Docs: database.md table row + Data-quality section + migrations-through-0005. Gates: full suite 207 passed / 11 skipped, ruff clean, mypy strict clean (54 files), trivy repo-root clean.\n</info added on 2026-07-18T15:44:39.190Z>",
+            "status": "done",
             "dependencies": [
               "61.2"
             ],
             "parentTaskId": 61,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T15:44:59.331Z"
           },
           {
             "id": 5,
@@ -2358,7 +2359,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T15:33:53.722Z"
+        "updatedAt": "2026-07-18T15:44:59.331Z"
       },
       {
         "id": "62",
@@ -3515,7 +3516,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T15:33:53.724Z",
+      "lastModified": "2026-07-18T15:44:59.332Z",
       "taskCount": 71,
       "completedCount": 60,
       "tags": [

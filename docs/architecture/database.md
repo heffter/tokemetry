@@ -22,6 +22,7 @@ directly; the only dialect-specific element is the JSON column type
 | `providers` | `id` (lowercase) | Provider registry: display name, aliases, pricing strategy, limit semantics, supported dimensions, `registered` flag. |
 | `models` | PK `(provider, native_model_id)` | Model registry: `lifecycle` enum-as-string, `capabilities` JSON, `first_seen`/`last_seen` (last_seen indexed). |
 | `model_aliases` | `id`, unique `(provider, alias)` | Maps a provider-specific model spelling to a canonical model id; `rule_version` records the ruleset. |
+| `data_quality_events` | `id` (indexes on `kind`, `ts`) | Pipeline-anomaly sink: `kind`, `subject`, `detail` JSON, nullable `source_id`, `resolved` flag. |
 
 Money columns use `Numeric(20, 10)` for exact micro-USD arithmetic;
 timestamps are `DateTime(timezone=True)`.
@@ -56,14 +57,35 @@ dialect-portable.
 Registering a new provider is DB plus seed-data work only, never dashboard code
 (FR-PROVIDER-007).
 
+### Data-quality events
+
+`data_quality_events` (`services/data_quality.py`) is a sink for pipeline
+anomalies -- `unknown_provider`, `unknown_model`, `schema_drift`,
+`sequence_conflict`, `unpriced_usage`, `limit_source_failure`, `clock_skew` --
+that should surface in the UI and alerts without failing ingest. It backs
+FR-MODEL-006, FR-IDEMP-008, FR-PRICE-022, FR-LIMIT-013, and Epic TOK-9.
+
+- **Burst dedup**: `record` keeps at most one open (`resolved=False`) row per
+  `(kind, subject)` within `data_quality_dedup_window_seconds` (default one
+  hour); a recurrence advances the open row's timestamp instead of inserting a
+  new one. After the window lapses, or once resolved, a recurrence opens a
+  fresh row so recurring issues stay visible over time.
+- **Fire-and-forget**: ingest calls `record_safe`, which wraps the write in a
+  SAVEPOINT and swallows any error, so a recording failure never rolls back
+  accepted events (NFR-REL-008). Ingest records `unknown_provider` /
+  `unknown_model` this way when the registry services observe them.
+- `open_events` / `resolve_open` back the future `/api/v2/data-quality`
+  endpoint and alert queries.
+
 ## Migrations
 
 Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
 `upgrade_to_head(sync_url)` / `downgrade_to_base(sync_url)` for server
 startup and tests. Alembic runs with a synchronous driver
 (`postgresql+psycopg` or `sqlite`) derived from the async application URL by
-`Settings.sync_database_url`. Migrations are hand-authored (through `0004`,
-which adds the registry tables) and kept in sync with the ORM by a drift test
+`Settings.sync_database_url`. Migrations are hand-authored (through `0005`,
+which adds the registry and data-quality tables) and kept in sync with the ORM
+by a drift test
 (`test_migration_matches_orm_metadata`) that reflects the migrated schema
 and compares columns against `Base.metadata`.
 

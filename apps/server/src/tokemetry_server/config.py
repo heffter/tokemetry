@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     #: provider is never silently lost before its adapter is registered.
     registry_unknown_provider_policy: Literal["accept", "reject"] = Field(default="accept")
 
+    #: Window over which repeated data-quality anomalies of the same kind and
+    #: subject collapse onto a single open record (seconds). Larger values mean
+    #: fewer rows for a persistent issue; the default is one hour.
+    data_quality_dedup_window_seconds: float = Field(default=3600.0, gt=0)
+
     @property
     def project_root_markers(self) -> tuple[str, ...]:
         """Parse :attr:`project_roots` into a tuple of marker segments."""

@@ -20,6 +20,7 @@ _EXPECTED_TABLES = {
     "providers",
     "models",
     "model_aliases",
+    "data_quality_events",
     "alert_rules",
     "alert_events",
     "api_tokens",
