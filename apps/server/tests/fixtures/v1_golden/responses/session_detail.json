@@ -1,0 +1,37 @@
+{
+  "events": [
+    {
+      "cache_read_tokens": 2000,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 100,
+      "cost_usd": "0.0081250000",
+      "input_tokens": 800,
+      "model": "claude-opus-4-5",
+      "output_tokens": 100,
+      "total_tokens": 3000,
+      "ts": "<ts>"
+    },
+    {
+      "cache_read_tokens": 500,
+      "cache_write_long_tokens": 200,
+      "cache_write_short_tokens": 0,
+      "cost_usd": "0.0234500000",
+      "input_tokens": 1000,
+      "model": "claude-opus-4-5",
+      "output_tokens": 648,
+      "total_tokens": 2348,
+      "ts": "<ts>"
+    }
+  ],
+  "machine": "box-1",
+  "message_count": 2,
+  "project": "proj-a",
+  "session_id": "sess-a",
+  "stats": {
+    "cache_hit_rate": 0.5813953488372093,
+    "context_growth": 1.2776831345826236,
+    "inflection_index": null,
+    "tokens_per_turn": 2674.0
+  },
+  "total_tokens": 5348
+}

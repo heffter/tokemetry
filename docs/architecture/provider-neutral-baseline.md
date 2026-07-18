@@ -22,7 +22,7 @@ Load-bearing v1 behaviors that later epics MUST preserve are tagged inline as
 | 1. Data model and dedupe semantics | 60.1 | Complete |
 | 2. Ingest, query, and collector behavior | 60.2 | Complete |
 | 3. Pricing, cost, rollups, and dashboard assumptions | 60.3 | Complete |
-| 4. V1 compatibility contract and golden wire fixtures | 60.4 | Pending |
+| 4. V1 compatibility contract and golden wire fixtures | 60.4 | Complete |
 | 5. Migration constraints and test-to-epic mapping | 60.5 | Pending |
 
 ---
@@ -838,8 +838,96 @@ expected to evolve), but the API shapes they depend on are.
 
 ## 4. V1 compatibility contract and golden wire fixtures
 
-_Pending - subtask 60.4. Will consolidate all [V1-LOCK] items above into an
-explicit, testable contract and capture golden wire fixtures + snapshot tests._
+This section states the v1 wire contract that every later epic (TOK-2 .. TOK-12)
+must preserve, and points to its executable form.
+
+### 4.1 The compatibility rule (PRD Section 10, Migration Phases)
+
+**The v1 ingest and query endpoints stay wire-identical until a formal
+deprecation policy exists (Migration Phase 7).** Per PRD Section 10, the v2
+service path maps incoming v1 events into v2 rows and applies the legacy
+keep-max-output rule as a documented compatibility conflict-resolution mode
+(FR-IDEMP-012), and v1 events map to v2 with `event_kind = "attempt"` and
+compatibility defaults (FR-EVENT-023). Until Phase 7:
+
+- No v1 request field may be removed, renamed, retyped, or made newly required.
+- New v2 fields must be optional on the v1 wire models (which stay
+  `extra="forbid"`, so a v1 collector's payload is accepted verbatim).
+- No v1 response field may be removed, renamed, or retyped; response envelopes
+  keep their shape.
+- Status codes and error semantics are unchanged.
+- The keep-max-output dedupe outcome is unchanged on v1 endpoints.
+
+### 4.2 Executable contract: the golden suite (AC-001)
+
+The prose above is enforced by `apps/server/tests/integration/test_v1_golden.py`
+against fixtures in `apps/server/tests/fixtures/v1_golden/`. This suite is the
+executable form of Epic TOK-1 AC-001 and **runs unchanged through every later
+epic; any diff is a compatibility break**.
+
+- **Ingest fixtures**: `ingest_events.json` (8 events including a three-line
+  `req_dup` keep-max group and case/worktree project variants that fold to one
+  group), `ingest_limits.json` (all four Anthropic windows), and
+  `ingest_bootstrap.json` (two daily aggregates). Fixed timestamps keep
+  date-based grouping deterministic.
+- **Byte-stable snapshots** (`responses/*.json`) for the data-driven endpoints:
+  `usage` grouped by `day`/`provider`/`model`/`machine`/`project`/`session`,
+  `sessions` list, session detail, `limits/current`, `summary/overview`, `cost`.
+  Responses are normalized before comparison: ISO-8601 datetimes are masked to
+  `"<ts>"`, clock-derived numerics (`age_seconds`) to `"<volatile>"`, and
+  unordered object-lists are canonicalized. Value/membership changes are still
+  caught; only pure reordering of an unordered collection is tolerated.
+- **Structural invariants** for the inherently now-relative endpoints
+  (`summary/now`, `limits/history`, `blocks`): required keys and types are
+  asserted rather than exact values, so the checks stay valid as the fixed-date
+  fixtures age.
+- **Regeneration** after an *intended* contract change: run with `WRITE_GOLDEN=1`
+  and review the diff by hand before committing.
+
+Verified: the suite passes deterministically on repeated runs, and a deliberate
+one-field mutation of a golden fails loudly (proven during 60.4, then reverted).
+
+### 4.3 Dedupe outcome semantics (locked)
+
+The `seeded_client` fixture asserts the exact ingest response counts, locking the
+`IngestResult` contract:
+
+- Events: the 8-event batch with a 3-line `req_dup` group returns
+  `{"accepted": 6, "duplicates_merged": 2}` - in-batch collapse keeps the
+  max-output row (`output_tokens = 648`, not the last or the sum). See Section
+  1.3.
+- Limits: `{"accepted": 4, "duplicates_merged": 0}` (append-only, no dedupe).
+- Bootstrap: `{"accepted": 2, "duplicates_merged": 0}`.
+
+### 4.4 Consolidated [V1-LOCK] inventory
+
+The load-bearing behaviors tagged **[V1-LOCK]** throughout Sections 1-3, gathered
+for reference. Each is either asserted by the golden suite or by an existing
+integration test.
+
+| # | Locked behavior | Section |
+| --- | --- | --- |
+| 1 | Composite `usage_events` PK `(provider, event_id)` as the idempotency key | 1.2 |
+| 2 | Three-layer keep-max-output dedupe; later lower-output snapshot never wins | 1.3 |
+| 3 | `event_id = requestId or message.id` precedence | 1.3 |
+| 4 | `daily_rollups` unique grain + `''` sentinels for absent machine/model/project | 1.2, 3.4 |
+| 5 | `pricing` unique grain `(provider, model, effective_date)` | 1.2 |
+| 6 | `provenance` is a free `String(30)` (incl. `"derived"`), not enum-constrained | 1.4 |
+| 7 | Constraint/index naming convention (migration-stable) | 1.1 |
+| 8 | `sessions` table present but unpopulated by ingest | 1.2 |
+| 9 | Ingest batch caps 5000 / 1000 / 20000; wire models `extra="forbid"` | 2.1 |
+| 10 | Validation caps: 10e9 token, 2h clock skew, 1000 utilization; whole-batch reject | 2.2 |
+| 11 | `IngestResult` shape `{accepted, duplicates_merged}` | 2.1, 4.3 |
+| 12 | Error contract: schema/type -> 422, sanity failure -> 400, auth -> 401 | 2.1, 2.3 |
+| 13 | Bearer auth on all routes; bootstrap-token path; WS `?token=` (close 1008) | 2.3 |
+| 14 | 16 authenticated query endpoints with their filter dimensions | 2.4 |
+| 15 | WebSocket broadcast message shapes; best-effort delivery | 2.5 |
+| 16 | Collector wire format mirrors the server ingest schemas exactly | 2.6.7 |
+| 17 | Collector offset/dedupe at-least-once safety model | 2.6.2 |
+| 18 | Cost = 5-term dot product / 1e6, quantized to micro-USD | 3.2 |
+| 19 | Price date-suffix fallback + latest-not-after resolution | 3.1 |
+| 20 | Unknown model/provider -> NULL cost (never guessed/zero) -> unpriced alert | 3.2 |
+| 21 | Rollups replace-not-accumulate; whole-day recompute | 3.4 |
 
 ## 5. Migration constraints and test-to-epic mapping
 

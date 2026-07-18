@@ -1,0 +1,37 @@
+{
+  "machine": {
+    "name": "box-1",
+    "platform": "linux",
+    "collector_version": "0.1.0"
+  },
+  "snapshots": [
+    {
+      "provider": "anthropic",
+      "ts": "2026-07-09T09:00:00+00:00",
+      "window_kind": "five_hour",
+      "utilization_pct": 40.0,
+      "resets_at": "2026-07-09T14:00:00+00:00"
+    },
+    {
+      "provider": "anthropic",
+      "ts": "2026-07-09T09:00:00+00:00",
+      "window_kind": "seven_day",
+      "utilization_pct": 55.0,
+      "resets_at": "2026-07-16T09:00:00+00:00"
+    },
+    {
+      "provider": "anthropic",
+      "ts": "2026-07-09T09:00:00+00:00",
+      "window_kind": "seven_day_opus",
+      "utilization_pct": 30.0,
+      "resets_at": "2026-07-16T09:00:00+00:00"
+    },
+    {
+      "provider": "anthropic",
+      "ts": "2026-07-09T09:00:00+00:00",
+      "window_kind": "seven_day_sonnet",
+      "utilization_pct": 12.5,
+      "resets_at": "2026-07-16T09:00:00+00:00"
+    }
+  ]
+}

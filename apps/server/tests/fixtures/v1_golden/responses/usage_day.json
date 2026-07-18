@@ -1,0 +1,47 @@
+{
+  "buckets": [
+    {
+      "cache_read_tokens": 0,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cost_usd": null,
+      "input_tokens": 0,
+      "key": "2026-06-20",
+      "output_tokens": 0,
+      "total_tokens": 123456
+    },
+    {
+      "cache_read_tokens": 0,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cost_usd": null,
+      "input_tokens": 0,
+      "key": "2026-06-21",
+      "output_tokens": 0,
+      "total_tokens": 65000
+    },
+    {
+      "cache_read_tokens": 2500,
+      "cache_write_long_tokens": 200,
+      "cache_write_short_tokens": 100,
+      "cost_usd": "0.0315750000",
+      "input_tokens": 2100,
+      "key": "2026-07-09",
+      "output_tokens": 798,
+      "total_tokens": 5698
+    },
+    {
+      "cache_read_tokens": 4000,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cost_usd": "0.0210000000",
+      "input_tokens": 2500,
+      "key": "2026-07-10",
+      "output_tokens": 260,
+      "total_tokens": 6760
+    }
+  ],
+  "end": "2026-12-31",
+  "group_by": "day",
+  "start": "2026-01-01"
+}

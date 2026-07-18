@@ -1,0 +1,21 @@
+{
+  "machine": {
+    "name": "box-1",
+    "platform": "linux",
+    "collector_version": "0.1.0"
+  },
+  "aggregates": [
+    {
+      "provider": "anthropic",
+      "day": "2026-06-20",
+      "native_model": "claude-opus-4-5",
+      "total_tokens": 123456
+    },
+    {
+      "provider": "anthropic",
+      "day": "2026-06-21",
+      "native_model": "claude-sonnet-4-5",
+      "total_tokens": 65000
+    }
+  ]
+}

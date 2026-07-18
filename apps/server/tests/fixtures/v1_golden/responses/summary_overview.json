@@ -1,0 +1,13 @@
+{
+  "cache_read_tokens": 6500,
+  "cache_write_long_tokens": 200,
+  "cache_write_short_tokens": 100,
+  "cost_usd": "0.0525750000",
+  "first_event": "<ts>",
+  "input_tokens": 4600,
+  "last_event": "<ts>",
+  "machine_count": 1,
+  "output_tokens": 1058,
+  "session_count": 4,
+  "total_tokens": 200914
+}

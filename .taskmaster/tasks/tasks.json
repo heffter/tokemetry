@@ -2230,14 +2230,15 @@
             "id": 4,
             "title": "Capture V1 compatibility contract and golden wire fixtures",
             "description": "Freeze current v1 wire behavior as golden fixtures and snapshot tests that must pass for the whole program.",
-            "details": "Create a compatibility test layer that locks v1 behavior before any schema work: golden JSON fixtures for representative v1 ingest payloads (events with duplicates exercising keep-max, limits snapshots for all four Anthropic windows, bootstrap aggregates) and for the key v1 query responses (summary/now shape, usage grouped by each dimension, sessions list and detail, limits history, blocks). Store fixtures under apps/server/tests/fixtures/v1_golden/ and add snapshot tests (apps/server/tests/integration/test_v1_golden.py) that ingest the fixtures into a fresh database and assert byte-stable normalized responses (volatile fields like timestamps and request ids masked deterministically). These tests become the executable form of AC-001 and run unchanged through every later epic; any diff is a compatibility break. Document the contract prose in docs/architecture/provider-neutral-baseline.md: exact v1 wire schemas, status codes, dedupe outcome semantics (accepted plus duplicates_merged), and the rule that v1 endpoints stay wire-identical until a formal deprecation policy exists (Migration Phase 7). Test strategy: run the new golden suite twice against the current master to prove determinism; mutate one response field intentionally to prove the suite fails loudly; then revert.",
-            "status": "pending",
+            "details": "Create a compatibility test layer that locks v1 behavior before any schema work: golden JSON fixtures for representative v1 ingest payloads (events with duplicates exercising keep-max, limits snapshots for all four Anthropic windows, bootstrap aggregates) and for the key v1 query responses (summary/now shape, usage grouped by each dimension, sessions list and detail, limits history, blocks). Store fixtures under apps/server/tests/fixtures/v1_golden/ and add snapshot tests (apps/server/tests/integration/test_v1_golden.py) that ingest the fixtures into a fresh database and assert byte-stable normalized responses (volatile fields like timestamps and request ids masked deterministically). These tests become the executable form of AC-001 and run unchanged through every later epic; any diff is a compatibility break. Document the contract prose in docs/architecture/provider-neutral-baseline.md: exact v1 wire schemas, status codes, dedupe outcome semantics (accepted plus duplicates_merged), and the rule that v1 endpoints stay wire-identical until a formal deprecation policy exists (Migration Phase 7). Test strategy: run the new golden suite twice against the current master to prove determinism; mutate one response field intentionally to prove the suite fails loudly; then revert.\n<info added on 2026-07-18T11:13:10.006Z>\nBuilt the v1 wire-compatibility golden suite (executable AC-001) and wrote Section 4 contract prose.\n\nFixtures in `apps/server/tests/fixtures/v1_golden/`:\n- `ingest_events.json`: 8 events including a 3-line `req_dup` keep-max group, case/worktree project variants folding to 'Foo', priced Opus and unpriced Fable ops, spanning 2 days.\n- `ingest_limits.json`: covers all 4 Anthropic windows.\n- `ingest_bootstrap.json`: 2 daily aggregates on distinct earlier days.\nFixed timestamps ensure deterministic date grouping.\n\nTest in `apps/server/tests/integration/test_v1_golden.py`:\n- `seeded_client` fixture ingests all three fixtures.\n- Asserts dedupe outcome semantics: events `accepted=6`, `duplicates_merged=2` (output 648 winning); limits `accepted=4`; bootstrap `accepted=2`.\n- Byte-stable golden snapshots (`responses/*.json`) for: usage grouped by day/provider/model/machine/project/session, sessions list, session_detail, limits/current, summary/overview, cost.\n- Normalization masks ISO datetimes to `<ts>`, clock-derived `age_seconds` to `<volatile>`, and canonicalizes unordered object lists.\n- Structural-invariant assertions for now-relative `summary/now`, `limits/history`, and `blocks` (robust as fixtures age).\n- `WRITE_GOLDEN=1` regenerates snapshots.\n\nVerification:\n- Generated goldens and ran suite twice (deterministic, 14 passed).\n- Mutated `usage_model.total_tokens` intentionally; suite failed loudly on that endpoint.\n- Restored via `WRITE_GOLDEN`.\n- Full server integration suite: 124 passed.\n- Gates: `ruff` clean, `mypy strict` clean (fixed `json.loads` Any-return via typed binding), `trivy` vuln+secret clean on new files.\n\nKey finding: `limits/current` is partly now-relative (`age_seconds` from `int(now-ts)` and `roll_reset_forward`) → masked `age_seconds` rather than demoting to shape, keeping the window-taxonomy byte-locked.\n\nNo `.github/workflows` exists yet; suite lives in the standard pytest testpath (any future CI picks it up); documented as such.\n\nSection 4 prose includes:\n- Wire-identical-until-Phase-7 rule.\n- Golden suite as executable contract.\n- Dedupe outcome semantics.\n- Consolidated 21-row `[V1-LOCK]` inventory cross-referencing sections.\n</info added on 2026-07-18T11:13:10.006Z>",
+            "status": "done",
             "dependencies": [
               "60.1",
               "60.2"
             ],
             "parentTaskId": 60,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T11:13:29.153Z"
           },
           {
             "id": 5,
@@ -2254,7 +2255,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T10:56:06.034Z"
+        "updatedAt": "2026-07-18T11:13:29.153Z"
       },
       {
         "id": "61",
@@ -3509,7 +3510,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T10:56:06.035Z",
+      "lastModified": "2026-07-18T11:13:29.155Z",
       "taskCount": 71,
       "completedCount": 59,
       "tags": [
