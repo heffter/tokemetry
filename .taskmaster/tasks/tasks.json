@@ -2324,13 +2324,14 @@
             "id": 5,
             "title": "Registry API endpoints /api/v2/providers and /api/v2/models",
             "description": "First v2 read endpoints exposing registry metadata.",
-            "details": "Create apps/server api/v2/__init__.py with a v2 APIRouter and add api/v2/registries.py: GET /api/v2/providers (all registry metadata: id, display name, aliases, pricing strategy, limit semantics, supported dimensions, registered flag per FR-PROVIDER-010) and GET /api/v2/models (filterable by provider and lifecycle; each row returns provider, native_model_id, lifecycle, capabilities, first_seen, last_seen, aliases; responses provide native and normalized fields where both exist per FR-MODEL-010). Auth uses the existing require_token dependency now, migrating to query:read scope enforcement when Task 63 lands (note this handoff in code comment-free form via the task log, not code comments). Register the v2 router in app.py. Extend api/schemas.py or add api/v2/schemas.py for response models with extra=forbid. Test strategy: integration tests for both endpoints covering filters, unknown-model visibility, alias presence, and auth-required behavior; OpenAPI snapshot check that the v2 paths are documented.",
-            "status": "pending",
+            "details": "Create apps/server api/v2/__init__.py with a v2 APIRouter and add api/v2/registries.py: GET /api/v2/providers (all registry metadata: id, display name, aliases, pricing strategy, limit semantics, supported dimensions, registered flag per FR-PROVIDER-010) and GET /api/v2/models (filterable by provider and lifecycle; each row returns provider, native_model_id, lifecycle, capabilities, first_seen, last_seen, aliases; responses provide native and normalized fields where both exist per FR-MODEL-010). Auth uses the existing require_token dependency now, migrating to query:read scope enforcement when Task 63 lands (note this handoff in code comment-free form via the task log, not code comments). Register the v2 router in app.py. Extend api/schemas.py or add api/v2/schemas.py for response models with extra=forbid. Test strategy: integration tests for both endpoints covering filters, unknown-model visibility, alias presence, and auth-required behavior; OpenAPI snapshot check that the v2 paths are documented.\n<info added on 2026-07-18T15:54:09.189Z>\nAdded v2 registry API. api/v2/ package: __init__.py aggregates a v2 router; registries.py has GET /api/v2/providers (all provider metadata: id, display_name, aliases, pricing_strategy, limit_semantics, supported_dimensions, registered - FR-PROVIDER-010; ordered by id; includes registered=False observed-unknown providers) and GET /api/v2/models (filterable by provider and lifecycle via Literal[active|deprecated|retired|unknown]; invalid lifecycle -> 422; each row: provider, native_model_id, lifecycle, capabilities, first_seen, last_seen, aliases joined from model_aliases sorted - FR-MODEL-010 native+normalized). api/v2/schemas.py response models with extra=forbid, UtcDatetime for first_seen/last_seen. Both endpoints use require_token. Registered v2.router in app.py. Tests (test_registry_api.py, 10): auth-required on both, seeded providers listing, unknown-provider visible as unregistered, observed model visible as unknown, provider filter, lifecycle filter, invalid-lifecycle 422, alias presence, and OpenAPI snapshot asserting /api/v2/providers and /api/v2/models are documented. Docs: docs/api/registries.md. HANDOFF FOR TASK 63: these endpoints currently use require_token (bearer only); when Task 63 lands scope enforcement they must migrate to query:read scope. Recorded here per instruction (no code comment for this handoff). Gates: full suite 217 passed / 11 skipped, ruff clean, mypy strict clean (57 files), trivy repo-root clean.\n</info added on 2026-07-18T15:54:09.189Z>",
+            "status": "done",
             "dependencies": [
               "61.3"
             ],
             "parentTaskId": 61,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T15:54:34.235Z"
           },
           {
             "id": 6,
@@ -2359,7 +2360,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T15:44:59.331Z"
+        "updatedAt": "2026-07-18T15:54:34.235Z"
       },
       {
         "id": "62",
@@ -3516,7 +3517,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T15:44:59.332Z",
+      "lastModified": "2026-07-18T15:54:34.236Z",
       "taskCount": 71,
       "completedCount": 60,
       "tags": [
