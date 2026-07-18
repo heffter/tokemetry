@@ -35,6 +35,7 @@ from tokemetry_core.usage_v2 import UsageEventV2
 
 from tokemetry_server.db import models
 from tokemetry_server.services.data_quality import DataQualityService
+from tokemetry_server.services.logical_requests import LogicalRequestService
 from tokemetry_server.services.privacy import PrivacyValidator
 from tokemetry_server.services.revisions import ConflictMode, Outcome, RevisionEngine
 
@@ -97,6 +98,7 @@ class IngestV2Service:
         self._session = session
         self._privacy = privacy or PrivacyValidator()
         self._engine = RevisionEngine(session, data_quality)
+        self._logical_requests = LogicalRequestService(session)
         self._max_returned_ids = max_returned_ids
 
     async def ingest(
@@ -135,6 +137,16 @@ class IngestV2Service:
                 accepted_ids.append(event.event_id)
             elif return_ids and outcome is Outcome.UPDATED:
                 updated_ids.append(event.event_id)
+
+        # Recompute each touched logical request from the now-current ledger
+        # rows (order-independent, correction-safe; task 62.11).
+        touched = {
+            (event.provider, event.logical_request_id)
+            for event in cleaned
+            if event.logical_request_id is not None
+        }
+        for provider, logical_request_id in touched:
+            await self._logical_requests.recompute(provider, logical_request_id)
 
         batch_id = uuid.uuid4().hex
         capped_accepted, truncated_a = self._cap(accepted_ids)

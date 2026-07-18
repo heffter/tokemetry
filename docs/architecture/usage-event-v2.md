@@ -199,3 +199,21 @@ golden suite) and in-batch dedupe counts are unchanged. Swapping reads onto the
 v1-shaped compatibility view over `usage_events_v2` -- the highest-risk,
 cross-dialect step -- is isolated in subtask 62.10, gated on the backfill
 verification passing.
+
+## Logical requests (task 62.11)
+
+`tokemetry_server.services.logical_requests` maintains the `logical_requests`
+grouping (D-003, FR-TRACE-001/002). After the v2 ingest service applies a batch,
+it recomputes each touched `(provider, logical_request_id)` from the current
+ledger rows -- `LogicalRequestService.recompute` derives `attempt_count`,
+`fallback_count` (attempts whose `routing.fallback_from` is set), `ts_first`/
+`ts_last`, the requested model and routing policy/reason (from the summary event
+if present, else the earliest attempt), and `winning_attempt_id` (the successful
+final attempt, last completed on ties, FR-TRACE-004). Recomputing rather than
+incrementing makes it correct under out-of-order arrival, snapshot/final
+supersedes, replays, and corrections.
+
+Only `attempt` events count toward the aggregates and usage; a `logical_request`
+summary event updates metadata only and never adds billable usage (FR-EVENT-004,
+FR-TRACE-007) -- and because the compatibility view and rollups already filter to
+attempts, summary rows never affect token or cost sums (FR-TRACE-003/005).

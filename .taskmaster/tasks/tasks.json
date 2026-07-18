@@ -2511,13 +2511,14 @@
             "id": 11,
             "title": "logical_requests population and winning-attempt identification",
             "description": "Maintain the logical request grouping automatically from attempt events.",
-            "details": "Extend the ingest pipeline: when an attempt event carries logical_request_id, upsert the logical_requests row (FR-TRACE-001/002): increment attempt_count on new attempts, increment fallback_count when routing.fallback_from is set, update ts_first/ts_last, store requested_model, routing policy and reason from the first attempt, and set winning_attempt_id to the attempt with outcome success and finality final (FR-TRACE-004; on multiple successes keep the last completed). Logical request summary events (event_kind logical_request) update metadata only and never contribute billable usage (FR-EVENT-004, FR-TRACE-007). Failed attempts with usage remain visible and independently billable (FR-TRACE-003/005). Session linkage uses scoped identity (provider, source, session_id) preparing FR-TRACE-011. Recompute helper for corrections (a corrected attempt updates its logical request aggregates). Test strategy: unit tests for the upsert math across multi-attempt fallback chains including out-of-order arrival (fallback attempt lands before the original), winning-attempt selection rules, and summary events adding zero usage; integration test with a three-attempt cascade fixture asserting logical_requests state and that attempt token sums are unaffected.",
-            "status": "pending",
+            "details": "Extend the ingest pipeline: when an attempt event carries logical_request_id, upsert the logical_requests row (FR-TRACE-001/002): increment attempt_count on new attempts, increment fallback_count when routing.fallback_from is set, update ts_first/ts_last, store requested_model, routing policy and reason from the first attempt, and set winning_attempt_id to the attempt with outcome success and finality final (FR-TRACE-004; on multiple successes keep the last completed). Logical request summary events (event_kind logical_request) update metadata only and never contribute billable usage (FR-EVENT-004, FR-TRACE-007). Failed attempts with usage remain visible and independently billable (FR-TRACE-003/005). Session linkage uses scoped identity (provider, source, session_id) preparing FR-TRACE-011. Recompute helper for corrections (a corrected attempt updates its logical request aggregates). Test strategy: unit tests for the upsert math across multi-attempt fallback chains including out-of-order arrival (fallback attempt lands before the original), winning-attempt selection rules, and summary events adding zero usage; integration test with a three-attempt cascade fixture asserting logical_requests state and that attempt token sums are unaffected.\n<info added on 2026-07-18T23:29:08.575Z>\nAdded `services/logical_requests.py` (LogicalRequestService) and wired it into IngestV2Service. After a v2 batch is applied, the ingest service collects the distinct `(provider, logical_request_id)` touched by attempt/summary events and calls `recompute()` for each. `recompute()` rebuilds the `logical_requests` row from the **CURRENT** `usage_events_v2` rows (not incremental counters) to ensure correctness under out-of-order arrival (fallback before original), snapshot→final supersede, replays, and admin corrections (FR-EVENT-026).\n\nDerivations:\n- `attempt_count`: number of `event_kind='attempt'` rows\n- `fallback_count`: attempts where `routing.fallback_from` is set\n- `ts_first`: `min(ts_started)`\n- `ts_last`: `max(ts_completed || ts_started)`\n- `requested_model`, `routing_policy`, `routing_reason`, `session_id`: from the logical_request summary event if present; otherwise from the earliest attempt\n- `winning_attempt_id`: the attempt with `outcome='success'` AND `finality='final'`; on ties, keep the last completed (FR-TRACE-004), using `attempt_id` or `event_id`\n\nA logical_request summary event updates metadata only and is excluded from `attempt_count` and usage (FR-EVENT-004, FR-TRACE-007); since the v1 view and rollups already filter to `event_kind='attempt'`, summary rows never affect token/cost sums (FR-TRACE-003/005). Failed attempts with usage remain counted and billable (FR-TRACE-003/005). Session linkage uses `(provider, session_id)`, preparing FR-TRACE-011. Correction recompute is automatic (corrections flow through ingest → touched → recompute).\n\nTests: `test_logical_requests.py` covering fallback chain counts, winning-attempt selection, first-attempt metadata, out-of-order arrival (identical result), last-success-wins, summary adding zero usage with view sum unaffected, and failed-attempt-with-usage counted+billable.\n\nDocs: `usage-event-v2.md` logical-requests section.\n\nGates: pytest 540 passed/27 skipped, ruff clean, mypy strict clean (96 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T23:29:08.575Z>",
+            "status": "done",
             "dependencies": [
               "62.5"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T23:29:36.930Z"
           },
           {
             "id": 12,
@@ -2535,7 +2536,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T23:17:56.451Z"
+        "updatedAt": "2026-07-18T23:29:36.930Z"
       },
       {
         "id": "63",
@@ -3530,7 +3531,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T23:17:56.452Z",
+      "lastModified": "2026-07-18T23:29:36.932Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [
