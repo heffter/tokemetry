@@ -18,9 +18,24 @@ directly; the only dialect-specific element is the JSON column type
 | `alert_rules` | `id`, unique `name` | Condition kind, threshold, channels, cooldown, quiet hours. |
 | `alert_events` | `id`, FK `rule_id` | Fired instances with delivery outcome. |
 | `api_tokens` | `id`, unique `label`/`token_hash` | Hashed bearer tokens. |
+| `app_settings` | `key` | Runtime key/value settings (UI-editable channel config). |
+| `providers` | `id` (lowercase) | Provider registry: display name, aliases, pricing strategy, limit semantics, supported dimensions, `registered` flag. |
+| `models` | PK `(provider, native_model_id)` | Model registry: `lifecycle` enum-as-string, `capabilities` JSON, `first_seen`/`last_seen` (last_seen indexed). |
+| `model_aliases` | `id`, unique `(provider, alias)` | Maps a provider-specific model spelling to a canonical model id; `rule_version` records the ruleset. |
 
 Money columns use `Numeric(20, 10)` for exact micro-USD arithmetic;
 timestamps are `DateTime(timezone=True)`.
+
+### Registry tables (provider-neutral v2)
+
+`providers`, `models`, and `model_aliases` are **lookup data only**: no usage
+row carries a foreign key into them (FR-MODEL-007), so registry edits never
+rewrite historical events. `providers` is seeded from the core provider
+descriptors and augmented by ingest when an unknown provider appears
+(`registered=False` marks an observed-but-unknown provider). `models.lifecycle`
+is one of `active`, `deprecated`, `retired`, `unknown` (FR-MODEL-004), validated
+in the service layer rather than by a database enum so the schema stays
+dialect-portable.
 
 ## Migrations
 
@@ -28,10 +43,18 @@ Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
 `upgrade_to_head(sync_url)` / `downgrade_to_base(sync_url)` for server
 startup and tests. Alembic runs with a synchronous driver
 (`postgresql+psycopg` or `sqlite`) derived from the async application URL by
-`Settings.sync_database_url`. The initial migration (`0001`) is
-hand-authored and kept in sync with the ORM by a drift test
+`Settings.sync_database_url`. Migrations are hand-authored (through `0004`,
+which adds the registry tables) and kept in sync with the ORM by a drift test
 (`test_migration_matches_orm_metadata`) that reflects the migrated schema
 and compares columns against `Base.metadata`.
+
+**Both-engine testing.** From the provider-neutral v2 work onward, the
+migration and schema tests are parametrized over both engines via the
+`migration_url` / `migrated_engine` fixtures (`tests/conftest.py`). SQLite
+always runs; Postgres runs when `TOKEMETRY_TEST_POSTGRES_URL` points at a live
+database (a CI service container), resetting the `public` schema around each
+test, and skips otherwise. Every schema-changing migration ships upgrade and
+downgrade coverage on both engines.
 
 ## Sessions
 

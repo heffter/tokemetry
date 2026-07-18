@@ -2285,13 +2285,14 @@
             "id": 2,
             "title": "Registry tables and migration (providers, models, model_aliases)",
             "description": "Create the three registry tables with Alembic migration 0004 and both-engine upgrade/downgrade tests.",
-            "details": "Add SQLAlchemy models in apps/server db/models.py: providers (id PK lowercase, display_name, aliases JSONType, pricing_strategy, limit_semantics, supported_dimensions JSONType, registered bool, created_at, updated_at); models (composite PK provider plus native_model_id, lifecycle enum-as-string active|deprecated|retired|unknown per FR-MODEL-004, capabilities JSONType per FR-MODEL-005, first_seen, last_seen); model_aliases (provider, alias unique together, native_model_id, rule_version int per FR-MODEL-009). Follow existing conventions: naming convention from db/base.py, JSONType variant, no server defaults that differ between engines. Write Alembic migration 0004 creating all three tables and indexes (models.last_seen, model_aliases lookup). Model metadata updates must never rewrite historical events (FR-MODEL-007): registries are lookup data only, no FK from usage_events. Test strategy: extend test_migrations.py to run upgrade to head and downgrade back on SQLite and Postgres; ORM round-trip tests for each table; constraint tests for duplicate alias rejection.",
-            "status": "pending",
+            "details": "Add SQLAlchemy models in apps/server db/models.py: providers (id PK lowercase, display_name, aliases JSONType, pricing_strategy, limit_semantics, supported_dimensions JSONType, registered bool, created_at, updated_at); models (composite PK provider plus native_model_id, lifecycle enum-as-string active|deprecated|retired|unknown per FR-MODEL-004, capabilities JSONType per FR-MODEL-005, first_seen, last_seen); model_aliases (provider, alias unique together, native_model_id, rule_version int per FR-MODEL-009). Follow existing conventions: naming convention from db/base.py, JSONType variant, no server defaults that differ between engines. Write Alembic migration 0004 creating all three tables and indexes (models.last_seen, model_aliases lookup). Model metadata updates must never rewrite historical events (FR-MODEL-007): registries are lookup data only, no FK from usage_events. Test strategy: extend test_migrations.py to run upgrade to head and downgrade back on SQLite and Postgres; ORM round-trip tests for each table; constraint tests for duplicate alias rejection.\n<info added on 2026-07-18T11:59:31.787Z>\nAdded providers, models, model_aliases ORM tables in db/models.py and Alembic migration 0004 (down_revision 0003, single linear head). providers: id PK lowercase, display_name, aliases JSON, pricing_strategy, limit_semantics, supported_dimensions JSON, registered bool, created_at/updated_at. models: composite PK (provider, native_model_id), lifecycle enum-as-string (active|deprecated|retired|unknown, validated in service layer not DB enum for dialect portability, FR-MODEL-004), capabilities JSON (FR-MODEL-005), first_seen, last_seen (indexed ix_models_last_seen). model_aliases: id PK, unique (provider, alias) named model_aliases_grain, native_model_id, rule_version (FR-MODEL-009). No FK from usage_events (FR-MODEL-007) - lookup data only. Both-engine testing: added migration_url (parametrized sqlite/postgres) and migrated_engine fixtures to tests/conftest.py; SQLite always runs, Postgres runs when TOKEMETRY_TEST_POSTGRES_URL is set (CI service container) resetting public schema per test, skips locally (docker daemon down here). Extended test_migrations.py to parametrize over engines and cover the three new tables + app_settings; new test_registry_tables.py has ORM round-trip + composite-PK/duplicate-alias constraint tests. Docs: database.md updated with the three tables, a registry-tables section, and the both-engine testing note. Gates: server suite 181 passed / 11 skipped (postgres-gated), ruff clean, mypy strict clean (50 files), trivy secret clean.\n</info added on 2026-07-18T11:59:31.787Z>",
+            "status": "done",
             "dependencies": [
               "61.1"
             ],
             "parentTaskId": 61,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T11:59:57.272Z"
           },
           {
             "id": 3,
@@ -2356,7 +2357,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T11:44:36.533Z"
+        "updatedAt": "2026-07-18T11:59:57.272Z"
       },
       {
         "id": "62",
@@ -3513,7 +3514,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T11:44:36.534Z",
+      "lastModified": "2026-07-18T11:59:57.273Z",
       "taskCount": 71,
       "completedCount": 60,
       "tags": [

@@ -1,10 +1,10 @@
 """Migration upgrade/downgrade and ORM/schema drift tests.
 
-These run against a temporary SQLite database, exercising the same Alembic
-migration path production uses on Postgres (the schema is dialect-portable).
+These run against every supported engine via the ``migration_url`` fixture:
+SQLite always, and Postgres when ``TOKEMETRY_TEST_POSTGRES_URL`` is set (a CI
+service container). The schema is dialect-portable, so the same Alembic path
+production uses on Postgres is exercised here.
 """
-
-from pathlib import Path
 
 import sqlalchemy as sa
 from tokemetry_server.db.base import Base
@@ -17,22 +17,21 @@ _EXPECTED_TABLES = {
     "sessions",
     "daily_rollups",
     "pricing",
+    "providers",
+    "models",
+    "model_aliases",
     "alert_rules",
     "alert_events",
     "api_tokens",
+    "app_settings",
     "alembic_version",
 }
 
 
-def _sqlite_url(tmp_path: Path) -> str:
-    return f"sqlite:///{tmp_path / 'migrate.db'}"
+def test_upgrade_creates_all_tables(migration_url: str) -> None:
+    upgrade_to_head(migration_url)
 
-
-def test_upgrade_creates_all_tables(tmp_path: Path) -> None:
-    url = _sqlite_url(tmp_path)
-    upgrade_to_head(url)
-
-    engine = sa.create_engine(url)
+    engine = sa.create_engine(migration_url)
     try:
         tables = set(sa.inspect(engine).get_table_names())
     finally:
@@ -40,12 +39,11 @@ def test_upgrade_creates_all_tables(tmp_path: Path) -> None:
     assert tables >= _EXPECTED_TABLES
 
 
-def test_downgrade_removes_domain_tables(tmp_path: Path) -> None:
-    url = _sqlite_url(tmp_path)
-    upgrade_to_head(url)
-    downgrade_to_base(url)
+def test_downgrade_removes_domain_tables(migration_url: str) -> None:
+    upgrade_to_head(migration_url)
+    downgrade_to_base(migration_url)
 
-    engine = sa.create_engine(url)
+    engine = sa.create_engine(migration_url)
     try:
         tables = set(sa.inspect(engine).get_table_names())
     finally:
@@ -54,12 +52,11 @@ def test_downgrade_removes_domain_tables(tmp_path: Path) -> None:
     assert not (domain_tables & tables)
 
 
-def test_migration_matches_orm_metadata(tmp_path: Path) -> None:
+def test_migration_matches_orm_metadata(migration_url: str) -> None:
     """Every ORM table and column must exist in the migrated schema."""
-    url = _sqlite_url(tmp_path)
-    upgrade_to_head(url)
+    upgrade_to_head(migration_url)
 
-    engine = sa.create_engine(url)
+    engine = sa.create_engine(migration_url)
     try:
         inspector = sa.inspect(engine)
         for table_name, table in Base.metadata.tables.items():

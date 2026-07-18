@@ -170,6 +170,71 @@ class Pricing(Base):
     source: Mapped[str] = mapped_column(String(50), default="litellm")
 
 
+class Provider(Base):
+    """Registry descriptor for one provider (lookup data, FR-PROVIDER-004).
+
+    Seeded from the core provider descriptors and augmented by ingest when an
+    unknown provider first appears (``registered`` marks whether it is a known
+    seed or an observed unknown). This is reference data only: no usage row
+    carries a foreign key into it (FR-MODEL-007), so registry edits never
+    rewrite historical events.
+    """
+
+    __tablename__ = "providers"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(200))
+    aliases: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    pricing_strategy: Mapped[str] = mapped_column(String(50), default="")
+    limit_semantics: Mapped[str] = mapped_column(String(50), default="none")
+    supported_dimensions: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    registered: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Model(Base):
+    """A provider model, seeded from the registry or observed in usage.
+
+    Composite-keyed by ``(provider, native_model_id)`` -- the same grain the
+    events carry. ``lifecycle`` is an enum-as-string
+    (``active|deprecated|retired|unknown``, FR-MODEL-004) validated in the
+    service layer, and ``capabilities`` is a free-form JSON map (FR-MODEL-005).
+    Metadata updates here never touch historical events (FR-MODEL-007);
+    ``last_seen`` is indexed for recency queries.
+    """
+
+    __tablename__ = "models"
+
+    provider: Mapped[str] = mapped_column(String(50), primary_key=True)
+    native_model_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    lifecycle: Mapped[str] = mapped_column(String(20), default="unknown")
+    capabilities: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    first_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class ModelAlias(Base):
+    """Maps a provider-specific model spelling to a canonical model id.
+
+    Unique on ``(provider, alias)`` so one spelling resolves to exactly one
+    model. ``rule_version`` records which normalization ruleset produced the
+    mapping (FR-MODEL-009) so stale mappings can be recomputed after a rule
+    change. No foreign key to ``models`` (registries are lookup data only).
+    """
+
+    __tablename__ = "model_aliases"
+    __table_args__ = (
+        UniqueConstraint("provider", "alias", name="model_aliases_grain"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(50))
+    alias: Mapped[str] = mapped_column(String(200))
+    native_model_id: Mapped[str] = mapped_column(String(200))
+    rule_version: Mapped[int] = mapped_column(Integer, default=1)
+
+
 class AlertRule(Base):
     """A configurable alert condition and its delivery settings."""
 
