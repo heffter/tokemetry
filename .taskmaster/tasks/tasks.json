@@ -2432,13 +2432,14 @@
             "id": 5,
             "title": "Ingest service v2 with transactional batches and ingest_batches ledger",
             "description": "Batch orchestration, per-event outcome counts, batch IDs, request IDs.",
-            "details": "Add services/ingest_v2.py: accepts a validated batch, runs privacy validation (subtask 2) then the revision engine (subtask 4) per event inside one transaction (FR-IDEMP-009, NFR-REL-001); on any structural failure the batch rolls back atomically; response carries a server-generated batch id (FR-INGEST-008), counts for accepted, updated, duplicate, rejected, corrected (FR-IDEMP-011), and optionally the accepted and updated event ids when the client requests them subject to response-size limits (FR-INGEST-009). Create ingest_batches table via migration (batch_id, source identity, token label, schema_version, counts, received_at, request_id) retained 30 days per retention defaults. Add request-id middleware stamping every API response (FR-INGEST-016) if not present. WebSocket publication after commit reuses the existing broadcaster and must never roll back accepted ingest (NFR-REL-008). Ingest logs never contain bearer tokens or event metadata values (FR-INGEST-017). Test strategy: integration tests for transactional all-or-nothing behavior, count correctness across mixed batches (new, replay, snapshot upgrade, conflict), batch ledger rows, and WS publish failure isolation; unit tests for response-size limiting of returned id lists.",
-            "status": "pending",
+            "details": "Add services/ingest_v2.py: accepts a validated batch, runs privacy validation (subtask 2) then the revision engine (subtask 4) per event inside one transaction (FR-IDEMP-009, NFR-REL-001); on any structural failure the batch rolls back atomically; response carries a server-generated batch id (FR-INGEST-008), counts for accepted, updated, duplicate, rejected, corrected (FR-IDEMP-011), and optionally the accepted and updated event ids when the client requests them subject to response-size limits (FR-INGEST-009). Create ingest_batches table via migration (batch_id, source identity, token label, schema_version, counts, received_at, request_id) retained 30 days per retention defaults. Add request-id middleware stamping every API response (FR-INGEST-016) if not present. WebSocket publication after commit reuses the existing broadcaster and must never roll back accepted ingest (NFR-REL-008). Ingest logs never contain bearer tokens or event metadata values (FR-INGEST-017). Test strategy: integration tests for transactional all-or-nothing behavior, count correctness across mixed batches (new, replay, snapshot upgrade, conflict), batch ledger rows, and WS publish failure isolation; unit tests for response-size limiting of returned id lists.\n<info added on 2026-07-18T21:20:10.222Z>\nAdded services/ingest_v2.py (IngestV2Service): validated batch → privacy validation over every event (reject-mode violation is structural → raise BatchValidationError with per-event BatchIssue index/field_path/code/message, FR-INGEST-006, nothing persisted; strip-mode uses cleaned events) → revision engine per event within the caller's transaction (FR-IDEMP-009), accumulating five outcome counts (accepted/updated/duplicate/rejected/corrected, FR-IDEMP-011). Per-event sequence_conflict counts as rejected + recorded via DataQualityService but does NOT fail the batch; only structural failure or DB error rolls back. Writes one ingest_batches row per batch with server-generated uuid4 batch_id (FR-INGEST-008), source_id, token_label, counts, schema_version=2, received_at, request_id. Optional return_ids echoes accepted/updated ids capped to max_returned_ids (default 1000) with ids_truncated flag (FR-INGEST-009). Service is transport-agnostic and never commits (route owns txn + post-commit WS publish, deferred to 62.6). Added migration 0007 + IngestBatch ORM (batch_id PK, index received_at); added to test_migrations _EXPECTED_TABLES. Added request-id middleware in app.py stamping X-Request-ID on every response, honoring client-supplied (FR-INGEST-016). Tests: test_ingest_v2.py (new batch + ledger row, mixed-batch counts incl in-batch replay/snapshot-upgrade, conflict rejected-but-commits + DQ, privacy failure atomic all-or-nothing, return_ids optional, id capping, request-id header present + echoed). Postgres migration path in CI. Docs: database.md, usage-event-v2.md. Gates: pytest 492 passed/18 skipped, ruff clean, mypy strict clean (88 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T21:20:10.222Z>",
+            "status": "done",
             "dependencies": [
               "62.4"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T21:20:44.934Z"
           },
           {
             "id": 6,
@@ -2529,7 +2530,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T21:07:35.102Z"
+        "updatedAt": "2026-07-18T21:20:44.934Z"
       },
       {
         "id": "63",
@@ -3524,7 +3525,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T21:07:35.103Z",
+      "lastModified": "2026-07-18T21:20:44.935Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [

@@ -11,14 +11,16 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from starlette.middleware.base import RequestResponseEndpoint
 from tokemetry_core.models import UsageEvent
 
 from tokemetry_server.api import alerts, ingest, pricing, query, stream, tokens, v2
@@ -139,6 +141,22 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         summary="Self-hosted multi-machine AI token usage tracking",
         lifespan=lifespan,
     )
+
+    @app.middleware("http")
+    async def _stamp_request_id(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        """Attach a request id to state and every response (FR-INGEST-016).
+
+        Honors a client-supplied ``X-Request-ID`` when present, otherwise
+        generates one, so ingest batches and responses share a correlation id.
+        """
+        request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
     app.include_router(ingest.router)
     app.include_router(query.router)
     app.include_router(pricing.router)

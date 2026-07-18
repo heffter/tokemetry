@@ -157,3 +157,25 @@ correction is enforced at the API boundary (task 62.6); `resolve` receives an
 already-validated `correction` flag. The shared `usage_event_v2_row` projection
 is reused by the ingest service (62.5) and the v1 mapper (62.9) so every write
 path produces an identical row shape.
+
+## Batch ingest (task 62.5)
+
+`tokemetry_server.services.ingest_v2.IngestV2Service` turns a schema-valid batch
+into ledger writes inside the caller's single transaction (FR-IDEMP-009). It
+runs the privacy validator over every event first: in `reject` mode any
+violation is a **structural** failure that raises `BatchValidationError` -- a
+list of `BatchIssue(index, field_path, code, message)` (FR-INGEST-006) -- before
+anything is written, so the batch is all-or-nothing. It then resolves each event
+through the revision engine, accumulating the five outcome counts. A per-event
+`sequence_conflict` is counted as `rejected` and recorded as a data-quality
+event but does **not** fail the batch; only a structural failure or a database
+error rolls it back.
+
+Each batch writes one `ingest_batches` row with a server-generated `batch_id`
+(FR-INGEST-008), the source identity, token label, counts, and `request_id`.
+On request the service echoes the accepted/updated event ids, capped to a
+configurable limit with an `ids_truncated` flag (FR-INGEST-009). The service is
+transport-agnostic and never commits: the route (task 62.6) owns the transaction
+and does the post-commit WebSocket publish, so a publish failure can never roll
+back accepted ingest (NFR-REL-008). A request-id middleware stamps every
+response with an `X-Request-ID` (FR-INGEST-016), honoring a client-supplied one.

@@ -26,6 +26,7 @@ directly; the only dialect-specific element is the JSON column type
 | `usage_events_v2` | PK `(provider, event_id)` | The v2 ledger: active attempt-event state flattened from the v2 wire model (finality/sequence, six token counters plus reasoning, success/outcome, routing/dimensions/extra JSON, trace ids). |
 | `usage_event_revisions` | `id` (index `(provider, event_id)`) | Archive of superseded/conflicting/corrected states: `sequence`, `finality`, `payload` snapshot, `reason`, `actor`, `ts`. |
 | `logical_requests` | PK `(provider, logical_request_id)` | Non-billable grouping of attempts: routing, `attempt_count`, `fallback_count`, `winning_attempt_id`, `ts_first`/`ts_last`. |
+| `ingest_batches` | `batch_id` (index `received_at`) | Per-batch operational record: source id, token label, the five outcome counts, `schema_version`, `received_at`, `request_id`. Content-free. |
 
 Money columns use `Numeric(20, 10)` for exact micro-USD arithmetic;
 timestamps are `DateTime(timezone=True)`.
@@ -123,8 +124,8 @@ Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
 `upgrade_to_head(sync_url)` / `downgrade_to_base(sync_url)` for server
 startup and tests. Alembic runs with a synchronous driver
 (`postgresql+psycopg` or `sqlite`) derived from the async application URL by
-`Settings.sync_database_url`. Migrations are hand-authored (through `0006`,
-which adds the v2 usage-event ledger tables) and kept in sync with the ORM
+`Settings.sync_database_url`. Migrations are hand-authored (through `0007`,
+which adds the `ingest_batches` ledger) and kept in sync with the ORM
 by a drift test
 (`test_migration_matches_orm_metadata`) that reflects the migrated schema
 and compares columns against `Base.metadata`.

@@ -198,6 +198,32 @@ class LogicalRequest(Base):
     ts_last: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class IngestBatch(Base):
+    """One v2 ingest batch's operational record (FR-INGEST-008).
+
+    Written after each batch resolves so ingest is traceable: the
+    server-generated ``batch_id``, the reporting source and token label, the
+    per-outcome counts (FR-IDEMP-011), the schema version, and the response's
+    ``request_id`` (FR-INGEST-016). Retained per the retention defaults (Task
+    70); carries no event content. ``source_id`` is a plain integer reference
+    until Task 63 adds the ``sources`` table.
+    """
+
+    __tablename__ = "ingest_batches"
+
+    batch_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source_id: Mapped[int | None] = mapped_column(Integer)
+    token_label: Mapped[str | None] = mapped_column(String(200))
+    accepted: Mapped[int] = mapped_column(Integer, default=0)
+    updated: Mapped[int] = mapped_column(Integer, default=0)
+    duplicate: Mapped[int] = mapped_column(Integer, default=0)
+    rejected: Mapped[int] = mapped_column(Integer, default=0)
+    corrected: Mapped[int] = mapped_column(Integer, default=0)
+    schema_version: Mapped[int] = mapped_column(Integer, default=2)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    request_id: Mapped[str | None] = mapped_column(String(64))
+
+
 class LimitSnapshot(Base):
     """Utilization of one provider limit window at one point in time."""
 
