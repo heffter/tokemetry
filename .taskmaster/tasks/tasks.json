@@ -2418,14 +2418,15 @@
             "id": 4,
             "title": "Revision engine: finality, sequence, conflicts, corrections",
             "description": "Implement the event lifecycle resolution rules that decide whether an incoming event inserts, supersedes, duplicates, conflicts, or corrects.",
-            "details": "Add services/revisions.py implementing the PRD 12.4 state machine for (provider, event_id): new id inserts; snapshot over snapshot with higher sequence supersedes (previous state archived to usage_event_revisions with reason superseded, FR-IDEMP-002/003); final supersedes any snapshot (FR-IDEMP-004); identical replay is a byte-equal no-op returning duplicate (FR-IDEMP-007); same sequence with differing payload rejects and records a sequence_conflict data quality event (FR-IDEMP-008); later snapshot never supersedes a final (FR-EVENT-008); final over final requires the correction flag plus admin:corrections scope and archives the previous state with reason correction, actor, timestamp, and reason text (FR-IDEMP-005/006, FR-EVENT-026, decision D-002). Legacy keep-max compatibility mode: events entering through the v1 mapper resolve conflicts by output_tokens >= comparison exactly as db/upsert.py does today (FR-IDEMP-012), implemented as an explicit conflict-mode enum so the behavior is documented and testable rather than accidental. Returns a per-event outcome (accepted, updated, duplicate, rejected, corrected) consumed by the ingest service. Test strategy: exhaustive unit matrix over (existing state x incoming kind/finality/sequence) including replay determinism; correction audit content assertions; keep-max mode equivalence tests against fixtures derived from the current upsert behavior.",
-            "status": "pending",
+            "details": "Add services/revisions.py implementing the PRD 12.4 state machine for (provider, event_id): new id inserts; snapshot over snapshot with higher sequence supersedes (previous state archived to usage_event_revisions with reason superseded, FR-IDEMP-002/003); final supersedes any snapshot (FR-IDEMP-004); identical replay is a byte-equal no-op returning duplicate (FR-IDEMP-007); same sequence with differing payload rejects and records a sequence_conflict data quality event (FR-IDEMP-008); later snapshot never supersedes a final (FR-EVENT-008); final over final requires the correction flag plus admin:corrections scope and archives the previous state with reason correction, actor, timestamp, and reason text (FR-IDEMP-005/006, FR-EVENT-026, decision D-002). Legacy keep-max compatibility mode: events entering through the v1 mapper resolve conflicts by output_tokens >= comparison exactly as db/upsert.py does today (FR-IDEMP-012), implemented as an explicit conflict-mode enum so the behavior is documented and testable rather than accidental. Returns a per-event outcome (accepted, updated, duplicate, rejected, corrected) consumed by the ingest service. Test strategy: exhaustive unit matrix over (existing state x incoming kind/finality/sequence) including replay determinism; correction audit content assertions; keep-max mode equivalence tests against fixtures derived from the current upsert behavior.\n<info added on 2026-07-18T21:07:04.599Z>\nAdded services/revisions.py implementing the PRD 12.4 state machine. Pure resolve(incoming, existing, mode, correction) -> RevisionDecision (outcome, write, archive_reason, conflict) so the full existing-x-incoming matrix is unit-tested without a DB. Outcomes accepted/updated/duplicate/rejected/corrected. Rules: new id -> accepted; identical fingerprint -> duplicate (FR-IDEMP-007); over snapshot: final or higher-sequence snapshot supersedes (archive superseded), same-sequence differing -> rejected+sequence_conflict DQ (FR-IDEMP-008), older snapshot -> duplicate; over final: later snapshot ignored -> duplicate (FR-EVENT-008), final-over-final without correction -> rejected+DQ (FR-IDEMP-005), with correction -> corrected (archive correction with actor+reason_text, FR-IDEMP-006/D-002). ConflictMode.KEEP_MAX reproduces v1 keep-max exactly (archives nothing, FR-IDEMP-012). Shared usage_event_v2_row() projection (reused by 62.5 ingest and 62.9 v1 mapper) normalizes timestamps to UTC; row_fingerprint() is canonical key-sorted JSON with UTC-normalized datetimes so tz-aware incoming and SQLite naive readback compare equal. RevisionEngine.apply() reads active row, resolves, archives prior state to usage_event_revisions (payload envelopes previous row JSON-safe + reason_text), writes new active state, records sequence_conflict via injected DataQualityService; admin:corrections scope enforced upstream at API. Tests: unit test_revisions.py (resolve matrix, projection column-completeness, UTC normalization, fingerprint order/tz invariance) + integration test_revision_engine.py (accept, replay duplicate, snapshot supersede+archive, final supersede, same-seq conflict+DQ, snapshot-after-final ignored, final-over-final rejected+DQ, correction audited, keep-max equivalence). 29 new tests. Doc: usage-event-v2.md revision-engine section. Gates: pytest 484 passed/18 skipped, ruff clean, mypy strict clean (86 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T21:07:04.599Z>",
+            "status": "done",
             "dependencies": [
               "62.2",
               "62.3"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T21:07:35.102Z"
           },
           {
             "id": 5,
@@ -2528,7 +2529,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T20:51:35.998Z"
+        "updatedAt": "2026-07-18T21:07:35.102Z"
       },
       {
         "id": "63",
@@ -3523,7 +3524,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T20:51:36.000Z",
+      "lastModified": "2026-07-18T21:07:35.103Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [

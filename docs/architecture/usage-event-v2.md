@@ -125,3 +125,35 @@ hit is a fatal issue; under `mode="strip"` the key is removed and the event
 rebuilt. A seeded fuzz test injects forbidden keys at random depths and asserts
 they are always caught or stripped (AC-011, AC-022). Settings-to-policy wiring
 lands with the ingest endpoints (task 62.6).
+
+## Revision engine (task 62.4)
+
+`tokemetry_server.services.revisions` resolves each incoming event against the
+active `usage_events_v2` row for its `(provider, event_id)` (PRD Section 12.4).
+The decision logic is the pure `resolve(incoming, existing, mode, correction)`,
+so the full `existing x incoming` matrix is unit-tested without a database;
+`RevisionEngine.apply` reads the active row, calls `resolve`, and applies the
+result inside the caller's transaction. Every event resolves to one outcome:
+
+| Outcome | When | Effect |
+|---|---|---|
+| `accepted` | New event id. | Insert the active row. |
+| `updated` | Higher-sequence snapshot, or a final over a snapshot. | Archive the prior state (`superseded`), write the new state. |
+| `duplicate` | Byte-identical replay (FR-IDEMP-007), or a stale/out-of-order event -- a later snapshot after a final (FR-EVENT-008) or an older snapshot. | No-op. |
+| `rejected` | Same sequence with a differing payload (FR-IDEMP-008), or a final over a final without an authorized correction (FR-IDEMP-005). | No write; record a `sequence_conflict` data-quality event. |
+| `corrected` | Final over a final with the correction flag. | Archive the prior final (`correction`, actor, reason text), write the new final. |
+
+Identity for the "identical replay" test is a `row_fingerprint`: a canonical,
+key-sorted JSON string of the projected ledger row with timestamps normalized to
+UTC, so a tz-aware incoming row and the naive row SQLite reads back compare
+equal. Superseded and corrected prior states are archived to
+`usage_event_revisions` with the reason, actor, timestamp, and a `previous`
+snapshot of the row, giving each event id a full audit trail (FR-IDEMP-006).
+
+`ConflictMode.KEEP_MAX` reproduces the legacy v1 keep-maximum-output resolution
+exactly (FR-IDEMP-012), archiving nothing, so v1 traffic mapped into the ledger
+(task 62.9) stays wire-compatible. The `admin:corrections` scope required for a
+correction is enforced at the API boundary (task 62.6); `resolve` receives an
+already-validated `correction` flag. The shared `usage_event_v2_row` projection
+is reused by the ingest service (62.5) and the v1 mapper (62.9) so every write
+path produces an identical row shape.
