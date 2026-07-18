@@ -23,11 +23,18 @@ class Provenance(enum.StrEnum):
     OFFICIAL: read from a provider's authoritative endpoint.
     LOCAL_ESTIMATE: derived from local artifacts (for example transcripts).
     STATS_CACHE: imported once from a provider's local aggregate cache.
+    IMPORTED: brought in from an external dataset or backfill import.
+    ADJUSTED: written by an explicit administrative correction.
+
+    ``IMPORTED`` and ``ADJUSTED`` are required by the v2 event model
+    (FR-EVENT-025); the first three predate it and keep their v1 meaning.
     """
 
     OFFICIAL = "official"
     LOCAL_ESTIMATE = "local_estimate"
     STATS_CACHE = "stats_cache"
+    IMPORTED = "imported"
+    ADJUSTED = "adjusted"
 
 
 class _FrozenModel(BaseModel):
