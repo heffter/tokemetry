@@ -11,7 +11,12 @@ from collections.abc import AsyncIterator
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tokemetry_server.services.data_quality import DataQualityService
 from tokemetry_server.services.ingest import IngestService
+from tokemetry_server.services.registries import (
+    ModelRegistryService,
+    ProviderRegistryService,
+)
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -31,9 +36,16 @@ def get_ingest_service(
     session: AsyncSession = Depends(get_session),
 ) -> IngestService:
     """Provide an :class:`IngestService` bound to the request session."""
+    settings = request.app.state.settings
     return IngestService(
         session=session,
         dialect_name=request.app.state.dialect_name,
         cost_fn=request.app.state.cost_fn,
-        roots=request.app.state.settings.project_root_markers,
+        roots=settings.project_root_markers,
+        providers=ProviderRegistryService(session),
+        models_registry=ModelRegistryService(session),
+        data_quality=DataQualityService(
+            session, settings.data_quality_dedup_window_seconds
+        ),
+        unknown_provider_policy=settings.registry_unknown_provider_policy,
     )

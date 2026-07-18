@@ -50,3 +50,13 @@ endpoint -- the API exposes everything the dashboard shows.
   message per accepted ingest batch (`{"type": "events"|"limits", "machine",
   "accepted"}`). Best-effort live view; slow clients are dropped rather than
   blocking ingest.
+
+## Registry (v2)
+
+The provider and model registries are exposed under `/api/v2` (same bearer
+auth). See [registries.md](registries.md) for the full contract.
+
+- `GET /api/v2/providers` -- all provider registry metadata, including the
+  `registered` flag for observed-but-unknown providers.
+- `GET /api/v2/models` -- model registry rows, filterable by `provider` and
+  `lifecycle`, each with its native id and alias spellings.

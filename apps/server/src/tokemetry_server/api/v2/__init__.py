@@ -1,0 +1,14 @@
+"""Version 2 API (provider-neutral).
+
+Aggregates the v2 routers behind a single router the application mounts. New
+v2 feature routers are included here as they land.
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from tokemetry_server.api.v2.registries import router as _registries_router
+
+router = APIRouter()
+router.include_router(_registries_router)

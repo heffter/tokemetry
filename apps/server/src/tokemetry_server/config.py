@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -70,6 +71,17 @@ class Settings(BaseSettings):
     #: Comma-separated development-root markers for project grouping: the path
     #: segment after one of these is the project name (e.g. "devel,src,repos").
     project_roots: str = Field(default="devel")
+
+    #: How ingest treats an event whose provider is not a known/registered one
+    #: (FR-PROVIDER-005). "accept" stores the event and records the provider as
+    #: unregistered; "reject" refuses the batch. Default accepts so a new
+    #: provider is never silently lost before its adapter is registered.
+    registry_unknown_provider_policy: Literal["accept", "reject"] = Field(default="accept")
+
+    #: Window over which repeated data-quality anomalies of the same kind and
+    #: subject collapse onto a single open record (seconds). Larger values mean
+    #: fewer rows for a persistent issue; the default is one hour.
+    data_quality_dedup_window_seconds: float = Field(default=3600.0, gt=0)
 
     @property
     def project_root_markers(self) -> tuple[str, ...]:

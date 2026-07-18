@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tokemetry_core.models import UsageEvent
 
-from tokemetry_server.api import alerts, ingest, pricing, query, stream, tokens
+from tokemetry_server.api import alerts, ingest, pricing, query, stream, tokens, v2
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db.migrate import upgrade_to_head
 from tokemetry_server.db.session import create_engine, create_session_factory
@@ -33,6 +33,8 @@ from tokemetry_server.services.broadcast import Broadcaster
 from tokemetry_server.services.channel_config import resolve_channel_settings
 from tokemetry_server.services.cost import CostEngine
 from tokemetry_server.services.pricing_repo import load_pricing_table, seed_default_pricing
+from tokemetry_server.services.registries import seed_default_providers
+from tokemetry_server.services.registry_backfill import RegistryBackfill
 
 #: Type of the per-event cost function stored on app state.
 CostFn = Callable[[UsageEvent], "Decimal | None"]
@@ -91,6 +93,12 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
             active_cost_fn: CostFn = cost_fn
         else:
             active_cost_fn = (await _build_cost_engine(session_factory, dialect_name)).cost
+        async with session_factory() as registry_session:
+            await seed_default_providers(registry_session)
+            await RegistryBackfill(
+                registry_session, resolved.data_quality_dedup_window_seconds
+            ).run()
+            await registry_session.commit()
         if resolved.seed_default_alerts:
             async with session_factory() as seed_session:
                 await seed_default_alert_rules(seed_session)
@@ -137,6 +145,7 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
     app.include_router(tokens.router)
     app.include_router(alerts.router)
     app.include_router(stream.router)
+    app.include_router(v2.router)
 
     @app.get("/api/v1/health", tags=["meta"])
     async def health() -> dict[str, str]:

@@ -210,3 +210,36 @@ class PriceRow(_FrozenModel):
     cache_read_per_mtok: Decimal = Field(ge=0)
     cache_write_short_per_mtok: Decimal = Field(ge=0)
     cache_write_long_per_mtok: Decimal = Field(ge=0)
+
+
+class ProviderDescriptor(_FrozenModel):
+    """Canonical registry metadata for one provider.
+
+    ``id`` is the lowercase, stable identifier (FR-PROVIDER-002); ``aliases``
+    are alternate spellings that normalize to it (FR-PROVIDER-003, resolved by
+    :func:`tokemetry_core.normalization.normalize_provider`). The remaining
+    fields are the metadata FR-PROVIDER-004 requires so later epics resolve
+    pricing, limit-window semantics, and supported query dimensions from the
+    registry instead of provider-specific code.
+    """
+
+    id: str = Field(min_length=1)
+    display_name: str = Field(min_length=1)
+    aliases: tuple[str, ...] = ()
+    pricing_strategy: str = ""
+    limit_semantics: str = "none"
+    supported_dimensions: tuple[str, ...] = ()
+
+    @field_validator("id")
+    @classmethod
+    def _canonical_id(cls, value: str) -> str:
+        """Provider ids must be lowercase, stripped, stable identifiers."""
+        if value != value.strip().lower():
+            raise ValueError("provider id must be lowercase and stripped")
+        return value
+
+    @field_validator("aliases")
+    @classmethod
+    def _lower_aliases(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Aliases are matched case-insensitively; store them normalized."""
+        return tuple(alias.strip().lower() for alias in value)

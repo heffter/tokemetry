@@ -1,6 +1,8 @@
 """Shared server test fixtures: a TestClient over a temporary SQLite DB."""
 
+import os
 from collections.abc import AsyncIterator, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -10,10 +12,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from tokemetry_server.app import create_app
 from tokemetry_server.config import Settings
+from tokemetry_server.db import models
 from tokemetry_server.db.migrate import upgrade_to_head
+from tokemetry_server.services.registries import seed_default_providers
 
 #: Bootstrap token wired into the test app for authenticated requests.
 BOOTSTRAP_TOKEN = "tkm_test_bootstrap_token_value"
+
+#: Env var holding a *synchronous* Postgres URL (e.g. a CI service container)
+#: to exercise the schema on Postgres. When unset, Postgres-parametrized tests
+#: skip so the both-engine contract is expressed without a local Postgres.
+POSTGRES_TEST_URL_ENV = "TOKEMETRY_TEST_POSTGRES_URL"
 
 
 @pytest.fixture
@@ -67,3 +76,108 @@ async def async_session(settings: Settings) -> AsyncIterator[AsyncSession]:
             yield session
     finally:
         await engine.dispose()
+
+
+def _reset_postgres_schema(sync_url: str) -> None:
+    """Drop and recreate the ``public`` schema so each test starts empty."""
+    engine = sa.create_engine(sync_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture(params=["sqlite", "postgres"])
+def migration_url(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[str]:
+    """A clean, un-migrated synchronous DB URL for each supported engine.
+
+    SQLite always runs against a temp file. Postgres runs only when
+    ``TOKEMETRY_TEST_POSTGRES_URL`` is set (a CI service container), resetting
+    the schema before and after; otherwise it skips. This expresses the
+    both-engine migration contract (baseline doc Section 5.2) without requiring
+    a local Postgres.
+    """
+    if request.param == "sqlite":
+        yield f"sqlite:///{tmp_path / 'migrate.db'}"
+        return
+    sync_url = os.environ.get(POSTGRES_TEST_URL_ENV)
+    if not sync_url:
+        pytest.skip(f"{POSTGRES_TEST_URL_ENV} not set; Postgres engine test skipped")
+    _reset_postgres_schema(sync_url)
+    try:
+        yield sync_url
+    finally:
+        _reset_postgres_schema(sync_url)
+
+
+@pytest.fixture
+def migrated_engine(migration_url: str) -> Iterator[sa.Engine]:
+    """A synchronous engine over a database migrated to head, per engine."""
+    upgrade_to_head(migration_url)
+    engine = sa.create_engine(migration_url)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+#: Representative models for all three initial providers, so every later epic
+#: exercises Anthropic, OpenAI, and Z.ai rather than a single vendor
+#: (NFR-MAIN-007). Each entry is (provider, native_model_id, lifecycle).
+THREE_PROVIDER_MODELS: tuple[tuple[str, str, str], ...] = (
+    ("anthropic", "claude-sonnet-4-5", "active"),
+    ("anthropic", "claude-opus-4-6", "active"),
+    ("anthropic", "claude-haiku-4-5", "active"),
+    ("openai", "gpt-5", "active"),
+    ("openai", "codex-mini-latest", "active"),
+    ("zai", "glm-4.6", "active"),
+    ("zai", "glm-4.5-air", "active"),
+)
+
+#: Representative model aliases, (provider, alias, native_model_id).
+THREE_PROVIDER_MODEL_ALIASES: tuple[tuple[str, str, str], ...] = (
+    ("anthropic", "opus", "claude-opus-4-6"),
+    ("anthropic", "sonnet", "claude-sonnet-4-5"),
+    ("openai", "codex", "codex-mini-latest"),
+    ("zai", "glm", "glm-4.6"),
+)
+
+
+async def seed_three_provider_registry(session: AsyncSession) -> None:
+    """Seed the three built-in providers plus representative models/aliases.
+
+    Idempotent on providers (delegates to :func:`seed_default_providers`); the
+    representative models and aliases are inserted fresh, so call once per test.
+    """
+    await seed_default_providers(session)
+    now = datetime.now(UTC)
+    for provider, native_model_id, lifecycle in THREE_PROVIDER_MODELS:
+        session.add(
+            models.Model(
+                provider=provider,
+                native_model_id=native_model_id,
+                lifecycle=lifecycle,
+                capabilities={},
+                first_seen=now,
+                last_seen=now,
+            )
+        )
+    for provider, alias, native_model_id in THREE_PROVIDER_MODEL_ALIASES:
+        session.add(
+            models.ModelAlias(
+                provider=provider,
+                alias=alias,
+                native_model_id=native_model_id,
+                rule_version=1,
+            )
+        )
+
+
+@pytest_asyncio.fixture
+async def registry_session(async_session: AsyncSession) -> AsyncIterator[AsyncSession]:
+    """An async session with all three providers and representative models seeded."""
+    await seed_three_provider_registry(async_session)
+    await async_session.commit()
+    yield async_session
