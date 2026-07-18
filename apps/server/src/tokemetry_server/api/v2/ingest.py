@@ -1,0 +1,299 @@
+"""v2 ingest endpoints: batch events, pre-flight validation, and readiness.
+
+``POST /api/v2/ingest/events`` accepts a gzip-capable batch envelope, validates
+every event against the v2 wire model and the privacy policy, and persists it
+through :class:`IngestV2Service` in one transaction. ``POST
+/api/v2/ingest/validate`` runs the same schema and privacy checks and returns
+the structured error list without persisting anything (FR-INGEST-007), so
+exporters can pre-flight a batch. ``GET /api/v2/ready`` is an unauthenticated
+readiness probe reporting database and migration status without secrets
+(FR-INGEST-018/019).
+
+Validation failures on ``/events`` return HTTP 422 whose ``detail`` is
+``{"errors": [...], "request_id": ...}`` -- the stable structured shape
+(FR-INGEST-006) the generated clients consume; ``/validate`` reports the same
+items in a 200 body. Ingest traffic is rate limited in its own class, separate
+from query traffic (FR-INGEST-015).
+"""
+
+from __future__ import annotations
+
+import gzip
+import json
+from typing import Any, NoReturn
+
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
+from loguru import logger
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
+from tokemetry_core.usage_v2 import UsageEventV2
+
+from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.deps import get_session
+from tokemetry_server.api.v2.schemas import (
+    IngestEventsResponse,
+    ValidateResponse,
+    ValidationErrorItem,
+)
+from tokemetry_server.config import Settings
+from tokemetry_server.services.data_quality import DataQualityService
+from tokemetry_server.services.ingest_v2 import BatchValidationError, IngestV2Service
+from tokemetry_server.services.privacy import PrivacyPolicy, PrivacyValidator
+
+router = APIRouter(prefix="/api/v2", tags=["ingest"])
+
+
+class _BatchEnvelope(BaseModel):
+    """The outer shape of a v2 ingest batch.
+
+    Events are kept as raw dicts so each is validated individually with a batch
+    index (FR-INGEST-006) rather than collapsed into one envelope error.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: int = Field(ge=2, le=2)
+    events: list[dict[str, Any]] = Field(min_length=1)
+    return_ids: bool = False
+    correction: bool = False
+
+
+def _privacy_validator(settings: Settings) -> PrivacyValidator:
+    """Build a privacy validator from settings (D-004/D-005)."""
+    return PrivacyValidator(
+        PrivacyPolicy(
+            mode=settings.privacy_mode,
+            dimension_allowlist=settings.privacy_dimension_allowlist_set,
+            tool_names_enabled=settings.privacy_tool_names_enabled,
+            max_event_bytes=settings.privacy_max_event_bytes,
+            max_json_depth=settings.privacy_max_json_depth,
+        )
+    )
+
+
+async def _load_body(request: Request, max_bytes: int) -> dict[str, Any]:
+    """Read, gunzip if needed, size-check, and parse the JSON request body."""
+    raw = await request.body()
+    if "gzip" in request.headers.get("Content-Encoding", "").lower():
+        try:
+            raw = gzip.decompress(raw)
+        except (OSError, EOFError) as exc:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "invalid gzip body"
+            ) from exc
+    if len(raw) > max_bytes:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            f"batch body exceeds the {max_bytes} byte limit",
+        )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid JSON body") from exc
+    if not isinstance(data, dict):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "body must be a JSON object")
+    return data
+
+
+def _pydantic_items(error: ValidationError, index: int) -> list[ValidationErrorItem]:
+    """Map a pydantic error to structured items at batch position ``index``."""
+    return [
+        ValidationErrorItem(
+            index=index,
+            field_path=".".join(str(part) for part in err["loc"]),
+            code=str(err["type"]),
+            message=str(err["msg"]),
+        )
+        for err in error.errors()
+    ]
+
+
+def _validate_envelope(
+    data: dict[str, Any],
+) -> tuple[_BatchEnvelope | None, list[ValidationErrorItem]]:
+    """Validate the batch envelope; return it, or None plus envelope errors."""
+    try:
+        return _BatchEnvelope.model_validate(data), []
+    except ValidationError as exc:
+        return None, _pydantic_items(exc, -1)
+
+
+def _validate_events(
+    envelope: _BatchEnvelope,
+) -> tuple[list[tuple[int, UsageEventV2]], list[ValidationErrorItem]]:
+    """Validate each raw event; return (index, event) pairs plus schema errors."""
+    valid: list[tuple[int, UsageEventV2]] = []
+    errors: list[ValidationErrorItem] = []
+    for index, raw in enumerate(envelope.events):
+        try:
+            valid.append((index, UsageEventV2.model_validate(raw)))
+        except ValidationError as exc:
+            errors.extend(_pydantic_items(exc, index))
+    return valid, errors
+
+
+def _raise_validation(errors: list[ValidationErrorItem], request_id: str | None) -> NoReturn:
+    """Raise a 422 carrying the structured error list (FR-INGEST-006)."""
+    raise HTTPException(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        {"errors": [item.model_dump() for item in errors], "request_id": request_id},
+    )
+
+
+def _check_event_count(envelope: _BatchEnvelope, max_events: int) -> None:
+    """Enforce the maximum batch event count (FR-INGEST-005)."""
+    if len(envelope.events) > max_events:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            f"batch has {len(envelope.events)} events, over the {max_events} limit",
+        )
+
+
+async def enforce_ingest_rate(
+    request: Request, label: str = Depends(require_token)
+) -> str:
+    """Charge the ingest rate bucket for the caller; 429 when exhausted."""
+    limiter = request.app.state.ingest_rate_limiter
+    if not limiter.allow(label):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "ingest rate limit exceeded"
+        )
+    return label
+
+
+async def _publish(request: Request, message: dict[str, object]) -> None:
+    """Publish a live event to the WebSocket broadcaster if present."""
+    broadcaster = getattr(request.app.state, "broadcaster", None)
+    if broadcaster is not None:
+        await broadcaster.publish(message)
+
+
+@router.post("/ingest/events", response_model=IngestEventsResponse)
+async def ingest_events(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    label: str = Depends(enforce_ingest_rate),
+) -> IngestEventsResponse:
+    """Validate and persist a batch of v2 usage events."""
+    settings: Settings = request.app.state.settings
+    request_id = getattr(request.state, "request_id", None)
+    data = await _load_body(request, settings.ingest_max_bytes)
+
+    envelope, envelope_errors = _validate_envelope(data)
+    if envelope is None:
+        _raise_validation(envelope_errors, request_id)
+    _check_event_count(envelope, settings.ingest_max_events)
+
+    valid, errors = _validate_events(envelope)
+    if errors:
+        _raise_validation(errors, request_id)
+    events = [event for _, event in valid]
+
+    service = IngestV2Service(
+        session,
+        privacy=_privacy_validator(settings),
+        data_quality=DataQualityService(
+            session, settings.data_quality_dedup_window_seconds
+        ),
+    )
+    try:
+        result = await service.ingest(
+            events,
+            token_label=label,
+            request_id=request_id,
+            correction=envelope.correction,
+            actor=label,
+            return_ids=envelope.return_ids,
+        )
+    except BatchValidationError as exc:
+        _raise_validation(
+            [ValidationErrorItem(**vars(issue)) for issue in exc.issues], request_id
+        )
+
+    await session.commit()
+    try:
+        await _publish(
+            request,
+            {
+                "type": "events_v2",
+                "accepted": result.accepted,
+                "updated": result.updated,
+            },
+        )
+    except Exception as exc:
+        # Publish is best-effort: a failure must never fail committed ingest.
+        logger.warning("v2 ingest websocket publish failed: {}", exc)
+
+    return IngestEventsResponse(
+        batch_id=result.batch_id,
+        request_id=request_id,
+        accepted=result.accepted,
+        updated=result.updated,
+        duplicate=result.duplicate,
+        rejected=result.rejected,
+        corrected=result.corrected,
+        accepted_ids=result.accepted_ids if envelope.return_ids else None,
+        updated_ids=result.updated_ids if envelope.return_ids else None,
+        ids_truncated=result.ids_truncated,
+    )
+
+
+@router.post("/ingest/validate", response_model=ValidateResponse)
+async def validate_events(
+    request: Request,
+    label: str = Depends(enforce_ingest_rate),
+) -> ValidateResponse:
+    """Run schema and privacy checks without persisting anything."""
+    settings: Settings = request.app.state.settings
+    request_id = getattr(request.state, "request_id", None)
+    data = await _load_body(request, settings.ingest_max_bytes)
+
+    envelope, errors = _validate_envelope(data)
+    if envelope is None:
+        return ValidateResponse(valid=False, request_id=request_id, errors=errors)
+    _check_event_count(envelope, settings.ingest_max_events)
+
+    valid, schema_errors = _validate_events(envelope)
+    errors.extend(schema_errors)
+
+    validator = _privacy_validator(settings)
+    for index, event in valid:
+        errors.extend(
+            ValidationErrorItem(
+                index=index,
+                field_path=issue.field_path,
+                code=issue.code,
+                message=issue.message,
+            )
+            for issue in validator.issues(event)
+        )
+
+    return ValidateResponse(valid=not errors, request_id=request_id, errors=errors)
+
+
+@router.get("/ready", tags=["meta"])
+async def readiness(request: Request) -> JSONResponse:
+    """Unauthenticated readiness probe: database and migration status."""
+    factory = request.app.state.session_factory
+    database_ok = True
+    revision: str | None = None
+    try:
+        async with factory() as session:
+            await session.execute(sa.text("SELECT 1"))
+            row = (
+                await session.execute(sa.text("SELECT version_num FROM alembic_version"))
+            ).first()
+            revision = row[0] if row is not None else None
+    except Exception:
+        # Readiness reports failure in its body; it must never raise.
+        database_ok = False
+
+    payload = {
+        "status": "ready" if database_ok else "unavailable",
+        "database": "ok" if database_ok else "error",
+        "migration": revision,
+    }
+    code = status.HTTP_200_OK if database_ok else status.HTTP_503_SERVICE_UNAVAILABLE
+    return JSONResponse(payload, status_code=code)

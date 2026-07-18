@@ -35,6 +35,7 @@ from tokemetry_server.services.broadcast import Broadcaster
 from tokemetry_server.services.channel_config import resolve_channel_settings
 from tokemetry_server.services.cost import CostEngine
 from tokemetry_server.services.pricing_repo import load_pricing_table, seed_default_pricing
+from tokemetry_server.services.rate_limit import RateLimiter
 from tokemetry_server.services.registries import seed_default_providers
 from tokemetry_server.services.registry_backfill import RegistryBackfill
 
@@ -119,6 +120,12 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         app.state.broadcaster = Broadcaster()
         app.state.alert_engine = alert_engine
         app.state.http_client = http_client
+        app.state.ingest_rate_limiter = RateLimiter(
+            resolved.ingest_rate_capacity, resolved.ingest_rate_per_second
+        )
+        app.state.query_rate_limiter = RateLimiter(
+            resolved.query_rate_capacity, resolved.query_rate_per_second
+        )
 
         alert_task: asyncio.Task[None] | None = None
         if resolved.alerts_enabled:

@@ -53,12 +53,50 @@ stats cache. Upserted into `daily_rollups` on the grain
 `(day, provider, machine, model, project='')` with `provenance='stats_cache'`;
 re-importing the same cache is idempotent (replace, not accumulate).
 
+## v2 ingest (provider-neutral)
+
+The v2 endpoints accept the provider-neutral usage event (see
+[usage-event-v2.md](../architecture/usage-event-v2.md)). They share the bearer
+auth above (an `ingest:events` scope is added in Task 63) and are rate limited
+in a class separate from query traffic (FR-INGEST-015). Request bodies may be
+gzip-compressed (`Content-Encoding: gzip`, FR-INGEST-010). Every response
+carries an `X-Request-ID` header (FR-INGEST-016).
+
+### `POST /api/v2/ingest/events`
+
+Batch envelope: `{ "schema_version": 2, "events": [ ...UsageEventV2... ],
+"return_ids": false, "correction": false }`. Each event carries its own
+`source`. The batch is validated (schema then privacy) and, if clean, persisted
+in one transaction through the revision engine. The response reports the
+server-generated `batch_id`, the `request_id`, and the five outcome counts
+(`accepted`, `updated`, `duplicate`, `rejected`, `corrected`); with
+`return_ids` it also echoes the accepted/updated ids, capped with an
+`ids_truncated` flag (FR-INGEST-009). `correction: true` authorizes a
+final-over-final correction (needs the `admin:corrections` scope once Task 63
+lands). Limits: `ingest_max_events` (default 1000) and `ingest_max_bytes`
+(default 5 MiB), both settings-driven (FR-INGEST-005).
+
+### `POST /api/v2/ingest/validate`
+
+Runs the same schema and privacy checks and returns `{ "valid": bool,
+"errors": [...], "request_id": ... }` **without persisting anything**
+(FR-INGEST-007), so an exporter can pre-flight a batch.
+
+### `GET /api/v2/ready`
+
+Unauthenticated readiness probe reporting `{ "status", "database", "migration" }`
+without secrets (FR-INGEST-018/019); `503` when the database is unreachable.
+
 ## Errors
 
 - `422` -- malformed payload (schema violation, empty batch, unknown field).
-  The whole batch is rejected; ingest is all-or-nothing.
+  The whole batch is rejected; ingest is all-or-nothing. v2 `/events` returns a
+  structured `detail` of `{ "errors": [ {index, field_path, code, message} ],
+  "request_id" }` (FR-INGEST-006).
+- `413` -- v2 batch over the event-count or byte-size limit.
+- `429` -- v2 ingest rate limit exceeded.
 - `400` -- sanity-check failure (token count above the sane maximum,
-  timestamp too far in the future).
+  timestamp too far in the future) or a malformed/invalid-gzip v2 body.
 - `401` -- missing or invalid bearer token.
 
 ## Notes

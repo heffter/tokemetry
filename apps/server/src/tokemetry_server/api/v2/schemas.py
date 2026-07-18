@@ -46,3 +46,47 @@ class ModelOut(BaseModel):
     first_seen: UtcDatetime | None
     last_seen: UtcDatetime | None
     aliases: list[str]
+
+
+class ValidationErrorItem(BaseModel):
+    """One structured validation failure (FR-INGEST-006).
+
+    ``index`` is the event's position in the batch (``-1`` for a batch-envelope
+    error); ``field_path`` is a dotted path into the event; ``code`` and
+    ``message`` name and describe the failure. This is the stable shape the
+    generated clients (task 62.12) and the exporter conformance suite consume.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: int
+    field_path: str
+    code: str
+    message: str
+
+
+class IngestEventsResponse(BaseModel):
+    """Result of a successful ``POST /api/v2/ingest/events`` batch."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_id: str
+    request_id: str | None
+    accepted: int
+    updated: int
+    duplicate: int
+    rejected: int
+    corrected: int
+    accepted_ids: list[str] | None = None
+    updated_ids: list[str] | None = None
+    ids_truncated: bool = False
+
+
+class ValidateResponse(BaseModel):
+    """Result of ``POST /api/v2/ingest/validate`` (never persists)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    valid: bool
+    request_id: str | None
+    errors: list[ValidationErrorItem]

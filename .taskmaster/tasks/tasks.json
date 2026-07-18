@@ -2445,13 +2445,14 @@
             "id": 6,
             "title": "Ingest endpoints: POST /api/v2/ingest/events and /api/v2/ingest/validate",
             "description": "The v2 ingest HTTP surface with structured errors, gzip, and configurable limits.",
-            "details": "Add api/v2/ingest.py: POST /api/v2/ingest/events accepting a batch envelope (schema_version, source object, events list) with configurable maximum event count and byte size (FR-INGEST-005, defaults 1000 events and 5 MiB, settings-driven); gzip request body support (FR-INGEST-010); bearer auth (FR-INGEST-001) using require_token now and ingest:events scope once Task 63 lands; validation failures return the structured error list with event index, field path, code, and message (FR-INGEST-006) and reject the batch. POST /api/v2/ingest/validate runs schema plus semantic plus privacy checks and returns the same error structure without persisting anything (FR-INGEST-007, FR-IDEMP-010) so exporters can pre-flight batches. Health and readiness endpoints stay unauthenticated and readiness reports database plus migration status without secrets (FR-INGEST-018/019). Rate limiting distinguishes ingest from query traffic (FR-INGEST-015) via a simple in-process token bucket configurable per class, hardened further in Task 70. Test strategy: integration tests for happy path, oversized batch, malformed event index reporting, gzip round trip, validate-endpoint non-persistence (row counts unchanged), unauthenticated health, and rate-limit classes; error-format snapshot test used later by client generators.",
-            "status": "pending",
+            "details": "Add api/v2/ingest.py: POST /api/v2/ingest/events accepting a batch envelope (schema_version, source object, events list) with configurable maximum event count and byte size (FR-INGEST-005, defaults 1000 events and 5 MiB, settings-driven); gzip request body support (FR-INGEST-010); bearer auth (FR-INGEST-001) using require_token now and ingest:events scope once Task 63 lands; validation failures return the structured error list with event index, field path, code, and message (FR-INGEST-006) and reject the batch. POST /api/v2/ingest/validate runs schema plus semantic plus privacy checks and returns the same error structure without persisting anything (FR-INGEST-007, FR-IDEMP-010) so exporters can pre-flight batches. Health and readiness endpoints stay unauthenticated and readiness reports database plus migration status without secrets (FR-INGEST-018/019). Rate limiting distinguishes ingest from query traffic (FR-INGEST-015) via a simple in-process token bucket configurable per class, hardened further in Task 70. Test strategy: integration tests for happy path, oversized batch, malformed event index reporting, gzip round trip, validate-endpoint non-persistence (row counts unchanged), unauthenticated health, and rate-limit classes; error-format snapshot test used later by client generators.\n<info added on 2026-07-18T21:39:17.723Z>\nAdded api/v2/ingest.py with POST /api/v2/ingest/events, POST /api/v2/ingest/validate, and GET /api/v2/ready. The events endpoint reads the raw body (supporting gzip via Content-Encoding, FR-INGEST-010), enforces ingest_max_bytes (returns 413) and ingest_max_events (returns 413, FR-INGEST-005, settings-driven defaults 1000 events/5 MiB), validates the envelope {schema_version, events, return_ids, correction}, then validates each event as UsageEventV2 while collecting structured errors {index, field_path, code, message} (FR-INGEST-006); on failure it returns 422 with detail {errors, request_id} and rejects the batch. Successful ingestion calls IngestV2Service in a single transaction with an explicit commit before a best-effort WebSocket publish (publish errors are swallowed so they cannot roll back the ingest, NFR-REL-008) and returns batch_id, counts, and optional capped IDs. The validate endpoint performs the same schema and privacy checks but returns 200 {valid, errors, request_id} without persisting anything (FR-INGEST-007, FR-IDEMP-010). The readiness endpoint is unauthenticated, reports database connectivity and Alembic migration revision without secrets (FR-INGEST-018/019), and returns 503 when the database is down. Source remains per-event (wire-canonical per PRD 12.3/62.1) rather than a batch-envelope field; token_label is derived from auth; source_id resolution is deferred to Task 63; correction is allowed now (bootstrap=full-admin) but gated by admin:corrections scope in Task 63. Request-ID middleware (from 62.5) stamps X-Request-ID. A new services/rate_limit.py implements a token-bucket RateLimiter with separate ingest and query buckets on app.state (FR-INGEST-015), enforced via the enforce_ingest_rate dependency returning 429. Configuration includes ingest_max_events/bytes, privacy_* knobs, a dimension allowlist (CSV/set property), and ingest/query rate capacity and rate. Response schemas (ValidationErrorItem, IngestEventsResponse, ValidateResponse) are in api/v2/schemas.py. Non-deprecated Starlette status constants are used (422 UNPROCESSABLE_CONTENT, 413 CONTENT_TOO_LARGE). Tests include unit test_rate_limit.py (bucket capacity/refill/cap/key-isolation) and integration test_ingest_v2_api.py (happy path, return_ids, malformed-index reporting, privacy content_key, gzip round trip, validate non-persistence, validate reports-without-raising, unauthenticated readiness=0007, oversized 413, ingest-vs-query rate-limit separation). Documentation is in docs/api/ingest.md v2 section. Gates: pytest 506 passed/18 skipped, ruff clean, mypy strict clean (90 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T21:39:17.723Z>",
+            "status": "done",
             "dependencies": [
               "62.5"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T21:39:49.808Z"
           },
           {
             "id": 7,
@@ -2530,7 +2531,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T21:20:44.934Z"
+        "updatedAt": "2026-07-18T21:39:49.808Z"
       },
       {
         "id": "63",
@@ -3525,7 +3526,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T21:20:44.935Z",
+      "lastModified": "2026-07-18T21:39:49.809Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [

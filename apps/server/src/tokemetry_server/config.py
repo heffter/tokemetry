@@ -83,10 +83,44 @@ class Settings(BaseSettings):
     #: fewer rows for a persistent issue; the default is one hour.
     data_quality_dedup_window_seconds: float = Field(default=3600.0, gt=0)
 
+    #: Maximum events accepted in one v2 ingest batch (FR-INGEST-005).
+    ingest_max_events: int = Field(default=1000, ge=1)
+    #: Maximum decompressed byte size of a v2 ingest batch body (FR-INGEST-005).
+    ingest_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1)
+
+    #: v2 privacy policy knobs (task 62.2; D-004/D-005). ``strip`` removes
+    #: content-like keys instead of rejecting the batch.
+    privacy_mode: Literal["reject", "strip"] = Field(default="reject")
+    #: Accept the optional tool-name histogram (default off, D-005).
+    privacy_tool_names_enabled: bool = Field(default=False)
+    #: Maximum serialized size of a single v2 event in bytes (FR-EVENT-028).
+    privacy_max_event_bytes: int = Field(default=32 * 1024, ge=1)
+    #: Maximum JSON nesting depth of a single v2 event (NFR-SEC-004).
+    privacy_max_json_depth: int = Field(default=8, ge=1)
+    #: Comma-separated allowlist of permitted dimension keys (D-004).
+    privacy_dimension_allowlist: str = Field(default="team,cost_center,environment")
+
+    #: In-process rate-limit buckets, separate for ingest and query traffic
+    #: (FR-INGEST-015). ``capacity`` is the burst size; ``per_second`` refills.
+    #: A simple token bucket; hardened in Task 70.
+    ingest_rate_capacity: float = Field(default=240.0, gt=0)
+    ingest_rate_per_second: float = Field(default=120.0, gt=0)
+    query_rate_capacity: float = Field(default=240.0, gt=0)
+    query_rate_per_second: float = Field(default=120.0, gt=0)
+
     @property
     def project_root_markers(self) -> tuple[str, ...]:
         """Parse :attr:`project_roots` into a tuple of marker segments."""
         return tuple(part.strip() for part in self.project_roots.split(",") if part.strip())
+
+    @property
+    def privacy_dimension_allowlist_set(self) -> frozenset[str]:
+        """Parse :attr:`privacy_dimension_allowlist` into a set of keys."""
+        return frozenset(
+            part.strip()
+            for part in self.privacy_dimension_allowlist.split(",")
+            if part.strip()
+        )
 
     # --- Notification channel settings (all optional; a channel is only
     # available when its required settings are present). These are the

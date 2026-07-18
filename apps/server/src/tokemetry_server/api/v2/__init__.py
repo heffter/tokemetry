@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from tokemetry_server.api.v2.ingest import router as _ingest_router
 from tokemetry_server.api.v2.registries import router as _registries_router
 
 router = APIRouter()
 router.include_router(_registries_router)
+router.include_router(_ingest_router)
