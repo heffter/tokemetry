@@ -57,6 +57,17 @@ dialect-portable.
 Registering a new provider is DB plus seed-data work only, never dashboard code
 (FR-PROVIDER-007).
 
+**Backfill** (`services/registry_backfill.py`): a database that predates the
+registries is reconciled once at startup, guarded by the
+`registry_backfill_done` marker in `app_settings`. It scans distinct
+`(provider, model)` pairs from `usage_events` and distinct providers from
+`limit_snapshots`, registers providers, and inserts model rows -- recognized
+Claude families as `active`, everything else as `unknown` with an
+`unknown_model` data-quality record -- with `first_seen`/`last_seen` taken from
+each model's min/max event timestamp. It never mutates usage rows
+(FR-MODEL-007). Operators can re-run it for recovery with
+`python -m tokemetry_server backfill-registries --force`.
+
 ### Data-quality events
 
 `data_quality_events` (`services/data_quality.py`) is a sink for pipeline

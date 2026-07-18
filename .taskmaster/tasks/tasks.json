@@ -2337,14 +2337,15 @@
             "id": 6,
             "title": "Backfill registries from historical usage data",
             "description": "Populate models and data quality records from existing usage_events history.",
-            "details": "Write an idempotent backfill routine (invoked once at startup after migration, guarded by an app_settings marker like registry_backfill_done) that scans distinct (provider, model) pairs from the existing usage_events table plus distinct providers from limit_snapshots, inserts registry rows (known Claude model families get lifecycle active; anything unrecognized gets lifecycle unknown plus an unknown_model data quality record), and populates first_seen/last_seen from min/max event timestamps per model. Never mutates usage rows (FR-MODEL-007). Provide a CLI or admin trigger for re-running with --force for recovery. Test strategy: unit test with a seeded history containing dated Claude ids, an unknown id, and a synthetic provider, asserting registry rows, lifecycle assignment, timestamps, and data quality records; idempotency test (second run is a no-op); guard-marker test.",
-            "status": "pending",
+            "details": "Write an idempotent backfill routine (invoked once at startup after migration, guarded by an app_settings marker like registry_backfill_done) that scans distinct (provider, model) pairs from the existing usage_events table plus distinct providers from limit_snapshots, inserts registry rows (known Claude model families get lifecycle active; anything unrecognized gets lifecycle unknown plus an unknown_model data quality record), and populates first_seen/last_seen from min/max event timestamps per model. Never mutates usage rows (FR-MODEL-007). Provide a CLI or admin trigger for re-running with --force for recovery. Test strategy: unit test with a seeded history containing dated Claude ids, an unknown id, and a synthetic provider, asserting registry rows, lifecycle assignment, timestamps, and data quality records; idempotency test (second run is a no-op); guard-marker test.\n<info added on 2026-07-18T16:05:28.417Z>\nAdded services/registry_backfill.py: RegistryBackfill.run(force=False) is idempotent, guarded by app_settings marker registry_backfill_done. Scans distinct providers from usage_events + limit_snapshots (registers each via ProviderRegistryService.resolve accept - seeds registered, unknowns registered=False) and distinct (provider,model) with func.min/max(ts) grouped from usage_events (ReturnTypeFromArgs propagates DateTime so aggregates parse back). Known Claude families (provider anthropic + id startswith claude, dated+undated) -> lifecycle active; else unknown + unknown_model DQ record via record_safe (source=backfill in detail). first_seen/last_seen from min/max ts. Model upsert is get-or-create: on existing extends window (min first_seen/max last_seen tz-robust) and upgrades unknown->active, never downgrades or mutates usage rows (FR-MODEL-007). Wired into app.py startup after provider seeding (guarded, no-op on empty/already-done DB). CLI: cli.py + __main__.py -> python -m tokemetry_server backfill-registries [--force]; migrates then runs; smoke-tested (first run migrates+backfills, --force re-runs, --help ok). Tests (test_registry_backfill.py, 8): seeded history (dated+undated claude, mystery id, synthetic acme provider via limit_snapshot) asserts lifecycle/timestamps/providers/DQ, never-mutates-usage, second-run-skipped, marker-set, force-reruns-without-duplicating (DQ dedup collapses), startup-marker via client. Docs: database.md Backfill paragraph. Gates: full suite 225 passed / 11 skipped, ruff clean, mypy strict clean (60 files), trivy repo-root clean.\n</info added on 2026-07-18T16:05:28.417Z>",
+            "status": "done",
             "dependencies": [
               "61.3",
               "61.4"
             ],
             "parentTaskId": 61,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T16:05:50.605Z"
           },
           {
             "id": 7,
@@ -2360,7 +2361,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T15:54:34.235Z"
+        "updatedAt": "2026-07-18T16:05:50.605Z"
       },
       {
         "id": "62",
@@ -3517,7 +3518,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T15:54:34.236Z",
+      "lastModified": "2026-07-18T16:05:50.606Z",
       "taskCount": 71,
       "completedCount": 60,
       "tags": [

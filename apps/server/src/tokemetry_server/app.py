@@ -34,6 +34,7 @@ from tokemetry_server.services.channel_config import resolve_channel_settings
 from tokemetry_server.services.cost import CostEngine
 from tokemetry_server.services.pricing_repo import load_pricing_table, seed_default_pricing
 from tokemetry_server.services.registries import seed_default_providers
+from tokemetry_server.services.registry_backfill import RegistryBackfill
 
 #: Type of the per-event cost function stored on app state.
 CostFn = Callable[[UsageEvent], "Decimal | None"]
@@ -94,6 +95,9 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
             active_cost_fn = (await _build_cost_engine(session_factory, dialect_name)).cost
         async with session_factory() as registry_session:
             await seed_default_providers(registry_session)
+            await RegistryBackfill(
+                registry_session, resolved.data_quality_dedup_window_seconds
+            ).run()
             await registry_session.commit()
         if resolved.seed_default_alerts:
             async with session_factory() as seed_session:
