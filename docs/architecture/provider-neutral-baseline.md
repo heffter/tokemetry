@@ -20,7 +20,7 @@ Load-bearing v1 behaviors that later epics MUST preserve are tagged inline as
 | Section | Subtask | Status |
 | --- | --- | --- |
 | 1. Data model and dedupe semantics | 60.1 | Complete |
-| 2. Ingest, query, and collector behavior | 60.2 | Pending |
+| 2. Ingest, query, and collector behavior | 60.2 | Complete |
 | 3. Pricing, cost, rollups, and dashboard assumptions | 60.3 | Pending |
 | 4. V1 compatibility contract and golden wire fixtures | 60.4 | Pending |
 | 5. Migration constraints and test-to-epic mapping | 60.5 | Pending |
@@ -371,7 +371,270 @@ defaults to the sum of split fields when zero (`core/models.py:117-134`).
 
 ## 2. Ingest, query, and collector behavior
 
-_Pending - subtask 60.2._
+Source of truth: `api/schemas.py`, `api/ingest.py`, `api/auth.py`, `api/deps.py`,
+`api/stream.py`, `api/query.py`, `services/validation.py`,
+`services/broadcast.py`, `config.py`, and `apps/collector/`.
+
+### 2.1 Ingest endpoints (`api/ingest.py`, `api/schemas.py`)
+
+Router prefix `/api/v1/ingest` (`ingest.py:22`). Three POST routes, all
+authenticated (`Depends(require_token)`) and all-or-nothing transactional (the
+request-scoped session commits on success, rolls back on any exception -
+`deps.py:17-26`).
+
+| Endpoint | Body model | Batch bound | Publishes to WS? |
+| --- | --- | --- | --- |
+| `POST /api/v1/ingest/events` | `EventsIngest` | `events`: **1-5000** | yes (`{type: events}`) |
+| `POST /api/v1/ingest/limits` | `LimitsIngest` | `snapshots`: **1-1000** | yes (`{type: limits}`) |
+| `POST /api/v1/ingest/bootstrap` | `BootstrapIngest` | `aggregates`: **1-20000** | no |
+
+- Batch bounds are `Field(min_length=1, max_length=N)` on the list
+  (`schemas.py:153,162,171`). **[V1-LOCK]** exact caps 5000/1000/20000.
+- Each wire model has `model_config = ConfigDict(extra="forbid")`
+  (`schemas.py:27,37,90,117,150,159,168`): **unknown JSON fields are rejected**
+  (422). **[V1-LOCK]** - v2 additive fields must remain optional and the v1
+  models stay strict, so a v1 collector's payload is still accepted verbatim.
+- Wire -> core conversion via `to_core(machine)` stamps the machine name onto
+  each record (`schemas.py:60,100,130`). Wire field `native_model` maps to core
+  `native_model` -> DB `model` (see Section 1.5).
+- **Wire field inventory** (the frozen v1 request contract):
+  - `MachineInfo`: `name` (1-200, required), `platform` (<=50), `collector_version`
+    (<=50).
+  - `UsageEventIn`: `event_id` (1-200), `provider` (1-50), `native_model` (1-200),
+    `ts`, `session_id`, `project` (<=500), `git_branch` (<=300), `client_version`,
+    `entrypoint`, `is_sidechain` (default False), `session_kind`, the 5 token
+    counters (`ge=0`, default 0), `service_tier`, `speed`, `provenance`
+    (default `local_estimate`), `extra` (dict, default `{}`).
+  - `LimitSnapshotIn`: `provider`, `ts`, `window_kind` (1-50), `utilization_pct`
+    (`ge=0.0`), `resets_at` (optional), `provenance` (default `official`), `raw`
+    (dict).
+  - `DailyAggregateIn`: `provider`, `day`, `native_model`, the 5 token counters,
+    `total_tokens`, `message_count`. **Note: no `provenance` field** on the wire
+    bootstrap model (unlike events/limits); the server assigns `stats_cache` via
+    the core default.
+- **Response** `IngestResult`: `{accepted: int, duplicates_merged: int = 0}`
+  (`schemas.py:174-178`). Only the events path sets `duplicates_merged`
+  (`ingest.py`/`services/ingest.py:96-98`); limits/bootstrap return
+  `duplicates_merged = 0`. **[V1-LOCK]** response shape.
+- **Error contract** (`ingest.py:1-5,43-44`): malformed batch (schema/type) ->
+  **422** (FastAPI/Pydantic); sanity-check failure (`ValidationError`) -> **400**.
+  Bootstrap does not run sanity validation (`ingest.py:72-80`).
+
+### 2.2 Validation caps (`services/validation.py`)
+
+Cross-field sanity checks beyond Pydantic bounds, applied per event/snapshot in
+`IngestService.ingest_events`/`ingest_limits` (`ingest.py:80-82,104-106`):
+
+- `_MAX_TOKENS = 10_000_000_000` (10 billion): any single token counter above
+  this rejects the **whole batch** (`validation.py:17,45-46`).
+- `_MAX_CLOCK_SKEW = timedelta(hours=2)`: a `ts` more than 2h in the future is
+  rejected (`validation.py:21,47-48,57-58`).
+- `_MAX_UTILIZATION = 1000.0`: a limit `utilization_pct` above 1000 is rejected
+  (`validation.py:24,53-55`).
+- Any failure raises `ValidationError` (a `ValueError`), surfaced as HTTP 400,
+  rolling back the batch. **[V1-LOCK]** exact caps and whole-batch rejection.
+
+### 2.3 Authentication (`api/auth.py`, `api/stream.py`, `config.py`)
+
+- Every `/api/v1` route (ingest and query) depends on `require_token`
+  (`auth.py:40`). HTTP bearer via `HTTPBearer(auto_error=False)`.
+- A token is authorized if it matches **either** (a) the configured bootstrap
+  token, compared constant-time with `hmac.compare_digest`
+  (`auth.py:32-37,54-55`), returning caller label `"bootstrap"`; **or** (b) a
+  non-revoked `api_tokens` row matched by `hash_token(token)`; a DB match
+  refreshes `last_used` (`auth.py:57-79`). Missing/invalid -> **401** with
+  `WWW-Authenticate: Bearer`.
+- Bootstrap token env var: **`TOKEMETRY_API_BOOTSTRAP_TOKEN`** (settings
+  `env_prefix="TOKEMETRY_"` + field `api_bootstrap_token`, `config.py:27,45`).
+- **WebSocket auth** (`stream.py`): `GET /api/v1/stream` authenticates via a
+  `?token=` **query parameter** (browsers cannot set an Authorization header on
+  WS handshakes). Same bootstrap-or-DB-token check (`stream.py:24-40`); failure
+  closes the socket with code **1008** (policy violation). **[V1-LOCK]** WS auth
+  mechanism.
+
+### 2.4 Query endpoints (`api/query.py`, `services/queries.py`)
+
+Router prefix `/api/v1` (`query.py:53`). **16 read endpoints, all authenticated**
+(`require_token` on every one - verified 16/16). Listed in router order to make
+later diffing mechanical:
+
+| # | Endpoint | Filters / params | Response |
+| --- | --- | --- | --- |
+| 1 | `GET /summary/now` | (none; uses server now) | `SummaryNow` |
+| 2 | `GET /summary/overview` | (none) | `OverviewOut` |
+| 3 | `GET /limits/current` | (none) | `list[LimitOut]` |
+| 4 | `GET /limits/history` | `window_kind` (req, >=1), `hours` (24, 1-720) | `list[LimitOut]` |
+| 5 | `GET /blocks` | `hours` (120, 5-2400) | `list[BlockOut]` |
+| 6 | `GET /usage` | `group_by` ("day"), `from`/`to` (date), `provider`, `machine`, `model`, `project` | `UsageResponse` |
+| 7 | `GET /sessions` | `limit` (100, 1-1000) | `list[SessionOut]` |
+| 8 | `GET /sessions/{session_id}` | path `session_id`; 404 if unknown | `SessionDetailOut` |
+| 9 | `GET /report` | `from`/`to` | `ReportOut` |
+| 10 | `GET /report/export` | `size` (`compact`\|`full`), `from`/`to` | (export payload) |
+| 11 | `GET /insights/anomalies` | (none) | `AnomalyReportOut` |
+| 12 | `POST /admin/rebuild-rollups` | (admin; recomputes rollups) | `RebuildResult` |
+| 13 | `GET /machines` | (none) | `list[MachineOut]` |
+| 14 | `GET /heatmap` | `from`/`to`, `machine`, `project` | `HeatmapResponse` |
+| 15 | `GET /cost` | `from`/`to` | `CostResponse` |
+| 16 | `GET /pricing` | (none) | `list[PricingOut]` |
+
+- The full filter dimension set the API exposes today is **`provider`, `machine`,
+  `model`, `project`** (only `/usage` accepts all four; `/heatmap` accepts
+  `machine`, `project`), plus **`from`/`to`** date range (aliased from
+  `date_from`/`date_to`, `query.py:223-224` etc.) and **`window_kind`** for
+  limits history. There is **no `?session=` query filter**; session scoping is
+  via the `/sessions/{session_id}` path only. **[V1-LOCK]** these query
+  parameter names and aliases are the dashboard's contract.
+- `from`/`to` default via `_default_range` when omitted (`query.py:59-66`).
+- `/cost` computes a subscription "value multiple" from
+  `subscription_monthly_usd` prorated over the range (`query.py:463-478`) -
+  detailed in Section 3.
+
+### 2.5 WebSocket broadcast contract (`services/broadcast.py`, `api/ingest.py`)
+
+- In-process, single-process pub/sub. Each subscriber gets a bounded asyncio
+  queue of size `_QUEUE_SIZE = 100` (`broadcast.py:17,38`). A subscriber whose
+  queue fills is **dropped** rather than blocking ingest (`broadcast.py:27-33`) -
+  the stream is best-effort, not durable.
+- Messages published by ingest: events -> `{"type": "events", "machine": <name>,
+  "accepted": <int>}`; limits -> `{"type": "limits", ...}` (`ingest.py:45-48,
+  65-68`). Bootstrap publishes nothing. **[V1-LOCK]** message shape.
+
+### 2.6 Collector behavior (`apps/collector/`)
+
+Source: `state.py`, `runner.py`, `sources.py`, `uploader.py`, `config.py`,
+`limits_anthropic.py`, `wire.py`, `cli.py`, and the core parser
+`packages/core/.../providers/claude_code.py`.
+
+#### 2.6.1 SQLite state DB (`state.py`)
+
+One SQLite file per collector install (path `state_db_path`); machine identity
+is implicit in "which file this is" - there is no machine column. Three tables
+(exact DDL, `state.py:18-36`):
+
+- `file_offsets(source TEXT, path TEXT, offset INTEGER, size INTEGER, PRIMARY
+  KEY (source, path))` - byte offset + last-seen size per source/file.
+- `upload_queue(id INTEGER PK AUTOINCREMENT, kind TEXT, payload TEXT, attempts
+  INTEGER DEFAULT 0)` - `kind` in `{events, limits, bootstrap}`; `payload` is the
+  full batch dict as a JSON string.
+- `meta(key TEXT PRIMARY KEY, value TEXT)` - only key used today is
+  `bootstrap_done` = `"1"`.
+
+**No PRAGMAs** (no WAL, no synchronous tuning, no FK enforcement) - stock SQLite
+defaults. Each mutating method commits immediately (per-call autocommit);
+`file_offsets`/`meta` use `INSERT ... ON CONFLICT DO UPDATE`.
+
+#### 2.6.2 Byte-offset tailing + truncation detection (`runner.py`, parser)
+
+- Offset keyed by `source_key = f"{provider}:{ClassName}"` (e.g.
+  `"anthropic:ClaudeCodeJsonlSource"`, `runner.py:156`) and file path string.
+- New files start at offset 0. **Truncation/rotation detection**: `if stored is
+  not None and file.size < stored.offset: offset = 0` (`runner.py:162-163`) -
+  re-read from start. (Compares current size to stored **offset**, not stored
+  size.)
+- `new_offset` is persisted **after** the file's events are enqueued
+  (`runner.py:179-180`); enqueue and `set_offset` are **separate commits**, not
+  one atomic transaction. Safety is at-least-once: a crash between them re-parses
+  the same bytes, which the server's `(provider, event_id)` keep-max dedupe makes
+  idempotent (Section 1.3). **[V1-LOCK]** the offset/dedupe safety model.
+- Trailing incomplete (no-newline) line is not consumed; `new_offset` stays at
+  its start so the next pass re-reads it complete (`claude_code.py:97-99`).
+
+#### 2.6.3 Upload queue + drain semantics (`uploader.py`, `runner.py`)
+
+- Enqueue: events chunked by `upload_batch_size` (default 500), one queue row
+  per chunk; limits and bootstrap are one row each (not chunked).
+- Drain (`runner.py:200-213`) is strictly FIFO by `id`, **one row per HTTP POST**
+  (`pending(1)`). A row is deleted (`mark_uploaded`) **only after a 2xx response**
+  (`Uploader.send` returns `response.is_success`, `uploader.py:64-65`). On any
+  non-2xx or network error, `attempts` is incremented and the drain loop
+  **breaks** for the cycle.
+- Endpoint map (`uploader.py:16-20`): `events -> /api/v1/ingest/events`,
+  `limits -> /api/v1/ingest/limits`, `bootstrap -> /api/v1/ingest/bootstrap`.
+  Auth header `Authorization: Bearer <api_token>`.
+- **Known gaps (not [V1-LOCK]; candidates for the migration to improve, but must
+  be preserved as observable behavior unless a task changes them):** the
+  `attempts` counter is incremented but never read - no max-retry cutoff, no
+  backoff/jitter (retries gated only by the poll interval), and **head-of-line
+  blocking**: a permanently-rejected row (e.g. a 400/422) blocks the whole FIFO
+  queue every cycle. No dead-letter path.
+
+#### 2.6.4 bootstrap_done guard (`runner.py`)
+
+One-time historical import guarded by `meta["bootstrap_done"] == "1"`
+(`runner.py:34,105-106`). When unset, each source's `bootstrap()` aggregates are
+enqueued as a `bootstrap` batch, then the flag is set - **unless `--dry-run`**,
+which computes but never enqueues and never sets the flag (safe to re-run).
+
+#### 2.6.5 OAuth limits polling (`limits_anthropic.py`) - Anthropic-specific
+
+- Endpoint: `https://api.anthropic.com/api/oauth/usage`
+  (`ANTHROPIC_API_BASE + OAUTH_USAGE_PATH`, `limits_anthropic.py:27,30,130`).
+  This is an **undocumented** endpoint.
+- Auth: OAuth bearer read from Claude Code's `~/.claude/.credentials.json` via a
+  recursive search for `accessToken`/`access_token` (`limits_anthropic.py:42-72`).
+- Headers spoof the Claude CLI to avoid rate limiting: `anthropic-beta:
+  oauth-2025-04-20`, `User-Agent: claude-cli/2.1 (external, tokemetry-collector)`
+  (`limits_anthropic.py:33,36,131-135`).
+- Window kinds emitted: `_WINDOW_KEYS = ("five_hour", "seven_day",
+  "seven_day_opus", "seven_day_sonnet")` (`limits_anthropic.py:39`).
+  **Discrepancy to record:** this **omits `extra_credits`**, which the core
+  `LimitSnapshot` docstring lists as an Anthropic window kind
+  (`core/models.py:141-144`). Later epics must not assume the documented set is
+  exhaustive of what the collector actually emits.
+- `utilization_pct` is passed through as-is from `window["utilization"]` (no
+  scaling); `resets_at` parsed from epoch or ISO-8601; `provenance = OFFICIAL`;
+  `raw` preserves the window dict. Polled first cycle then every
+  `limits_poll_interval_seconds` (default 120).
+
+#### 2.6.6 Collector TOML config (`config.py`)
+
+`CollectorConfig` is `extra="forbid"`; per-source `SourceConfig` is `extra="allow"`
+(so `claude_home` is an ad-hoc extra key, not a declared field).
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `server_url` | str | **required** | server base URL |
+| `api_token` | str | **required** | bearer token |
+| `machine_name` | str | **required** | stamped into every payload |
+| `machine_platform` | str | `platform.system()` | |
+| `poll_interval_seconds` | float | `60.0` | daemon cycle |
+| `limits_poll_interval_seconds` | float | `120.0` | limits cadence |
+| `upload_batch_size` | int | `500` | events per queue row |
+| `state_db_path` | Path | `tokemetry-collector-state.sqlite3` | |
+| `sources` | dict[str, SourceConfig] | `{}` | `[sources.<name>]` |
+| `limits` | dict[str, SourceConfig] | `{}` | `[limits.<name>]` |
+
+Registered names live in `sources.py` (`claude_code`, `anthropic_oauth`), not in
+`config.py` - the config schema itself is provider-neutral.
+
+#### 2.6.7 Wire format (`wire.py`) - the upload contract
+
+The collector emits plain JSON dicts matching the server ingest schemas; the
+machine envelope is attached once per batch (`machine.name` is stamped onto each
+row server-side). **[V1-LOCK]** the entire wire format below - it is the exact
+mirror of the server request schemas (Section 2.1) and must stay accepted verbatim.
+
+- `machine_info`: `{name, platform, collector_version}` (version `"0.1.0"`,
+  `__init__.py:10`).
+- `event_to_wire` (`wire.py:27-50`): all `UsageEventIn` fields; `ts.isoformat()`;
+  `provenance = str(...)`. **Omits the computed `total_tokens`** (server
+  recomputes).
+- `limit_to_wire` (`wire.py:53-63`): `provider, ts, window_kind, utilization_pct,
+  resets_at, provenance, raw`.
+- `aggregate_to_wire` (`wire.py:66-79`): `provider, day, native_model`, 5 token
+  counters, `total_tokens`, `message_count`. **Omits `provenance`** (server
+  assigns `stats_cache` by default - matches the wire `DailyAggregateIn` model
+  which also has no provenance field, Section 2.1).
+- Batch envelopes: `{"machine": ..., "events": [...]}` /
+  `{"machine": ..., "snapshots": [...]}` / `{"machine": ..., "aggregates": [...]}`.
+
+#### 2.6.8 CLI (`cli.py`)
+
+Single flat command `tokemetry-collector` (no subcommands). Flags: `--config
+PATH` (required), `--once` (one cycle, exit), `--dry-run` (parse/report, no state
+change or upload; **implies run-once**), `--bootstrap` (one-time import before
+collecting; additive, not a separate mode). `finally` always closes uploader and
+state.
 
 ## 3. Pricing, cost, rollups, and dashboard assumptions
 

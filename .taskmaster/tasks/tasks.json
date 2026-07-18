@@ -2208,11 +2208,12 @@
             "id": 2,
             "title": "Audit ingest, query, and collector behavior",
             "description": "Document v1 API surface, validation limits, and collector queue mechanics in the baseline document.",
-            "details": "Write the API and collector sections of docs/architecture/provider-neutral-baseline.md. Cover: POST /api/v1/ingest/events|limits|bootstrap with batch bounds 1-5000, 1-1000, 1-20000 (api/schemas.py) and all-or-nothing transactional behavior; validation caps in services/validation.py (10e9 token cap, 2h clock skew, utilization cap 1000); bearer auth via require_token including the TOKEMETRY_API_BOOTSTRAP_TOKEN env bootstrap path and WebSocket ?token= auth in api/stream.py; every /api/v1 query endpoint with its filter dimensions (provider, machine, model, project, session, from/to) as implemented in api/query.py and services/queries.py; the WebSocket broadcast contract from services/broadcast.py; collector behavior in apps/collector (byte-offset tailing with truncation detection, SQLite state DB tables file_offsets, upload_queue, meta; drain-after-200 semantics; bootstrap_done guard; OAuth limits polling of the undocumented api.anthropic.com/api/oauth/usage endpoint with window kinds five_hour, seven_day, seven_day_opus, seven_day_sonnet); collector TOML config schema in config.py. Test strategy: verify each documented endpoint and bound by reading the current router and schema definitions; enumerate the endpoints in the doc in the same order as the routers to make later diffing mechanical.",
-            "status": "pending",
+            "details": "Write the API and collector sections of docs/architecture/provider-neutral-baseline.md. Cover: POST /api/v1/ingest/events|limits|bootstrap with batch bounds 1-5000, 1-1000, 1-20000 (api/schemas.py) and all-or-nothing transactional behavior; validation caps in services/validation.py (10e9 token cap, 2h clock skew, utilization cap 1000); bearer auth via require_token including the TOKEMETRY_API_BOOTSTRAP_TOKEN env bootstrap path and WebSocket ?token= auth in api/stream.py; every /api/v1 query endpoint with its filter dimensions (provider, machine, model, project, session, from/to) as implemented in api/query.py and services/queries.py; the WebSocket broadcast contract from services/broadcast.py; collector behavior in apps/collector (byte-offset tailing with truncation detection, SQLite state DB tables file_offsets, upload_queue, meta; drain-after-200 semantics; bootstrap_done guard; OAuth limits polling of the undocumented api.anthropic.com/api/oauth/usage endpoint with window kinds five_hour, seven_day, seven_day_opus, seven_day_sonnet); collector TOML config schema in config.py. Test strategy: verify each documented endpoint and bound by reading the current router and schema definitions; enumerate the endpoints in the doc in the same order as the routers to make later diffing mechanical.\n<info added on 2026-07-18T10:48:18.430Z>\nWrote Section 2 (Ingest, query, collector) of the baseline doc. Server-side read directly; collector internals audited via subagent then spot-verified against source (endpoint/window keys, wire provenance omission, state DDL all confirmed).\n\nDocumented: 3 ingest endpoints /api/v1/ingest/{events,limits,bootstrap} with batch bounds 5000/1000/20000, all extra='forbid' wire models (unknown fields 422), full wire field inventory, all-or-nothing transaction, IngestResult{accepted,duplicates_merged}, 422 vs 400 error contract. Validation caps _MAX_TOKENS=10e9, _MAX_CLOCK_SKEW=2h, _MAX_UTILIZATION=1000.0 (whole-batch reject). Auth: require_token on all routes, bootstrap-token (hmac constant-time, env TOKEMETRY_API_BOOTSTRAP_TOKEN) or hashed api_tokens row; WS /api/v1/stream ?token= auth, close 1008. Enumerated all 16 query endpoints in router order with filter dims (provider/machine/model/project on /usage; from/to; window_kind+hours; limit); all 16 require auth. Broadcaster in-process pub/sub queue size 100 best-effort, message shapes.\n\nCollector: SQLite state DB (file_offsets PK(source,path), upload_queue id AUTOINCREMENT, meta), no PRAGMAs; byte-offset tailing keyed source_key=provider:ClassName, truncation detect file.size<stored.offset->0, non-atomic offset/enqueue commits (at-least-once, server dedupe idempotent); FIFO drain one-row-per-POST, delete only after 2xx, break on failure; bootstrap_done meta guard; OAuth limits https://api.anthropic.com/api/oauth/usage from .credentials.json, headers spoof claude-cli, _WINDOW_KEYS omits extra_credits (discrepancy flagged); TOML config schema (server_url/api_token/machine_name required, poll 60/limits 120/batch 500); wire format [V1-LOCK] mirrors server schemas (event omits total_tokens, aggregate omits provenance); flat CLI --config/--once/--dry-run/--bootstrap.\n\nFlagged non-[V1-LOCK] gaps for later epics: attempts counter never read, no backoff, head-of-line queue blocking, no dead-letter; extra_credits omission; wire provenance omission on bootstrap.\n</info added on 2026-07-18T10:48:18.430Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 60,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T10:48:37.576Z"
           },
           {
             "id": 3,
@@ -2252,7 +2253,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T10:41:32.454Z"
+        "updatedAt": "2026-07-18T10:48:37.576Z"
       },
       {
         "id": "61",
@@ -3507,7 +3508,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T10:41:32.455Z",
+      "lastModified": "2026-07-18T10:48:37.577Z",
       "taskCount": 71,
       "completedCount": 59,
       "tags": [
