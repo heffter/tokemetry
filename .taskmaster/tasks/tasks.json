@@ -2471,13 +2471,14 @@
             "id": 8,
             "title": "V1-to-v2 backfill migration with count and sum verification",
             "description": "Copy all historical v1 events into the v2 ledger and prove equality before any cutover.",
-            "details": "Write the backfill as an Alembic data migration plus a standalone verification tool. Backfill: every usage_events row becomes a usage_events_v2 row with event_kind attempt, finality final, sequence 0, provenance preserved, native_model from the v1 model column, requested_model and routed_model null, source_id null (attributed later by Task 63 subtask 6), all six token counters copied (reasoning 0), extra JSON preserved, machine, project, session_id, ts columns mapped onto ts_started (v1 has one timestamp; ts_completed set equal, latency null) per FR-EVENT-023. Batched copy (10000 rows per chunk) so SQLite and Postgres both survive production-scale tables; resumable via high-water mark; never mutates source rows. Verification tool (CLI, also runnable via admin endpoint): per day, provider, and machine compare row counts and sums of all five v1 token columns plus cost between usage_events and usage_events_v2, emitting a machine-readable report; any mismatch blocks subtasks 9 and 10. Downgrade path drops v2 rows originating from backfill (marked via provenance-preserving batch tag in extra or a backfill marker column). Test strategy: migration tests seeding representative v1 data (including duplicates already collapsed, null projects, unknown-model rows with null cost) then asserting the verification report is all-equal; interrupted-backfill resume test; downgrade test restoring the pre-backfill state.",
-            "status": "pending",
+            "details": "Write the backfill as an Alembic data migration plus a standalone verification tool. Backfill: every usage_events row becomes a usage_events_v2 row with event_kind attempt, finality final, sequence 0, provenance preserved, native_model from the v1 model column, requested_model and routed_model null, source_id null (attributed later by Task 63 subtask 6), all six token counters copied (reasoning 0), extra JSON preserved, machine, project, session_id, ts columns mapped onto ts_started (v1 has one timestamp; ts_completed set equal, latency null) per FR-EVENT-023. Batched copy (10000 rows per chunk) so SQLite and Postgres both survive production-scale tables; resumable via high-water mark; never mutates source rows. Verification tool (CLI, also runnable via admin endpoint): per day, provider, and machine compare row counts and sums of all five v1 token columns plus cost between usage_events and usage_events_v2, emitting a machine-readable report; any mismatch blocks subtasks 9 and 10. Downgrade path drops v2 rows originating from backfill (marked via provenance-preserving batch tag in extra or a backfill marker column). Test strategy: migration tests seeding representative v1 data (including duplicates already collapsed, null projects, unknown-model rows with null cost) then asserting the verification report is all-equal; interrupted-backfill resume test; downgrade test restoring the pre-backfill state.\n<info added on 2026-07-18T22:08:58.278Z>\nAdded db/backfill.py + migration 0008 (data migration, down_revision 0007) + CLI commands. backfill_usage_events_v2(connection, chunk_size=10000): chunked, keyset-paginated by (provider,event_id), idempotent via ON CONFLICT DO NOTHING (resumable, never mutates source). Maps each v1 usage_events row -> usage_events_v2 with event_kind=attempt, finality=final, sequence=0, native_model=v1.model, requested/routed null, source_id null (Task 63), five token counters copied + reasoning_tokens=0, single v1 ts -> ts_started AND ts_completed, success=True (FR-EVENT-023). V1-only columns with no v2 home (git_branch, client_version, entrypoint, is_sidechain, session_kind, speed, source, cost_usd) preserved in extra['_v1'] so the 62.10 compatibility view reproduces them; backfilled rows carry extra['_backfill']=True marker. remove_backfilled_rows: downgrade deletes only marked rows (keyset-scanned, natively-ingested v2 rows survive). verify_backfill: dialect-agnostic Python aggregation (no date/JSON SQL functions) grouping by day/provider/machine, compares row count + five token sums + cost (v1 cost from cost_usd, v2 cost from extra['_v1']['cost_usd']); returns machine-readable BackfillReport (ok/groups_checked/mismatches); any mismatch blocks subtasks 9/10. CLI: python -m tokemetry_server backfill-usage-events and verify-backfill (verify exits 1 on mismatch, prints JSON report). mypy fixes: _after() keyset helper wrapping literals in sa.literal, sa.delete on ORM class, stmt: Any in _insert_ignore. Tests: test_backfill_v2.py (column mapping incl _v1 namespace + cost precision + marker, verify all-equal over representative data incl null project + unpriced unknown model, idempotent+resumable with chunk_size=1 no dups, downgrade removes only backfilled preserving native row, verify detects a corrupted-token mismatch), engine-parametrized (Postgres in CI). Updated the 62.6 readiness test to assert migration present (robust vs future migrations). Docs: database.md backfill section. Gates: pytest 528 passed/18 skipped, ruff clean, mypy strict clean (93 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-18T22:08:58.278Z>",
+            "status": "done",
             "dependencies": [
               "62.3"
             ],
             "parentTaskId": 62,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T22:09:26.857Z"
           },
           {
             "id": 9,
@@ -2532,7 +2533,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T21:53:12.213Z"
+        "updatedAt": "2026-07-18T22:09:26.857Z"
       },
       {
         "id": "63",
@@ -3527,7 +3528,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T21:53:12.214Z",
+      "lastModified": "2026-07-18T22:09:26.859Z",
       "taskCount": 71,
       "completedCount": 61,
       "tags": [

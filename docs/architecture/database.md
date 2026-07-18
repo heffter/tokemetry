@@ -118,14 +118,35 @@ the backfill is verified (subtask 62.10).
   populated from attempt events in subtask 62.11. No usage is stored here --
   only on the attempt rows (FR-EVENT-004).
 
+### v1-to-v2 backfill (`db/backfill.py`, migration `0008`)
+
+Migration `0008` copies every `usage_events` row into `usage_events_v2`
+(`event_kind='attempt'`, `finality='final'`, `sequence=0`, the v1 `model` as
+`native_model`, the five token counters copied with `reasoning_tokens=0`, and
+the single v1 `ts` mapped onto both `ts_started` and `ts_completed`, per
+FR-EVENT-023). V1-only columns with no v2 home (`git_branch`, `client_version`,
+`entrypoint`, `is_sidechain`, `session_kind`, `speed`, `source`, `cost_usd`) are
+preserved in `extra` under the `_v1` key so the v1 compatibility view (subtask
+62.10) reproduces them; backfilled rows carry a `_backfill` marker so the
+downgrade removes only them, never natively-ingested v2 rows.
+
+The copy is chunked and keyset-paginated by `(provider, event_id)` and
+idempotent (`ON CONFLICT DO NOTHING`), so it is resumable and never mutates
+source rows. `verify_backfill` aggregates both tables in Python (dialect-
+agnostic) by day/provider/machine and compares row counts, all five token sums,
+and cost; any mismatch blocks the view swap. Operators can re-run or check out of
+band with `python -m tokemetry_server backfill-usage-events` and
+`python -m tokemetry_server verify-backfill` (the latter exits non-zero on a
+mismatch and prints a machine-readable report).
+
 ## Migrations
 
 Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
 `upgrade_to_head(sync_url)` / `downgrade_to_base(sync_url)` for server
 startup and tests. Alembic runs with a synchronous driver
 (`postgresql+psycopg` or `sqlite`) derived from the async application URL by
-`Settings.sync_database_url`. Migrations are hand-authored (through `0007`,
-which adds the `ingest_batches` ledger) and kept in sync with the ORM
+`Settings.sync_database_url`. Migrations are hand-authored (through `0008`,
+the v1-to-v2 usage-event backfill) and kept in sync with the ORM
 by a drift test
 (`test_migration_matches_orm_metadata`) that reflects the migrated schema
 and compares columns against `Base.metadata`.

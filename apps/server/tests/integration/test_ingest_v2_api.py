@@ -153,7 +153,8 @@ def test_readiness_unauthenticated(client: TestClient) -> None:
     body = response.json()
     assert body["status"] == "ready"
     assert body["database"] == "ok"
-    assert body["migration"] == "0007"
+    # Reports the current head revision (a non-empty string), not a fixed value.
+    assert isinstance(body["migration"], str) and body["migration"]
 
 
 def test_oversized_batch_rejected(tmp_path: Path) -> None:
