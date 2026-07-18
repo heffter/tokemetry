@@ -2,6 +2,7 @@
 
 import os
 from collections.abc import AsyncIterator, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from tokemetry_server.app import create_app
 from tokemetry_server.config import Settings
+from tokemetry_server.db import models
 from tokemetry_server.db.migrate import upgrade_to_head
+from tokemetry_server.services.registries import seed_default_providers
 
 #: Bootstrap token wired into the test app for authenticated requests.
 BOOTSTRAP_TOKEN = "tkm_test_bootstrap_token_value"
@@ -118,3 +121,63 @@ def migrated_engine(migration_url: str) -> Iterator[sa.Engine]:
         yield engine
     finally:
         engine.dispose()
+
+
+#: Representative models for all three initial providers, so every later epic
+#: exercises Anthropic, OpenAI, and Z.ai rather than a single vendor
+#: (NFR-MAIN-007). Each entry is (provider, native_model_id, lifecycle).
+THREE_PROVIDER_MODELS: tuple[tuple[str, str, str], ...] = (
+    ("anthropic", "claude-sonnet-4-5", "active"),
+    ("anthropic", "claude-opus-4-6", "active"),
+    ("anthropic", "claude-haiku-4-5", "active"),
+    ("openai", "gpt-5", "active"),
+    ("openai", "codex-mini-latest", "active"),
+    ("zai", "glm-4.6", "active"),
+    ("zai", "glm-4.5-air", "active"),
+)
+
+#: Representative model aliases, (provider, alias, native_model_id).
+THREE_PROVIDER_MODEL_ALIASES: tuple[tuple[str, str, str], ...] = (
+    ("anthropic", "opus", "claude-opus-4-6"),
+    ("anthropic", "sonnet", "claude-sonnet-4-5"),
+    ("openai", "codex", "codex-mini-latest"),
+    ("zai", "glm", "glm-4.6"),
+)
+
+
+async def seed_three_provider_registry(session: AsyncSession) -> None:
+    """Seed the three built-in providers plus representative models/aliases.
+
+    Idempotent on providers (delegates to :func:`seed_default_providers`); the
+    representative models and aliases are inserted fresh, so call once per test.
+    """
+    await seed_default_providers(session)
+    now = datetime.now(UTC)
+    for provider, native_model_id, lifecycle in THREE_PROVIDER_MODELS:
+        session.add(
+            models.Model(
+                provider=provider,
+                native_model_id=native_model_id,
+                lifecycle=lifecycle,
+                capabilities={},
+                first_seen=now,
+                last_seen=now,
+            )
+        )
+    for provider, alias, native_model_id in THREE_PROVIDER_MODEL_ALIASES:
+        session.add(
+            models.ModelAlias(
+                provider=provider,
+                alias=alias,
+                native_model_id=native_model_id,
+                rule_version=1,
+            )
+        )
+
+
+@pytest_asyncio.fixture
+async def registry_session(async_session: AsyncSession) -> AsyncIterator[AsyncSession]:
+    """An async session with all three providers and representative models seeded."""
+    await seed_three_provider_registry(async_session)
+    await async_session.commit()
+    yield async_session
