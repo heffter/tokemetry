@@ -2219,11 +2219,12 @@
             "id": 3,
             "title": "Audit pricing, cost, rollups, and dashboard assumptions",
             "description": "Document the pricing pipeline, cost computation, rollup refresh, and every Anthropic-specific dashboard code path.",
-            "details": "Write the pricing, rollup, and dashboard sections of docs/architecture/provider-neutral-baseline.md. Cover: PriceRow fields with the five per-MTok rates and effective-date resolution incl dated/undated base-id fallback (packages/core pricing/table.py); AnthropicPricingStrategy dot-product cost with 0.000001 quantization and DEFAULT_ANTHROPIC_PRICE_ROWS; ingest-time cost via injected cost_fn built in app.py _build_cost_engine; unknown-model handling returning NULL cost and feeding the unknown_model alert; the recompute path in api/pricing.py including cost_fn hot-swap; LiteLLM import transform and its fallback multipliers (short-write 1.25x, long-write 2x, cache-read 0.1x); rollup whole-day recomputation with project_group folding and empty-string sentinels (services/rollups.py); provenance derived. Dashboard inventory: the 9 router views; WINDOW_LABELS and window hardcoding in format.ts and AlertsView; modelLabel Claude-id parsing; Claude-specific copy in BreakdownsView and filters.ts; Claude-Code-shaped recommendations in services/report.py; no provider selector anywhere. Each finding gets a pointer to the epic that generalizes it (TOK-5, TOK-7, TOK-8, TOK-12). Test strategy: validate the cache-multiplier and quantization claims against unit tests in packages/core/tests and the pricing test suite; confirm the dashboard list against router.ts.",
-            "status": "pending",
+            "details": "Write the pricing, rollup, and dashboard sections of docs/architecture/provider-neutral-baseline.md. Cover: PriceRow fields with the five per-MTok rates and effective-date resolution incl dated/undated base-id fallback (packages/core pricing/table.py); AnthropicPricingStrategy dot-product cost with 0.000001 quantization and DEFAULT_ANTHROPIC_PRICE_ROWS; ingest-time cost via injected cost_fn built in app.py _build_cost_engine; unknown-model handling returning NULL cost and feeding the unknown_model alert; the recompute path in api/pricing.py including cost_fn hot-swap; LiteLLM import transform and its fallback multipliers (short-write 1.25x, long-write 2x, cache-read 0.1x); rollup whole-day recomputation with project_group folding and empty-string sentinels (services/rollups.py); provenance derived. Dashboard inventory: the 9 router views; WINDOW_LABELS and window hardcoding in format.ts and AlertsView; modelLabel Claude-id parsing; Claude-specific copy in BreakdownsView and filters.ts; Claude-Code-shaped recommendations in services/report.py; no provider selector anywhere. Each finding gets a pointer to the epic that generalizes it (TOK-5, TOK-7, TOK-8, TOK-12). Test strategy: validate the cache-multiplier and quantization claims against unit tests in packages/core/tests and the pricing test suite; confirm the dashboard list against router.ts.\n<info added on 2026-07-18T10:55:45.330Z>\nWrote Section 3 (pricing, cost, rollups, dashboard). Two parallel audit subagents (Python pricing/cost/rollups; Vue/TS dashboard) then spot-verified load-bearing claims against source: cost formula _MTOK/_CENT_MICRO quantize, default rows effective 2026-01-01 with 0.1/1.25/2x cache derivation, litellm multipliers 1.25/2/0.1 provider default anthropic, rollups DERIVED provenance + coalesce '' sentinels + project_group folding + delete-where-DERIVED. All confirmed.\n\n3.1 PriceRow 5 rates + effective-date resolution: _DATE_SUFFIX -YYYYMMDD strip, base_model_id fallback, candidate order (exact -> dated->base -> undated->newest dated by lexicographic desc), _latest_not_after, apply_overrides 5 money fields only. [V1-LOCK].\n3.2 Cost = 5-term dot product /1e6 quantize micro-USD (matches test_pricing formula+quantization tests); input already uncached. DEFAULT_ANTHROPIC_PRICE_ROWS 4 Claude models in core package. ProviderRegistry pricing by provider string; build_registry registers ONLY Anthropic. CostEngine wiring via app.state.cost_fn -> IngestService; cost computed once at ingest -> cost_usd (NULL if unknown). Unknown -> NULL -> unknown_model alert counts cost_usd IS NULL last day. Recompute /api/v1/pricing {POST /, /sync-litellm _SYNC_EFFECTIVE_DATE=2025-01-01, /recompute hot-swaps cost_fn}; all require_token, no admin scope. [V1-LOCK] formula, unknown->NULL.\n3.3 LiteLLM multipliers relative to input; sync_anthropic_pricing hardcodes provider=anthropic; BerriAI URL, 30s timeout; skips ids with ./ .\n3.4 Rollups grain (day,provider,machine,model,project), provenance='derived', '' sentinels (model not coalesced), project_group folding (worktree regex Claude-specific), whole-day recompute replace-not-accumulate, rebuild_all deletes DERIVED. [V1-LOCK].\n3.5 Report thresholds (cache 0.7, output 2000/1000, sidechain 0.02, model_concentration 0.6...); Claude-shaped copy not provider-gated (CLAUDE.md, opus/Haiku, MCP, sidechain).\n3.6 Dashboard: 9 router views, no provider-scoped route; WINDOW_LABELS 4 kinds (no extra_credits), duplicate AlertsView WINDOWS, GaugeCard seven_day prefix; modelLabel Claude/Bedrock id parsing; provider dimension absent from FilterBar/UsageFilter (only client-side SessionsView filter); SettingsView provider hardcoded anthropic, cache 5m/1h fields; Claude Code copy in BreakdownsView, filters.ts 2020-01-01.\n\nEpic pointers applied: TOK-5 (pricing 64), TOK-7 (query 66), TOK-8 (dashboard 67), TOK-12 (limits 69). Dashboard/report not [V1-LOCK] (UI expected to evolve); formulas/resolution/rollup semantics are [V1-LOCK].\n</info added on 2026-07-18T10:55:45.330Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 60,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-18T10:56:06.034Z"
           },
           {
             "id": 4,
@@ -2253,7 +2254,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T10:48:37.576Z"
+        "updatedAt": "2026-07-18T10:56:06.034Z"
       },
       {
         "id": "61",
@@ -3508,7 +3509,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T10:48:37.577Z",
+      "lastModified": "2026-07-18T10:56:06.035Z",
       "taskCount": 71,
       "completedCount": 59,
       "tags": [

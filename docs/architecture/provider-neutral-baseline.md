@@ -21,7 +21,7 @@ Load-bearing v1 behaviors that later epics MUST preserve are tagged inline as
 | --- | --- | --- |
 | 1. Data model and dedupe semantics | 60.1 | Complete |
 | 2. Ingest, query, and collector behavior | 60.2 | Complete |
-| 3. Pricing, cost, rollups, and dashboard assumptions | 60.3 | Pending |
+| 3. Pricing, cost, rollups, and dashboard assumptions | 60.3 | Complete |
 | 4. V1 compatibility contract and golden wire fixtures | 60.4 | Pending |
 | 5. Migration constraints and test-to-epic mapping | 60.5 | Pending |
 
@@ -638,7 +638,203 @@ state.
 
 ## 3. Pricing, cost, rollups, and dashboard assumptions
 
-_Pending - subtask 60.3._
+Source: `packages/core/.../pricing/{table,anthropic,litellm}.py`, `registry.py`,
+`services/{cost,pricing_repo,litellm_sync,rollups,report}.py`, `api/pricing.py`,
+`app.py`, and `apps/dashboard/src/`.
+
+Epic pointers used below: **TOK-5** = Pricing Rate Card (task 64), **TOK-7** =
+Query API v2 (task 66), **TOK-8** = Dashboard Generalization (task 67),
+**TOK-12** = Multi-Provider Limits (task 69).
+
+### 3.1 PriceRow and effective-date resolution (`pricing/table.py`)
+
+`PriceRow` (`core/models.py:197-212`) carries five per-MTok `Decimal` rates
+(`ge=0`): `input_per_mtok`, `output_per_mtok`, `cache_read_per_mtok`,
+`cache_write_short_per_mtok`, `cache_write_long_per_mtok`, plus `provider`,
+`model`, `effective_date`.
+
+`PricingTable` (`pricing/table.py`) stores rows in `dict[(provider, model),
+list[PriceRow]]` sorted by `effective_date`. `resolve(provider, model, on)`
+tries candidates in order and returns the first hit, else raises
+`UnknownModelError`:
+
+1. Exact `(provider, model)`.
+2. If `model` has a `-YYYYMMDD` suffix (`_DATE_SUFFIX = r"-\d{8}$"`,
+   `base_model_id()` strips it): also try `(provider, <base>)` - a **dated query
+   falls back to the undated base row**.
+3. If `model` is undated: search all same-provider rows whose `base_model_id`
+   equals `model`, **sorted by model id descending (lexicographic)** - an undated
+   query resolves to the newest matching dated snapshot id.
+
+Within a candidate, `_latest_not_after(on)` returns the row with the greatest
+`effective_date <= on` (correct historical pricing), or `None` if the earliest
+known price is still in the future. `apply_overrides()` may override **only the
+five money fields** (`_OVERRIDABLE_FIELDS`); non-price fields raise. Rows are
+frozen; overrides return copies. **[V1-LOCK]** the date-suffix fallback and
+latest-not-after semantics (historical costs must stay stable). -> TOK-5.
+
+### 3.2 Cost computation, engine wiring, and recompute
+
+**Cost formula** (`pricing/anthropic.py:39-46`) - **verified against source and
+`test_pricing.py`**: a five-term dot product of token counts and per-MTok rates,
+divided by `_MTOK = Decimal(1_000_000)`, then quantized to
+`_CENT_MICRO = Decimal("0.000001")` (micro-USD, 6 dp, banker's rounding):
+
+```
+cost = (input*input_rate + cache_write_short*cws_rate + cache_write_long*cwl_rate
+        + cache_read*cr_rate + output*output_rate) / 1_000_000
+cost = cost.quantize(Decimal("0.000001"))
+```
+
+`input_tokens` is already the **uncached** count for Anthropic (no subtraction).
+**[V1-LOCK]** formula, term set, and micro-USD quantization.
+
+**`DEFAULT_ANTHROPIC_PRICE_ROWS`** (`anthropic.py:64-72`): 4 rows, all
+`effective_date = 2026-01-01`, cache rates derived from input price
+(read x0.1, short-write x1.25, long-write x2): `claude-opus-4-5` $5/$25,
+`claude-opus-4-1` $15/$75, `claude-sonnet-4-5` $3/$15, `claude-haiku-4-5` $1/$5.
+This Anthropic price data lives in the supposedly provider-neutral **core**
+package. -> TOK-5.
+
+**`ProviderRegistry`** (`registry.py`): pricing strategies are registered by
+`strategy.provider` and looked up by provider string (`UnknownProviderError` on
+miss). The server's `build_registry()` (`providers.py:14-18`) registers **only
+`AnthropicPricingStrategy`** - any other provider's events always fall to the
+unknown path. -> TOK-5.
+
+**Engine wiring** (`services/cost.py`, `app.py:41-49,90-108`): `CostEngine(table,
+registry)`; `app.py._build_cost_engine` seeds default pricing, loads the table,
+and builds the engine. `app.state.cost_fn = engine.cost` is injected into
+`IngestService` via `deps.py:37`. Cost is computed **once at ingest** and stored
+in `usage_events.cost_usd` (`ingest.py:148,169`).
+
+**Unknown-model -> NULL cost -> alert**: `CostEngine.cost` returns `None` (logs
+once, accumulates `(provider, model)` in `_unknown_models`) when `resolve` or
+`registry.pricing` raise (`cost.py:39-53`). NULL `cost_usd` feeds the
+`unknown_model` alert evaluator, which counts `usage_events` in the last day with
+`cost_usd IS NULL` and fires "Unpriced usage"
+(`services/alerting/rules.py:155-183`). **[V1-LOCK]** unknown-model -> NULL cost
+(never a guessed/zero cost).
+
+**Recompute** (`api/pricing.py`, prefix `/api/v1/pricing`, all `require_token`):
+`POST /` adds a price row; `POST /sync-litellm` syncs from LiteLLM
+(`_SYNC_EFFECTIVE_DATE = 2025-01-01`); `POST /recompute` builds a fresh
+`CostEngine`, reprices **all** events, refreshes **all** rollup days, and
+**hot-swaps** `app.state.cost_fn = engine.cost` (no restart). Note: any valid
+bearer token can call these - there is no separate admin scope. -> TOK-5.
+
+### 3.3 LiteLLM import and fallback multipliers
+
+`pricing/litellm.py` transforms LiteLLM's price map into `PriceRow`s. Fallback
+cache multipliers, applied **relative to the base input price** - **verified**:
+`_CACHE_READ_MULTIPLIER = 0.1`, `_SHORT_WRITE_MULTIPLIER = 1.25`,
+`_LONG_WRITE_MULTIPLIER = 2` (`litellm.py:25-27`). Source cache prices are used
+when present, else the multiplier is applied. Tests confirm long-write is always
+`input x 2` even when short-write is explicit (`test_pricing.py:88-91`).
+
+`price_rows_from_litellm` filters `litellm_provider == provider` (default
+`"anthropic"`) and skips ids containing `.` or `/` (platform-prefixed aliases).
+`services/litellm_sync.py`: `LITELLM_PRICES_URL` points at the BerriAI GitHub raw
+JSON; fetch timeout 30s; `sync_anthropic_pricing` **hardcodes
+`provider="anthropic"`**, `source="litellm"`. LiteLLM sync is Anthropic-only
+end-to-end. -> TOK-5.
+
+### 3.4 Rollups (`services/rollups.py`)
+
+- **Grain** `(day, provider, machine, model, project)` (`_aggregate_day`); rows
+  written with **`provenance = "derived"`** (`DERIVED`, `rollups.py:26,180`) -
+  the value outside the `Provenance` enum flagged in Section 1.4. **[V1-LOCK]**.
+- **`''` sentinels**: `machine` and `project` are `coalesce(col, "")` at the SQL
+  level before grouping (`rollups.py:127-128`); `model` is not coalesced
+  (`native_model` is non-null). Matches the unique-grain requirement (Section
+  1.2 daily_rollups).
+- **Project-group folding**: each raw project is folded via `project_group(...,
+  roots)` (`rollups.py:160`) and rows folding to the same group are summed
+  (tokens element-wise, costs via `_add_cost` where both-None stays None). The
+  folding rule lives in `core/projects.py`, whose worktree regex
+  (`.claude/worktrees/<name>`) is **Claude-Code-specific**.
+- **Whole-day recompute**: `refresh_rollups_for_days` recomputes each day in full
+  (not a delta) and upserts, so it converges under keep-max event updates. Called
+  per-batch for touched days (`ingest.py:91-93`) and for all event days on
+  `/recompute` (`api/pricing.py`). `rebuild_all_rollups` deletes all
+  `provenance == "derived"` rows and recomputes every day (needed after
+  project-grouping rule changes). **[V1-LOCK]** replace-not-accumulate semantics.
+
+### 3.5 Report recommendations (`services/report.py`)
+
+The optimization report (`GET /api/v1/report`) applies fixed thresholds
+(`report.py:24-46`): `CACHE_HIT_WARN = 0.7` (comment: "healthy Claude Code sits
+~0.85-0.95"), `DRIFT_MARGIN = 0.15`, `OUTPUT_PER_TURN_WARN = 2000` /
+`OUTPUT_PER_TURN_TARGET = 1000`, `SIDECHAIN_MIN = 0.02`, `UNATTRIBUTED_WARN =
+0.15`, `MODEL_CONCENTRATION_WARN = 0.6`, `MIN_DIMENSION_TOKENS = 1_000_000`.
+
+Recommendation **text is Claude-Code-shaped and not provider-gated** (applies
+regardless of `event.provider`): the cache rule names `CLAUDE.md`; `model_routing`
+fires only when `"opus" in model.lower()` and advises routing to `Haiku`;
+`config_drift` names `CLAUDE.md` and `MCP`; the subagent rule uses
+"sidechain" terminology. -> TOK-8.
+
+### 3.6 Dashboard provider-specific assumptions (`apps/dashboard/src/`)
+
+The dashboard is a Vue 3 + TypeScript SPA. It has **9 router views** (`router.ts`):
+`now` (`/`), `trends`, `blocks`, `breakdowns`, `sessions`, `machines`, `report`,
+`alerts`, `settings`. None are provider-scoped. Anthropic/Claude assumptions are
+baked throughout; each maps to a generalization epic below. These are recorded
+as the v1 UI contract to change deliberately - **not [V1-LOCK]** (the UI is
+expected to evolve), but the API shapes they depend on are.
+
+**Limit-window taxonomy (Anthropic-specific) -> TOK-12 + TOK-8:**
+
+- `WINDOW_LABELS` in `format.ts:92-97` hardcodes exactly four window kinds:
+  `five_hour` = "5-hour block", `seven_day` = "Weekly", `seven_day_opus` =
+  "Weekly (Opus)", `seven_day_sonnet` = "Weekly (Sonnet)". Two are Claude
+  model-family-scoped. `windowLabel()` falls back to the raw key for unknown
+  kinds (`format.ts:100-102`). No `extra_credits` anywhere in the UI (consistent
+  with the collector omission, Section 2.6.5).
+- `GaugeCard.vue:36-38`: `isWeekly = window_kind.startsWith('seven_day')` - a
+  string-prefix convention decides countdown-vs-date rendering.
+- `AlertsView.vue:93-98`: a **second, independent** hardcoded `WINDOWS` array
+  (same four strings) drives the alert-rule window `<select>`; default draft is
+  `window_kind: 'five_hour'` (`AlertsView.vue:104`). Drift risk vs `format.ts`.
+
+**Model-id humanization (Claude/Bedrock-shaped) -> TOK-8:**
+
+- `modelLabel()` (`format.ts:113-132`) strips an `anthropic.` prefix (Bedrock
+  `us.anthropic.claude-...`), a `claude-` prefix, a Bedrock `-v\d+:\d+` suffix,
+  and an 8-digit `-YYYYMMDD` date suffix, then parses `family-version`
+  (`opus-4-8` -> "Opus 4.8") or legacy `version-family` (`3-7-sonnet` -> "Sonnet
+  3.7"). Non-Claude ids pass through unchanged (no formatting). Tests assert
+  Claude-only fixtures (`format.test.ts:110-133`).
+
+**Provider dimension largely absent -> TOK-7 + TOK-8:**
+
+- The server `/usage` endpoint supports a `provider` filter and the API client
+  builds it (`api/client.ts:367`), **but the primary `FilterBar` (used by Trends
+  and Breakdowns) exposes only date-range, `machine`, `project`**
+  (`FilterBar.vue`); the `UsageFilter` type omits `provider` entirely
+  (`filters.ts:6-11`).
+- The only provider selector is a **client-side-only** filter on `SessionsView`
+  (`SessionsView.vue:64,76-78,198-201`) whose options are derived from already-
+  loaded session data, not a canonical provider list; it does not send the
+  `provider` query param.
+
+**Pricing/settings Anthropic defaults -> TOK-5 + TOK-8:**
+
+- `SettingsView.vue:78`: new price rows default to `provider: 'anthropic'` and
+  the pricing form has **no provider input field** (`SettingsView.vue:272-289`) -
+  no UI path to add non-Anthropic pricing.
+- Cache-tier fields `cache_write_short_*`/`cache_write_long_*` and the "cache
+  write 5m"/"cache write 1h" placeholders (`SettingsView.vue:280-286`,
+  `api/types.ts:9`) encode Anthropic's two-tier (5-minute / 1-hour) prompt-cache
+  TTL model as first-class schema.
+
+**Claude-specific copy -> TOK-8:**
+
+- `BreakdownsView.vue:211-213`: cache-card help text names "Claude Code" and
+  assumes Anthropic prompt-cache billing ("a high cache-read share (often ~95%)
+  is normal").
+- `filters.ts:60,68`: the `all` date preset starts at `2020-01-01`, justified in
+  the comment as "before any Claude Code usage".
 
 ## 4. V1 compatibility contract and golden wire fixtures
 
