@@ -1,0 +1,113 @@
+{
+  "machine": {
+    "name": "box-1",
+    "platform": "linux",
+    "collector_version": "0.1.0"
+  },
+  "events": [
+    {
+      "event_id": "req_dup",
+      "provider": "anthropic",
+      "native_model": "claude-opus-4-5",
+      "ts": "2026-07-09T09:00:00+00:00",
+      "session_id": "sess-a",
+      "project": "proj-a",
+      "input_tokens": 1000,
+      "output_tokens": 1,
+      "cache_read_tokens": 500,
+      "cache_write_short_tokens": 0,
+      "cache_write_long_tokens": 200
+    },
+    {
+      "event_id": "req_dup",
+      "provider": "anthropic",
+      "native_model": "claude-opus-4-5",
+      "ts": "2026-07-09T09:00:00+00:00",
+      "session_id": "sess-a",
+      "project": "proj-a",
+      "input_tokens": 1000,
+      "output_tokens": 648,
+      "cache_read_tokens": 500,
+      "cache_write_short_tokens": 0,
+      "cache_write_long_tokens": 200
+    },
+    {
+      "event_id": "req_dup",
+      "provider": "anthropic",
+      "native_model": "claude-opus-4-5",
+      "ts": "2026-07-09T09:00:00+00:00",
+      "session_id": "sess-a",
+      "project": "proj-a",
+      "input_tokens": 1000,
+      "output_tokens": 100,
+      "cache_read_tokens": 500,
+      "cache_write_short_tokens": 0,
+      "cache_write_long_tokens": 200
+    },
+    {
+      "event_id": "req_a2",
+      "provider": "anthropic",
+      "native_model": "claude-opus-4-5",
+      "ts": "2026-07-09T09:05:00+00:00",
+      "session_id": "sess-a",
+      "project": "proj-a",
+      "input_tokens": 800,
+      "output_tokens": 100,
+      "cache_read_tokens": 2000,
+      "cache_write_short_tokens": 100,
+      "cache_write_long_tokens": 0
+    },
+    {
+      "event_id": "req_b1",
+      "provider": "anthropic",
+      "native_model": "claude-fable-5",
+      "ts": "2026-07-09T10:00:00+00:00",
+      "session_id": "sess-b",
+      "project": "proj-b",
+      "input_tokens": 300,
+      "output_tokens": 50,
+      "cache_read_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cache_write_long_tokens": 0
+    },
+    {
+      "event_id": "req_c1",
+      "provider": "anthropic",
+      "native_model": "claude-opus-4-5",
+      "ts": "2026-07-10T09:00:00+00:00",
+      "session_id": "sess-c",
+      "project": "proj-a",
+      "input_tokens": 1500,
+      "output_tokens": 200,
+      "cache_read_tokens": 4000,
+      "cache_write_short_tokens": 0,
+      "cache_write_long_tokens": 0
+    },
+    {
+      "event_id": "req_f1",
+      "provider": "anthropic",
+      "native_model": "claude-opus-4-5",
+      "ts": "2026-07-10T09:10:00+00:00",
+      "session_id": "sess-f",
+      "project": "C:\\devel\\Foo",
+      "input_tokens": 500,
+      "output_tokens": 30,
+      "cache_read_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cache_write_long_tokens": 0
+    },
+    {
+      "event_id": "req_f2",
+      "provider": "anthropic",
+      "native_model": "claude-opus-4-5",
+      "ts": "2026-07-10T09:11:00+00:00",
+      "session_id": "sess-f",
+      "project": "c:\\devel\\Foo\\.claude\\worktrees\\wt-1\\apps",
+      "input_tokens": 500,
+      "output_tokens": 30,
+      "cache_read_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cache_write_long_tokens": 0
+    }
+  ]
+}

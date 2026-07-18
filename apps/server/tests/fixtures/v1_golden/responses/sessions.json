@@ -1,0 +1,46 @@
+[
+  {
+    "cost_usd": "0.0065000000",
+    "last_at": "<ts>",
+    "machine": "box-1",
+    "message_count": 2,
+    "project": "Foo",
+    "provider": "anthropic",
+    "session_id": "sess-f",
+    "started_at": "<ts>",
+    "total_tokens": 1060
+  },
+  {
+    "cost_usd": "0.0145000000",
+    "last_at": "<ts>",
+    "machine": "box-1",
+    "message_count": 1,
+    "project": "proj-a",
+    "provider": "anthropic",
+    "session_id": "sess-c",
+    "started_at": "<ts>",
+    "total_tokens": 5700
+  },
+  {
+    "cost_usd": "0.0315750000",
+    "last_at": "<ts>",
+    "machine": "box-1",
+    "message_count": 2,
+    "project": "proj-a",
+    "provider": "anthropic",
+    "session_id": "sess-a",
+    "started_at": "<ts>",
+    "total_tokens": 5348
+  },
+  {
+    "cost_usd": null,
+    "last_at": "<ts>",
+    "machine": "box-1",
+    "message_count": 1,
+    "project": "proj-b",
+    "provider": "anthropic",
+    "session_id": "sess-b",
+    "started_at": "<ts>",
+    "total_tokens": 350
+  }
+]

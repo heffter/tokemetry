@@ -1,0 +1,47 @@
+{
+  "buckets": [
+    {
+      "cache_read_tokens": 0,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cost_usd": "0.0065000000",
+      "input_tokens": 1000,
+      "key": "sess-f",
+      "output_tokens": 60,
+      "total_tokens": 1060
+    },
+    {
+      "cache_read_tokens": 0,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cost_usd": null,
+      "input_tokens": 300,
+      "key": "sess-b",
+      "output_tokens": 50,
+      "total_tokens": 350
+    },
+    {
+      "cache_read_tokens": 2500,
+      "cache_write_long_tokens": 200,
+      "cache_write_short_tokens": 100,
+      "cost_usd": "0.0315750000",
+      "input_tokens": 1800,
+      "key": "sess-a",
+      "output_tokens": 748,
+      "total_tokens": 5348
+    },
+    {
+      "cache_read_tokens": 4000,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cost_usd": "0.0145000000",
+      "input_tokens": 1500,
+      "key": "sess-c",
+      "output_tokens": 200,
+      "total_tokens": 5700
+    }
+  ],
+  "end": "2026-12-31",
+  "group_by": "session",
+  "start": "2026-01-01"
+}

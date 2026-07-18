@@ -1,0 +1,37 @@
+{
+  "buckets": [
+    {
+      "cache_read_tokens": 0,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cost_usd": null,
+      "input_tokens": 0,
+      "key": "claude-sonnet-4-5",
+      "output_tokens": 0,
+      "total_tokens": 65000
+    },
+    {
+      "cache_read_tokens": 0,
+      "cache_write_long_tokens": 0,
+      "cache_write_short_tokens": 0,
+      "cost_usd": null,
+      "input_tokens": 300,
+      "key": "claude-fable-5",
+      "output_tokens": 50,
+      "total_tokens": 350
+    },
+    {
+      "cache_read_tokens": 6500,
+      "cache_write_long_tokens": 200,
+      "cache_write_short_tokens": 100,
+      "cost_usd": "0.0525750000",
+      "input_tokens": 4300,
+      "key": "claude-opus-4-5",
+      "output_tokens": 1008,
+      "total_tokens": 135564
+    }
+  ],
+  "end": "2026-12-31",
+  "group_by": "model",
+  "start": "2026-01-01"
+}

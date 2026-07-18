@@ -1,0 +1,42 @@
+[
+  {
+    "age_seconds": "<volatile>",
+    "derived_reset": true,
+    "provenance": "official",
+    "provider": "anthropic",
+    "resets_at": "<ts>",
+    "ts": "<ts>",
+    "utilization_pct": 12.5,
+    "window_kind": "seven_day_sonnet"
+  },
+  {
+    "age_seconds": "<volatile>",
+    "derived_reset": true,
+    "provenance": "official",
+    "provider": "anthropic",
+    "resets_at": "<ts>",
+    "ts": "<ts>",
+    "utilization_pct": 30.0,
+    "window_kind": "seven_day_opus"
+  },
+  {
+    "age_seconds": "<volatile>",
+    "derived_reset": true,
+    "provenance": "official",
+    "provider": "anthropic",
+    "resets_at": "<ts>",
+    "ts": "<ts>",
+    "utilization_pct": 40.0,
+    "window_kind": "five_hour"
+  },
+  {
+    "age_seconds": "<volatile>",
+    "derived_reset": true,
+    "provenance": "official",
+    "provider": "anthropic",
+    "resets_at": "<ts>",
+    "ts": "<ts>",
+    "utilization_pct": 55.0,
+    "window_kind": "seven_day"
+  }
+]
