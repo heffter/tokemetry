@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.schemas_query import (
     AnomalyOut,
@@ -41,6 +41,7 @@ from tokemetry_server.api.schemas_query import (
 )
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db import models
+from tokemetry_server.scopes import QUERY_READ
 from tokemetry_server.services import (
     analytics,
     insights,
@@ -111,7 +112,7 @@ def _limit_out(
 @router.get("/summary/now", response_model=SummaryNow)
 async def summary_now(
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> SummaryNow:
     """Return the dashboard front-page summary."""
     now = datetime.now(UTC)
@@ -151,7 +152,7 @@ async def summary_now(
 @router.get("/summary/overview", response_model=OverviewOut)
 async def summary_overview(
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> OverviewOut:
     """Return all-time token/cost totals and the activity span."""
     data = await queries.overview(session)
@@ -173,7 +174,7 @@ async def summary_overview(
 @router.get("/limits/current", response_model=list[LimitOut])
 async def limits_current(
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[LimitOut]:
     """Return the latest snapshot for each limit window."""
     now = datetime.now(UTC)
@@ -185,7 +186,7 @@ async def limits_history(
     window_kind: str = Query(..., min_length=1),
     hours: int = Query(24, ge=1, le=720),
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[LimitOut]:
     """Return a window's utilization history over the last ``hours``."""
     now = datetime.now(UTC)
@@ -199,7 +200,7 @@ async def limits_history(
 async def blocks(
     hours: int = Query(120, ge=5, le=2400),
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[BlockOut]:
     """Return reconstructed 5-hour usage blocks over the last ``hours``."""
     now = datetime.now(UTC)
@@ -227,7 +228,7 @@ async def usage(
     model: str | None = None,
     project: str | None = None,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> UsageResponse:
     """Aggregate usage over a day range grouped by one dimension."""
     start, end = _default_range(date_from, date_to)
@@ -247,7 +248,7 @@ async def sessions(
     limit: int = Query(100, ge=1, le=1000),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[SessionOut]:
     """Return recent sessions, newest first."""
     return [
@@ -273,7 +274,7 @@ async def session_detail(
     session_id: str,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> SessionDetailOut:
     """Return one session's event series and efficiency stats (metadata only)."""
     detail = await queries.session_detail(
@@ -316,7 +317,7 @@ async def optimization_report(
     date_to: date | None = Query(None, alias="to"),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> ReportOut:
     """Return the token-optimization report (scorecard + ranked recommendations)."""
     start, end = _default_range(date_from, date_to)
@@ -331,7 +332,7 @@ async def optimization_report_export(
     date_to: date | None = Query(None, alias="to"),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> Response:
     """Return the optimization report as an LLM-ready Markdown download.
 
@@ -366,7 +367,7 @@ async def optimization_report_export(
 async def insights_anomalies(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> AnomalyReportOut:
     """Return sessions that deviate from the account's own usage baseline."""
     report = await insights.detect_anomalies(session, settings.project_root_markers)
@@ -393,7 +394,7 @@ async def rebuild_rollups(
     request: Request,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> RebuildResult:
     """Delete derived rollups and rebuild them, re-applying project grouping.
 
@@ -409,7 +410,7 @@ async def rebuild_rollups(
 @router.get("/machines", response_model=list[MachineOut])
 async def machines(
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[MachineOut]:
     """Return every registered machine with usage totals."""
     return [
@@ -433,7 +434,7 @@ async def heatmap(
     project: str | None = None,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> HeatmapResponse:
     """Return calendar (daily) and punch-card (weekday x hour) usage."""
     start, end = _default_range(date_from, date_to)
@@ -458,7 +459,7 @@ async def cost(
     date_to: date | None = Query(None, alias="to"),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> CostResponse:
     """Return total cost over a range and the subscription value multiple."""
     start, end = _default_range(date_from, date_to)
@@ -482,7 +483,7 @@ async def cost(
 @router.get("/pricing", response_model=list[PricingOut])
 async def pricing(
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[PricingOut]:
     """Return the pricing table."""
     return [

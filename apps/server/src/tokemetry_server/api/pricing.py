@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.models import PriceRow
 
-from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.schemas_query import (
     PriceRowIn,
@@ -26,6 +26,7 @@ from tokemetry_server.api.schemas_query import (
 )
 from tokemetry_server.db import models
 from tokemetry_server.providers import build_registry
+from tokemetry_server.scopes import QUERY_READ
 from tokemetry_server.services.cost import CostEngine
 from tokemetry_server.services.litellm_sync import (
     fetch_litellm_prices,
@@ -50,7 +51,7 @@ async def create_price(
     payload: PriceRowIn,
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> PricingOut:
     """Create or override a price row (upsert on provider/model/date)."""
     row = PriceRow(
@@ -81,7 +82,7 @@ async def create_price(
 async def sync_litellm(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> SyncResult:
     """Fetch LiteLLM's price database and upsert Anthropic rows.
 
@@ -101,7 +102,7 @@ async def sync_litellm(
 async def recompute(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> RecomputeResult:
     """Reprice all events and rollups against the current price table.
 

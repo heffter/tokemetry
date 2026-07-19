@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_ingest_service
 from tokemetry_server.api.schemas import (
     BootstrapIngest,
@@ -16,6 +16,7 @@ from tokemetry_server.api.schemas import (
     IngestResult,
     LimitsIngest,
 )
+from tokemetry_server.scopes import INGEST_EVENTS
 from tokemetry_server.services.ingest import IngestService
 from tokemetry_server.services.validation import ValidationError
 
@@ -34,7 +35,7 @@ async def ingest_events(
     payload: EventsIngest,
     request: Request,
     service: IngestService = Depends(get_ingest_service),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(INGEST_EVENTS)),
 ) -> IngestResult:
     """Ingest a batch of usage events (idempotent, keep-max dedup)."""
     events = [event.to_core(payload.machine.name) for event in payload.events]
@@ -54,7 +55,7 @@ async def ingest_limits(
     payload: LimitsIngest,
     request: Request,
     service: IngestService = Depends(get_ingest_service),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(INGEST_EVENTS)),
 ) -> IngestResult:
     """Ingest a batch of limit snapshots."""
     snapshots = [snapshot.to_core(payload.machine.name) for snapshot in payload.snapshots]
@@ -73,7 +74,7 @@ async def ingest_limits(
 async def ingest_bootstrap(
     payload: BootstrapIngest,
     service: IngestService = Depends(get_ingest_service),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(INGEST_EVENTS)),
 ) -> IngestResult:
     """Ingest a batch of bootstrap daily aggregates."""
     aggregates = [aggregate.to_core(payload.machine.name) for aggregate in payload.aggregates]

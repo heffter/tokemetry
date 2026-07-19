@@ -9,14 +9,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.schemas_query import (
     TokenCreatedOut,
     TokenCreateRequest,
     TokenInfoOut,
 )
-from tokemetry_server.scopes import UnknownScopeError
+from tokemetry_server.scopes import ADMIN_TOKENS, UnknownScopeError
 from tokemetry_server.services import tokens as token_service
 
 router = APIRouter(prefix="/api/v1/tokens", tags=["tokens"])
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/v1/tokens", tags=["tokens"])
 async def create_token(
     payload: TokenCreateRequest,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(ADMIN_TOKENS)),
 ) -> TokenCreatedOut:
     """Mint a new API token; the secret is returned only in this response."""
     try:
@@ -52,7 +52,7 @@ async def create_token(
 @router.get("", response_model=list[TokenInfoOut])
 async def list_tokens(
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(ADMIN_TOKENS)),
 ) -> list[TokenInfoOut]:
     """List token metadata (never the secrets)."""
     return [
@@ -72,7 +72,7 @@ async def list_tokens(
 async def revoke_token(
     label: str,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(ADMIN_TOKENS)),
 ) -> Response:
     """Revoke a token by label."""
     revoked = await token_service.revoke_token(session, label)

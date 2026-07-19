@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.schemas_alerts import (
     AlertEventOut,
@@ -23,6 +23,7 @@ from tokemetry_server.api.schemas_alerts import (
     TestChannelResult,
 )
 from tokemetry_server.db import models
+from tokemetry_server.scopes import QUERY_READ
 from tokemetry_server.services.alerting.notifiers import build_notifiers
 from tokemetry_server.services.alerting.rules import EVALUATORS
 from tokemetry_server.services.channel_config import (
@@ -67,7 +68,7 @@ def _validate_kind(kind: str) -> None:
 @router.get("", response_model=list[AlertRuleOut])
 async def list_rules(
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[AlertRuleOut]:
     """List all alert rules."""
     result = await session.execute(select(models.AlertRule).order_by(models.AlertRule.name))
@@ -78,7 +79,7 @@ async def list_rules(
 async def create_rule(
     payload: AlertRuleIn,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> AlertRuleOut:
     """Create an alert rule."""
     _validate_kind(payload.kind)
@@ -110,7 +111,7 @@ async def update_rule(
     rule_id: int,
     payload: AlertRuleIn,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> AlertRuleOut:
     """Replace an alert rule's fields."""
     _validate_kind(payload.kind)
@@ -135,7 +136,7 @@ async def update_rule(
 async def delete_rule(
     rule_id: int,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> Response:
     """Delete an alert rule and its events."""
     rule = await session.get(models.AlertRule, rule_id)
@@ -149,7 +150,7 @@ async def delete_rule(
 async def list_events(
     limit: int = 100,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[AlertEventOut]:
     """Return recent alert events, newest first."""
     result = await session.execute(
@@ -194,7 +195,7 @@ async def _channels_response(session: AsyncSession, request: Request) -> Channel
 async def get_channels(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> ChannelsResponse:
     """Return each channel's configured state and its masked fields."""
     return await _channels_response(session, request)
@@ -206,7 +207,7 @@ async def update_channel(
     payload: ChannelConfigIn,
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> ChannelsResponse:
     """Save a channel's settings and hot-swap the notifiers (no restart)."""
     try:
@@ -225,7 +226,7 @@ async def update_channel(
 async def test_channel(
     channel: str,
     request: Request,
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> TestChannelResult:
     """Send a test notification through one channel and report the outcome."""
     engine = request.app.state.alert_engine
@@ -237,7 +238,7 @@ async def test_channel(
 async def evaluate_now(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> EvaluateResult:
     """Run the alert engine immediately and return what fired."""
     engine = request.app.state.alert_engine

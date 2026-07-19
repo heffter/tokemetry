@@ -14,10 +14,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.v2.schemas import ModelOut, ProviderOut
 from tokemetry_server.db import models
+from tokemetry_server.scopes import QUERY_READ
 
 router = APIRouter(prefix="/api/v2", tags=["registry"])
 
@@ -28,7 +29,7 @@ Lifecycle = Literal["active", "deprecated", "retired", "unknown"]
 @router.get("/providers", response_model=list[ProviderOut])
 async def list_providers(
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[ProviderOut]:
     """Return every registered and observed provider, ordered by id."""
     rows = (
@@ -53,7 +54,7 @@ async def list_models(
     provider: str | None = Query(default=None),
     lifecycle: Lifecycle | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
-    _: str = Depends(require_token),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> list[ModelOut]:
     """Return model registry rows, optionally filtered by provider/lifecycle."""
     stmt = select(models.Model)

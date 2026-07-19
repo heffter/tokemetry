@@ -63,6 +63,9 @@ extend-immutable-calls = [
   "fastapi.Body",
   "fastapi.Header",
   "fastapi.Cookie",
+  # Scope-dependency factories build a FastAPI dependency, safe in defaults.
+  "tokemetry_server.api.auth.require_scopes",
+  "tokemetry_server.api.v2.ingest.ingest_rate_guard",
 ]
 
 [tool.mypy]

@@ -16,13 +16,18 @@ from starlette.applications import Starlette
 
 from tokemetry_server.config import Settings
 from tokemetry_server.db import models
+from tokemetry_server.scopes import QUERY_READ
 from tokemetry_server.security import hash_token
 
 router = APIRouter()
 
 
 async def _authorize(app: Starlette, token: str | None) -> bool:
-    """Return True if ``token`` is the bootstrap token or a valid DB token."""
+    """Return True if ``token`` may read the stream (bootstrap or ``query:read``).
+
+    The stream carries the same data as the REST query surface, so it requires
+    the ``query:read`` scope to match (NFR-SEC-008).
+    """
     if not token:
         return False
     settings: Settings = app.state.settings
@@ -37,7 +42,8 @@ async def _authorize(app: Starlette, token: str | None) -> bool:
                 models.ApiToken.revoked.is_(False),
             )
         )
-        return result.scalar_one_or_none() is not None
+        row = result.scalar_one_or_none()
+        return row is not None and QUERY_READ in (row.scopes or [])
 
 
 @router.websocket("/api/v1/stream")

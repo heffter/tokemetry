@@ -9,12 +9,19 @@ and the ledger is [event-model-v2.md](../architecture/event-model-v2.md).
 
 ## Authentication and scopes
 
-Every endpoint (except `GET /api/v2/ready`) requires a bearer token. Scopes
-(`ingest:events`, `ingest:limits`, `ingest:aggregates`, `admin:corrections`)
-land in Task 63; until then the bootstrap token authorizes all v2 ingest.
-Ingest traffic is rate limited in a class separate from query traffic
-(FR-INGEST-015); exceeding it returns `429`. Every response carries an
-`X-Request-ID` (FR-INGEST-016), echoing a client-supplied one when present.
+Every endpoint (except `GET /api/v2/ready`) requires a bearer token with the
+right scope: `/ingest/events` and `/ingest/validate` need `ingest:events`,
+`/ingest/limits` needs `ingest:limits`, `/ingest/aggregates` needs
+`ingest:aggregates`, `/schemas/usage-event` needs `query:read`, and a batch with
+`correction: true` also needs `admin:corrections`. A token missing a scope gets
+`403`; ingest-only tokens therefore cannot query (FR-INGEST-004). The env
+bootstrap token holds every scope. An optional per-token source allowlist
+rejects (403, structured error) any event whose source name is not listed
+(FR-INGEST-020). Authentication failures return a uniform `401` that never
+reveals whether a token exists (FR-SEC-010). Ingest traffic is rate limited in a
+class separate from query traffic (FR-INGEST-015); exceeding it returns `429`.
+Every response carries an `X-Request-ID` (FR-INGEST-016), echoing a
+client-supplied one when present.
 
 ## Endpoints
 

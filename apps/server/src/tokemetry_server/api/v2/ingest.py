@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import gzip
 import json
+from collections.abc import Awaitable, Callable
 from typing import Any, NoReturn
 
 import sqlalchemy as sa
@@ -35,7 +36,7 @@ from tokemetry_core.usage_v2 import (
     usage_event_json_schema,
 )
 
-from tokemetry_server.api.auth import require_token
+from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.v2.schemas import (
     IngestEventsResponse,
@@ -44,6 +45,13 @@ from tokemetry_server.api.v2.schemas import (
     ValidationErrorItem,
 )
 from tokemetry_server.config import Settings
+from tokemetry_server.scopes import (
+    ADMIN_CORRECTIONS,
+    INGEST_AGGREGATES,
+    INGEST_EVENTS,
+    INGEST_LIMITS,
+    QUERY_READ,
+)
 from tokemetry_server.services.data_quality import DataQualityService
 from tokemetry_server.services.ingest_v2 import BatchValidationError, IngestV2Service
 from tokemetry_server.services.ingest_v2_meta import MetaIngestV2Service
@@ -158,16 +166,53 @@ def _check_event_count(envelope: _BatchEnvelope, max_events: int) -> None:
         )
 
 
-async def enforce_ingest_rate(
-    request: Request, label: str = Depends(require_token)
-) -> str:
-    """Charge the ingest rate bucket for the caller; 429 when exhausted."""
-    limiter = request.app.state.ingest_rate_limiter
-    if not limiter.allow(label):
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS, "ingest rate limit exceeded"
+def ingest_rate_guard(
+    scope: str,
+) -> Callable[[Request, Principal], Awaitable[Principal]]:
+    """Build a dependency requiring ``scope`` and charging the ingest bucket."""
+
+    async def _guard(
+        request: Request, principal: Principal = Depends(require_scopes(scope))
+    ) -> Principal:
+        limiter = request.app.state.ingest_rate_limiter
+        if not limiter.allow(principal.label):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS, "ingest rate limit exceeded"
+            )
+        return principal
+
+    return _guard
+
+
+def _check_source_allowlist(
+    principal: Principal,
+    events: list[tuple[int, UsageEventV2]],
+    request_id: str | None,
+) -> None:
+    """Reject the batch if any event's source is outside the token allowlist.
+
+    Optional per-token source allowlist (FR-INGEST-020, FR-SEC-004); when set, a
+    batch reporting for a source name not on the list is refused with 403 and
+    the same structured error shape as validation.
+    """
+    if principal.source_allowlist is None:
+        return
+    allowed = set(principal.source_allowlist)
+    denied = [
+        ValidationErrorItem(
+            index=index,
+            field_path="source.name",
+            code="source_not_allowed",
+            message=f"source {event.source.name!r} is not in the token allowlist",
         )
-    return label
+        for index, event in events
+        if event.source.name not in allowed
+    ]
+    if denied:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            {"errors": [item.model_dump() for item in denied], "request_id": request_id},
+        )
 
 
 async def _publish(request: Request, message: dict[str, object]) -> None:
@@ -181,7 +226,7 @@ async def _publish(request: Request, message: dict[str, object]) -> None:
 async def ingest_events(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    label: str = Depends(enforce_ingest_rate),
+    principal: Principal = Depends(ingest_rate_guard(INGEST_EVENTS)),
 ) -> IngestEventsResponse:
     """Validate and persist a batch of v2 usage events."""
     settings: Settings = request.app.state.settings
@@ -193,9 +238,16 @@ async def ingest_events(
         _raise_validation(envelope_errors, request_id)
     _check_event_count(envelope, settings.ingest_max_events)
 
+    if envelope.correction and not principal.has_scope(ADMIN_CORRECTIONS):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "corrections require the admin:corrections scope",
+        )
+
     valid, errors = _validate_events(envelope)
     if errors:
         _raise_validation(errors, request_id)
+    _check_source_allowlist(principal, valid, request_id)
     events = [event for _, event in valid]
 
     service = IngestV2Service(
@@ -208,10 +260,10 @@ async def ingest_events(
     try:
         result = await service.ingest(
             events,
-            token_label=label,
+            token_label=principal.label,
             request_id=request_id,
             correction=envelope.correction,
-            actor=label,
+            actor=principal.label,
             return_ids=envelope.return_ids,
         )
     except BatchValidationError as exc:
@@ -250,7 +302,7 @@ async def ingest_events(
 @router.post("/ingest/validate", response_model=ValidateResponse)
 async def validate_events(
     request: Request,
-    label: str = Depends(enforce_ingest_rate),
+    _: Principal = Depends(ingest_rate_guard(INGEST_EVENTS)),
 ) -> ValidateResponse:
     """Run schema and privacy checks without persisting anything."""
     settings: Settings = request.app.state.settings
@@ -307,7 +359,9 @@ async def readiness(request: Request) -> JSONResponse:
 
 
 @router.get("/schemas/usage-event", tags=["meta"])
-async def usage_event_schema(_: str = Depends(require_token)) -> dict[str, Any]:
+async def usage_event_schema(
+    _: Principal = Depends(require_scopes(QUERY_READ)),
+) -> dict[str, Any]:
     """Serve the published JSON schema for the v2 usage event (FR-INGEST-012).
 
     Generated from the same ``UsageEventV2`` model the ingest endpoint
@@ -362,7 +416,7 @@ def _validate_batch(
 async def ingest_limits(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    label: str = Depends(enforce_ingest_rate),
+    principal: Principal = Depends(ingest_rate_guard(INGEST_LIMITS)),
 ) -> MetaIngestResponse:
     """Append a batch of provider-neutral limit snapshots (append-only)."""
     settings: Settings = request.app.state.settings
@@ -377,7 +431,7 @@ async def ingest_limits(
 
     service = MetaIngestV2Service(session, request.app.state.dialect_name)
     batch_id, accepted = await service.ingest_limits(
-        snapshots, token_label=label, request_id=request_id
+        snapshots, token_label=principal.label, request_id=request_id
     )
     await session.commit()
     return MetaIngestResponse(batch_id=batch_id, request_id=request_id, accepted=accepted)
@@ -387,7 +441,7 @@ async def ingest_limits(
 async def ingest_aggregates(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    label: str = Depends(enforce_ingest_rate),
+    principal: Principal = Depends(ingest_rate_guard(INGEST_AGGREGATES)),
 ) -> MetaIngestResponse:
     """Upsert a batch of historical daily aggregate imports."""
     settings: Settings = request.app.state.settings
@@ -402,7 +456,7 @@ async def ingest_aggregates(
 
     service = MetaIngestV2Service(session, request.app.state.dialect_name)
     batch_id, accepted = await service.ingest_aggregates(
-        aggregates, token_label=label, request_id=request_id
+        aggregates, token_label=principal.label, request_id=request_id
     )
     await session.commit()
     return MetaIngestResponse(batch_id=batch_id, request_id=request_id, accepted=accepted)
