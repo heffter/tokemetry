@@ -2708,15 +2708,16 @@
             "id": 5,
             "title": "Cost engine v2 with unpriced and partial semantics",
             "description": "Compute cost from token counters plus billable units against rate cards.",
-            "details": "Rewrite services/cost.py as CostEngineV2: for a final attempt event, gather the applicable unit quantities (six token counters mapped to their unit types, reasoning priced only when a reasoning_token rate exists otherwise folded into output per provider strategy, plus billable_units rows), resolve each through the rate service, sum Decimal amounts quantized to 0.000001, and write a computed_costs row with pricing_version equal to a monotonically increasing pricing-state identifier (hash or counter bumped on every rate card apply, FR-PRICE-018). Missing rate for any consumed unit type yields cost_status partial with missing_units listing them; no rates at all yields unpriced with amount null (FR-PRICE-002, PP-008); resolver errors yield error status with detail in the task log, never an ingest rejection (FR-COST-008). Snapshots are not priced; only finality final attempt events receive cost records (FR-COST-001). Hosted tool and search request fees are additive to token fees (FR-PRICE-013). Test strategy: unit tests for priced, partial, unpriced, and error paths, additive unit fees, reasoning fold-in versus separate pricing, quantization, and pricing_version stamping; property test that recomputing with an unchanged pricing state is idempotent.",
-            "status": "pending",
+            "details": "Rewrite services/cost.py as CostEngineV2: for a final attempt event, gather the applicable unit quantities (six token counters mapped to their unit types, reasoning priced only when a reasoning_token rate exists otherwise folded into output per provider strategy, plus billable_units rows), resolve each through the rate service, sum Decimal amounts quantized to 0.000001, and write a computed_costs row with pricing_version equal to a monotonically increasing pricing-state identifier (hash or counter bumped on every rate card apply, FR-PRICE-018). Missing rate for any consumed unit type yields cost_status partial with missing_units listing them; no rates at all yields unpriced with amount null (FR-PRICE-002, PP-008); resolver errors yield error status with detail in the task log, never an ingest rejection (FR-COST-008). Snapshots are not priced; only finality final attempt events receive cost records (FR-COST-001). Hosted tool and search request fees are additive to token fees (FR-PRICE-013). Test strategy: unit tests for priced, partial, unpriced, and error paths, additive unit fees, reasoning fold-in versus separate pricing, quantization, and pricing_version stamping; property test that recomputing with an unchanged pricing state is idempotent.\n<info added on 2026-07-19T02:49:09.529Z>\nAdded CostEngineV2 (services/cost_v2.py) with pricing-state version helpers. Implemented `compute_and_record(event, pricing_version=None)` to price only final attempt events (snapshots/non-attempts return `None` with no `computed_costs` row, FR-COST-001); gathers five token counters mapped to unit types, folds reasoning into output when no `reasoning_token` rate exists (default strategy; provider strategies deferred to 64.7), and adds `billable_units` additively (FR-PRICE-013); resolves each consumed unit (`qty>0`) via `resolve_rate` at `event.ts_started` with tier; sums `Decimal` quantized to `0.000001`. Cost status logic: all consumed priced → `priced`; some priced + some missing → `partial` with `missing_units={units:[...]}` (FR-PRICE-002); nothing priced → `unpriced` with `amount NULL` (PP-008); resolver exception → `error` status (logged, never rejects ingest, FR-COST-008). Zero-consumption attempt: `priced` amount `0` if model has `input_token` rate, else `unpriced`. Records via `record_cost` using `pricing_version` from `current_pricing_version` (app_settings `'pricing_version'`, default `'1'`); `bump_pricing_version` increments it (used by rate-card apply 64.9/64.10) ensuring recomputation under unchanged pricing state is idempotent (upserts same row) while a bump creates a new active version (FR-PRICE-018). SCOPE: standalone service (v1 `services/cost.py` CostEngine untouched); async worker, ingest wiring, and transitional-column/view cutover remain in 64.6 to keep the golden suite byte-identical. Tests: `test_cost_v2.py` covering priced sum + version=1, partial with missing output, unpriced no rates, additive web_search fee, reasoning fold-into-output vs separate reasoning rate, snapshot not priced (no row), recompute idempotent (one row), and version bump creating new active row. Gates: pytest 627 passed/36 skipped, ruff clean, mypy strict clean (111 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-19T02:49:09.529Z>",
+            "status": "done",
             "dependencies": [
               "64.2",
               "64.3",
               "64.4"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T02:49:38.743Z"
           },
           {
             "id": 6,
@@ -2793,7 +2794,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T02:34:05.416Z"
+        "updatedAt": "2026-07-19T02:49:38.743Z"
       },
       {
         "id": "65",
@@ -3545,7 +3546,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T02:34:05.417Z",
+      "lastModified": "2026-07-19T02:49:38.744Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [

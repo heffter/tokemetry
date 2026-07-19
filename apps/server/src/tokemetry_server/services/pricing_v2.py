@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -29,6 +29,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.pricing.table import base_model_id
 
 from tokemetry_server.db import models
+
+#: app_settings key holding the monotonic pricing-state version. Bumped on every
+#: rate-card apply so a recompute under an unchanged pricing state is idempotent
+#: and a change forces re-pricing (FR-PRICE-018).
+PRICING_VERSION_KEY = "pricing_version"
+
+
+async def current_pricing_version(session: AsyncSession) -> str:
+    """The current pricing-state version (default ``'1'`` before any change)."""
+    row = await session.get(models.AppSetting, PRICING_VERSION_KEY)
+    return row.value if row is not None and row.value else "1"
+
+
+async def bump_pricing_version(session: AsyncSession) -> str:
+    """Increment the pricing-state version and return the new value."""
+    now = datetime.now(UTC)
+    row = await session.get(models.AppSetting, PRICING_VERSION_KEY)
+    if row is None:
+        session.add(models.AppSetting(key=PRICING_VERSION_KEY, value="2", updated_at=now))
+        return "2"
+    current = int(row.value) if row.value.isdigit() else 1
+    row.value = str(current + 1)
+    row.updated_at = now
+    return row.value
 
 
 @dataclass(frozen=True)
