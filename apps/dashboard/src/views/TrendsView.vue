@@ -1,8 +1,11 @@
 <script setup lang="ts">
-// Daily usage trend as a real stacked area over the five token components,
-// plus a categorical breakdown by a chosen dimension. An all-time summary
-// strip sits on top and a shared FilterBar drives the date range and the
-// machine/project scope.
+// Daily usage trend as a real stacked area over the v2 token components
+// (including reasoning), plus a categorical breakdown by a chosen dimension.
+// Both charts are served from /api/v2/rollups: the rollup rows are fetched once
+// for the range and aggregated client-side by day and by the chosen dimension,
+// so full history works without hitting the v2 /usage range bound. An all-time
+// summary strip sits on top; a shared FilterBar drives the date range plus the
+// global provider/model filter and the machine/project scope.
 import { computed, onMounted, ref } from 'vue';
 import EChart from '@/components/EChart.vue';
 import AsyncState from '@/components/AsyncState.vue';
@@ -10,23 +13,33 @@ import FilterBar from '@/components/FilterBar.vue';
 import StatTile from '@/components/StatTile.vue';
 import { useClient } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
+import { useGlobalFilters } from '@/composables/useGlobalFilters';
 import {
   stackedAreaOption,
-  stackedTokenBarOption,
-  TOKEN_COMPONENTS,
+  stackedComponentBarOption,
+  V2_TOKEN_COMPONENTS,
 } from '@/lib/charts';
-import {
-  cacheReadShare,
-  formatCost,
-  formatTokens,
-  modelLabel,
-} from '@/lib/format';
+import { cacheReadShare, formatCost, formatTokens } from '@/lib/format';
+import { aggregateRollups, ROLLUP_DIMENSIONS } from '@/lib/rollups';
+import { knownModelIds, resolveModel } from '@/lib/modelRegistry';
 import { enumerateDays, presetRange } from '@/lib/filters';
 import { loadSelection, saveSelection } from '@/composables/useSettings';
 import type { UsageFilter } from '@/lib/filters';
-import type { Overview, UsageBucket } from '@/api/types';
+import type { Overview } from '@/api/types';
+import type { ModelV2, ProviderV2, RollupV2, UsageRowV2 } from '@/api/types-v2';
 
-function zeroBucket(key: string): UsageBucket {
+type TrendDimension =
+  'model' | 'machine' | 'project' | 'source' | 'environment';
+const dims: TrendDimension[] = [
+  'model',
+  'machine',
+  'project',
+  'source',
+  'environment',
+];
+
+/** An empty day bucket used to gap-fill days with no usage. */
+function zeroRow(key: string): UsageRowV2 {
   return {
     key,
     input_tokens: 0,
@@ -34,8 +47,9 @@ function zeroBucket(key: string): UsageBucket {
     cache_read_tokens: 0,
     cache_write_short_tokens: 0,
     cache_write_long_tokens: 0,
+    reasoning_tokens: 0,
     total_tokens: 0,
-    cost_usd: null,
+    attempt_count: 0,
   };
 }
 
@@ -52,15 +66,46 @@ function shortDay(key: string): string {
 }
 
 const { loading, error, run, retry } = useAsync();
-const dimension = ref<'model' | 'machine' | 'project'>('model');
-const dims = ['model', 'machine', 'project'] as const;
-const dayBuckets = ref<UsageBucket[]>([]);
-const dimBuckets = ref<UsageBucket[]>([]);
+const { provider: globalProvider } = useGlobalFilters();
+const dimension = ref<TrendDimension>('model');
+// Raw rollup rows for the current range; both charts derive from these.
+const rollupRows = ref<RollupV2[]>([]);
 const overview = ref<Overview | null>(null);
 const machines = ref<string[]>([]);
 const projects = ref<string[]>([]);
+const providers = ref<ProviderV2[]>([]);
+const models = ref<ModelV2[]>([]);
 // Default matches the FilterBar's initial 30d preset until it emits.
 const filter = ref<UsageFilter>(presetRange('30d'));
+
+const knownIds = computed(() => knownModelIds(models.value));
+const providerOptions = computed(() =>
+  providers.value.map((p) => ({ value: p.id, label: p.display_name }))
+);
+// Models are scoped to the selected provider when one is chosen.
+const modelOptions = computed(() =>
+  models.value
+    .filter((m) => !globalProvider.value || m.provider === globalProvider.value)
+    .map((m) => ({
+      value: m.native_model_id,
+      label: resolveModel(m.native_model_id, knownIds.value).display,
+    }))
+);
+
+// The rollups endpoint has no project filter param, so project is applied
+// client-side over the fetched rows.
+const scopedRows = computed(() =>
+  filter.value.project
+    ? rollupRows.value.filter((r) => r.project === filter.value.project)
+    : rollupRows.value
+);
+
+const dayBuckets = computed(() =>
+  aggregateRollups(scopedRows.value, ROLLUP_DIMENSIONS.day)
+);
+const dimBuckets = computed(() =>
+  aggregateRollups(scopedRows.value, ROLLUP_DIMENSIONS[dimension.value])
+);
 
 // Cache-read is deselected by default across both composition charts (it
 // dominates and misleads); the selection survives auto-refresh and reloads.
@@ -78,10 +123,10 @@ const option = computed(() => {
   const byKey = new Map(buckets.map((b) => [b.key, b]));
   const keys = [...byKey.keys()].sort();
   const days = enumerateDays(keys[0], keys[keys.length - 1]);
-  const filled = days.map((d) => byKey.get(d) ?? zeroBucket(d));
+  const filled = days.map((d) => byKey.get(d) ?? zeroRow(d));
   return stackedAreaOption(
     days.map(shortDay),
-    TOKEN_COMPONENTS.map((component) => ({
+    V2_TOKEN_COMPONENTS.map((component) => ({
       name: component.label,
       values: filled.map(component.get),
     })),
@@ -96,13 +141,14 @@ const dimSorted = computed(() =>
 // Normalized so composition is comparable across categories despite the ~1000x
 // magnitude spread and cache-read dominance.
 const dimChart = computed(() =>
-  stackedTokenBarOption(
+  stackedComponentBarOption(
     dimSorted.value.map((b) =>
       dimension.value === 'model'
-        ? modelLabel(b.key)
+        ? resolveModel(b.key, knownIds.value).display
         : b.key || '(unattributed)'
     ),
     dimSorted.value,
+    V2_TOKEN_COMPONENTS,
     { normalized: true, selected: selection.value }
   )
 );
@@ -122,20 +168,33 @@ const span = computed(() => {
   return `${days} days of history`;
 });
 
-async function loadDimension(): Promise<void> {
-  dimBuckets.value = (
-    await useClient().usage({ groupBy: dimension.value, ...filter.value })
-  ).buckets;
+// Page through the (keyset-paginated) rollups for the range; the cap is a
+// runaway guard well above any realistic row count for a bounded date span.
+async function fetchAllRollups(): Promise<RollupV2[]> {
+  const client = useClient();
+  const fallback = presetRange('30d');
+  const rows: RollupV2[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 100; page += 1) {
+    const res = await client.v2Rollups({
+      from: filter.value.from ?? fallback.from,
+      to: filter.value.to ?? fallback.to,
+      provider: filter.value.provider,
+      model: filter.value.model,
+      machine: filter.value.machine,
+      limit: 200,
+      cursor,
+    });
+    rows.push(...res.rollups);
+    if (!res.next_cursor) break;
+    cursor = res.next_cursor;
+  }
+  return rows;
 }
 
 async function loadAll(): Promise<void> {
   await run(async () => {
-    const client = useClient();
-    const [days] = await Promise.all([
-      client.usage({ groupBy: 'day', ...filter.value }),
-      loadDimension(),
-    ]);
-    dayBuckets.value = days.buckets;
+    rollupRows.value = await fetchAllRollups();
   });
 }
 
@@ -146,6 +205,8 @@ async function loadStatic(): Promise<void> {
     const client = useClient();
     overview.value = await client.summaryOverview();
     machines.value = (await client.machines()).map((m) => m.id);
+    providers.value = await client.v2Providers();
+    models.value = await client.v2Models();
     const all = presetRange('all');
     projects.value = (
       await client.usage({ groupBy: 'project', ...all })
@@ -160,9 +221,10 @@ async function loadStatic(): Promise<void> {
   }
 }
 
-function setDimension(next: 'model' | 'machine' | 'project'): void {
+// The breakdown re-aggregates the already-fetched rollups client-side, so
+// switching dimension needs no refetch.
+function setDimension(next: TrendDimension): void {
   dimension.value = next;
-  void run(loadDimension);
 }
 
 function onFilter(next: UsageFilter): void {
@@ -203,7 +265,13 @@ onMounted(() => {
       />
     </section>
 
-    <FilterBar :machines="machines" :projects="projects" @change="onFilter" />
+    <FilterBar
+      :providers="providerOptions"
+      :models="modelOptions"
+      :machines="machines"
+      :projects="projects"
+      @change="onFilter"
+    />
 
     <AsyncState
       :loading="loading && dayBuckets.length === 0"
