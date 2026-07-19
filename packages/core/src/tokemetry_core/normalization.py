@@ -50,6 +50,18 @@ ANTHROPIC_DESCRIPTOR = ProviderDescriptor(
     windows=_ANTHROPIC_WINDOWS,
 )
 
+#: Codex reports a primary and a secondary rolling subscription window; the
+#: exact durations are undocumented, so period_seconds is left unset (rolling,
+#: unknown length) rather than guessed (FR-LIMIT-012).
+_OPENAI_WINDOWS: tuple[WindowDescriptor, ...] = (
+    WindowDescriptor(
+        kind="primary", label="Primary limit", period_kind="rolling", sort_order=0
+    ),
+    WindowDescriptor(
+        kind="secondary", label="Secondary limit", period_kind="rolling", sort_order=1
+    ),
+)
+
 OPENAI_DESCRIPTOR = ProviderDescriptor(
     id="openai",
     display_name="OpenAI",
@@ -57,6 +69,7 @@ OPENAI_DESCRIPTOR = ProviderDescriptor(
     pricing_strategy="openai",
     limit_semantics="openai_windows",
     supported_dimensions=("machine", "model", "project", "session"),
+    windows=_OPENAI_WINDOWS,
 )
 
 ZAI_DESCRIPTOR = ProviderDescriptor(

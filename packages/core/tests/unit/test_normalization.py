@@ -114,10 +114,14 @@ class TestProviderDescriptor:
         orders = [w.sort_order for w in ANTHROPIC_DESCRIPTOR.windows]
         assert orders == sorted(orders)
 
-    def test_providers_without_windows_default_to_empty(self) -> None:
-        # OpenAI/Z.ai declare no windows until their limit sources land; the
-        # field is simply empty (FR-LIMIT-009: no schema requirement).
-        assert OPENAI_DESCRIPTOR.windows == ()
+    def test_openai_seeds_its_primary_and_secondary_windows(self) -> None:
+        # Codex reports a primary and secondary rolling window (Task 69.3).
+        kinds = {w.kind for w in OPENAI_DESCRIPTOR.windows}
+        assert kinds == {"primary", "secondary"}
+        assert all(w.period_kind == "rolling" for w in OPENAI_DESCRIPTOR.windows)
+
+    def test_zai_has_no_windows_until_its_source_lands(self) -> None:
+        # Z.ai's windows arrive with its collector source (Task 69.4).
         assert ZAI_DESCRIPTOR.windows == ()
 
 

@@ -15,6 +15,10 @@ from tokemetry_core.providers.claude_code import ClaudeCodeJsonlSource, default_
 
 from tokemetry_collector.config import CollectorConfig, SourceConfig
 from tokemetry_collector.limits_anthropic import AnthropicOAuthLimitsSource
+from tokemetry_collector.limits_openai import (
+    OpenAICodexLimitsSource,
+    default_codex_home,
+)
 
 #: Registry of usage-source builders keyed by config source name.
 UsageSourceBuilder = Callable[[CollectorConfig, SourceConfig], UsageSource]
@@ -46,6 +50,18 @@ def _build_anthropic_oauth(config: CollectorConfig, source_cfg: SourceConfig) ->
     raw_home = (source_cfg.model_extra or {}).get("claude_home")
     claude_home = Path(str(raw_home)) if raw_home else default_claude_home()
     return AnthropicOAuthLimitsSource(claude_home=claude_home, machine=config.machine_name)
+
+
+def _build_openai_codex(config: CollectorConfig, source_cfg: SourceConfig) -> LimitsSource:
+    """Build the OpenAI/Codex limits source from config.
+
+    Honors an optional ``codex_home`` override (where ``auth.json`` lives);
+    otherwise resolves ``$CODEX_HOME`` or ``~/.codex``. Registered but disabled
+    by default: it only runs when explicitly enabled in the collector config.
+    """
+    raw_home = (source_cfg.model_extra or {}).get("codex_home")
+    codex_home = Path(str(raw_home)) if raw_home else default_codex_home()
+    return OpenAICodexLimitsSource(codex_home=codex_home, machine=config.machine_name)
 
 
 def register_usage_builder(name: str, builder: UsageSourceBuilder) -> None:
@@ -82,6 +98,10 @@ def build_limit_sources(config: CollectorConfig) -> list[LimitsSource]:
 CLAUDE_CODE_SOURCE = "claude_code"
 #: The config key under which the Anthropic OAuth limits source is enabled.
 ANTHROPIC_OAUTH_LIMITS = "anthropic_oauth"
+#: The config key under which the OpenAI/Codex limits source is enabled
+#: (registered but off by default; enable it explicitly in the config).
+OPENAI_CODEX_LIMITS = "openai_codex"
 
 register_usage_builder(CLAUDE_CODE_SOURCE, _build_claude_code)
 register_limits_builder(ANTHROPIC_OAUTH_LIMITS, _build_anthropic_oauth)
+register_limits_builder(OPENAI_CODEX_LIMITS, _build_openai_codex)
