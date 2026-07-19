@@ -92,6 +92,30 @@ Strategies register on the `ProviderRegistry` via `register_pricing_v2` /
 plugin or the generic default. The server `build_registry()` wires all four,
 and `CostEngineV2` uses the built-in set when no registry is injected.
 
+### Billing modes and dual cost metrics
+
+Every event's cost is one of two kinds, never merged (D-007, FR-COST-012):
+`api_billed` (actual out-of-pocket API spend) or `subscription`
+(subscription-equivalent value at equivalent API rates, no real spend). The
+mode is carried on the reporting `sources.billing_mode`, with an account-level
+override map (`billing_mode_overrides`, a `machine=mode` settings list) for
+usage whose source keeps the default mode -- notably v1 collector events from a
+subscription (Max) machine, whose derived collector source defaults to
+`api_billed`.
+
+- Resolution (`services/billing_mode.py`, `resolve_billing_mode`): an explicit
+  non-default source mode wins; otherwise the account override keyed by the
+  event's machine; otherwise the source mode or the `api_billed` default.
+- The cost engine writes `billing_mode` onto every `computed_costs` row.
+  `api_billed` rows populate `amount`; `subscription` rows populate
+  `subscription_equivalent_amount` with `amount` null. The worker and repricing
+  pass the override map through from settings.
+- `services/cost_queries.py` exposes `dual_cost_metrics` -> `DualCostMetrics`
+  with `actual_spend_usd` (sum of `amount` over active `api_billed` rows) and
+  `subscription_value_usd` (sum of `subscription_equivalent_amount` over active
+  `subscription` rows). The dataclass has no combined total, so the two figures
+  cannot be summed by accident. (Rollup columns land in Task 66.)
+
 - **Async cost worker** (`services/cost_worker.py`): `sweep_uncosted_costs`
   finds final attempt events in `usage_events_v2` that lack an *active*
   `computed_costs` row and prices up to `batch_size` of them per call. The

@@ -2749,14 +2749,15 @@
             "id": 8,
             "title": "Billing modes and dual cost metrics",
             "description": "Actual API spend versus subscription-equivalent value, never merged.",
-            "details": "Implement decision D-007 and FR-COST-011..013: billing_mode lives on sources (Task 63 schema) with api_billed and subscription values; an account-level override map in settings covers non-source-attributed usage (v1 collector events from a Max subscription machine default to subscription via config, documented for the existing deployment). Cost engine writes billing_mode onto every computed_costs row: api_billed rows populate amount (actual spend); subscription rows populate subscription_equivalent_amount at equivalent API rates with amount null (no real spend). Aggregation helpers expose actual_spend_usd and subscription_value_usd as separate Decimal sums; nothing ever adds them together (FR-COST-012). The existing dashboard plan-value multiple semantics map onto subscription_value for continuity. Rollup columns land in Task 66; this subtask delivers the computation and query helpers plus settings plumbing. Test strategy: unit tests for mode resolution precedence (source mode, account override, default), dual-metric computation on mixed fixtures (Claude subscription plus OpenAI api_billed), and the never-merged invariant (helper has no combined total); integration test that v1-ingested events on a subscription-configured machine produce subscription-valued cost rows.",
-            "status": "pending",
+            "details": "Implement decision D-007 and FR-COST-011..013: billing_mode lives on sources (Task 63 schema) with api_billed and subscription values; an account-level override map in settings covers non-source-attributed usage (v1 collector events from a Max subscription machine default to subscription via config, documented for the existing deployment). Cost engine writes billing_mode onto every computed_costs row: api_billed rows populate amount (actual spend); subscription rows populate subscription_equivalent_amount at equivalent API rates with amount null (no real spend). Aggregation helpers expose actual_spend_usd and subscription_value_usd as separate Decimal sums; nothing ever adds them together (FR-COST-012). The existing dashboard plan-value multiple semantics map onto subscription_value for continuity. Rollup columns land in Task 66; this subtask delivers the computation and query helpers plus settings plumbing. Test strategy: unit tests for mode resolution precedence (source mode, account override, default), dual-metric computation on mixed fixtures (Claude subscription plus OpenAI api_billed), and the never-merged invariant (helper has no combined total); integration test that v1-ingested events on a subscription-configured machine produce subscription-valued cost rows.\n<info added on 2026-07-19T04:25:51.553Z>\nImplemented billing modes and dual cost metrics. New `services/billing_mode.py` defines `API_BILLED`, `SUBSCRIPTION`, `DEFAULT_BILLING_MODE`, and `BILLING_MODES` constants, plus `resolve_billing_mode(source_mode, machine, overrides)` with explicit precedence: source > machine override > default. `CostEngineV2` updated: `PriceInputs` now includes `source_id` and `machine`; `_record` resolves `billing_mode` (loading `source.billing_mode` by `source_id`) and splits rows—`api_billed` rows populate `amount` (actual spend), while `subscription` rows populate `subscription_equivalent_amount` at equivalent API rates with `amount` set to `None`. The engine constructor accepts `billing_mode_overrides`, threaded through `sweep_uncosted_costs`, `_cost_loop` (from `settings.billing_mode_override_map`), and `reprice` (pricing API reads settings). `config.py` adds `billing_mode_overrides` (comma-separated `machine=mode` setting) and `billing_mode_override_map` property (validates input, raises on invalid format). `services/cost_queries.py` introduces `DualCostMetrics` class with `actual_spend_usd` and `subscription_value_usd` fields (no combined total) and `dual_cost_metrics(session, start, end)` function that computes separate sums over active `computed_costs`, with optional `ts_started` range filtering. `api/v2/sources.py` now imports shared `BILLING_MODES` for DRY compliance. Both v1 and v2 events are source-attributed; thus, a v1 collector on a Max machine receives `subscription` billing via the machine override. Tests include unit `test_billing_mode.py` (9 tests: precedence + config parsing) and integration `test_billing_modes.py` (6 tests: `api_billed` amount, subscription equivalent, machine override, dual metrics never-merged, time range). Gates: 626 passed/36 skipped, ruff + mypy (114 issues resolved) + trivy clean. Docs updated: `pricing.md` now includes a \"billing-modes\" section.\n</info added on 2026-07-19T04:25:51.553Z>",
+            "status": "done",
             "dependencies": [
               "64.4",
               "64.5"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T04:27:42.273Z"
           },
           {
             "id": 9,
@@ -2796,7 +2797,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T03:56:03.752Z"
+        "updatedAt": "2026-07-19T04:27:42.273Z"
       },
       {
         "id": "65",
@@ -3548,7 +3549,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T03:56:03.753Z",
+      "lastModified": "2026-07-19T04:27:42.274Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [

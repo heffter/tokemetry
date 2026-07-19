@@ -27,12 +27,10 @@ from tokemetry_server.api.v2.schemas import (
 from tokemetry_server.config import Settings
 from tokemetry_server.db import models
 from tokemetry_server.scopes import ADMIN_TOKENS, QUERY_READ
+from tokemetry_server.services.billing_mode import BILLING_MODES
 from tokemetry_server.services.sources import SourceHealth, SourceHealthService
 
 router = APIRouter(prefix="/api/v2", tags=["sources"])
-
-#: Recognized billing modes for the PATCH mutation (D-007).
-_BILLING_MODES = frozenset({"api_billed", "subscription"})
 
 
 def _health_service(settings: Settings, session: AsyncSession) -> SourceHealthService:
@@ -115,10 +113,10 @@ async def update_source(
     if payload.token_label is not None:
         source.token_label = payload.token_label
     if payload.billing_mode is not None:
-        if payload.billing_mode not in _BILLING_MODES:
+        if payload.billing_mode not in BILLING_MODES:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                f"billing_mode must be one of {sorted(_BILLING_MODES)}",
+                f"billing_mode must be one of {sorted(BILLING_MODES)}",
             )
         source.billing_mode = payload.billing_mode
 

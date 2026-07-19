@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
@@ -79,13 +79,14 @@ async def _cost_loop(
     session_factory: async_sessionmaker[AsyncSession],
     interval: float,
     batch_size: int,
+    billing_mode_overrides: Mapping[str, str],
 ) -> None:
     """Periodically price uncosted events out of the ingest path (FR-COST-009)."""
     while True:
         await asyncio.sleep(interval)
         try:
             async with session_factory() as session:
-                await sweep_uncosted_costs(session, batch_size)
+                await sweep_uncosted_costs(session, batch_size, billing_mode_overrides)
                 await session.commit()
         except asyncio.CancelledError:
             raise
@@ -160,6 +161,7 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
                     session_factory,
                     resolved.cost_worker_interval_seconds,
                     resolved.cost_worker_batch_size,
+                    resolved.billing_mode_override_map,
                 )
             )
         try:

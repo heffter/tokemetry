@@ -17,17 +17,20 @@ fees (FR-PRICE-013). Cost never rejects or blocks ingest.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 
 from loguru import logger
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.pricing.strategies.defaults import default_v2_pricing_registry
 from tokemetry_core.registry import ProviderRegistry
 from tokemetry_core.usage_v2 import UsageEventV2
 
 from tokemetry_server.db import models
+from tokemetry_server.services.billing_mode import SUBSCRIPTION, resolve_billing_mode
 from tokemetry_server.services.computed_costs import record_cost
 from tokemetry_server.services.pricing_v2 import current_pricing_version, resolve_rate
 
@@ -64,13 +67,18 @@ class PriceInputs:
     token_counts: dict[str, int]
     reasoning_tokens: int
     billable_units: dict[str, float]
+    source_id: int | None
+    machine: str | None
 
 
 class CostEngineV2:
     """Prices final attempt events against the rate cards."""
 
     def __init__(
-        self, session: AsyncSession, registry: ProviderRegistry | None = None
+        self,
+        session: AsyncSession,
+        registry: ProviderRegistry | None = None,
+        billing_mode_overrides: Mapping[str, str] | None = None,
     ) -> None:
         """Create the engine bound to the caller's transaction.
 
@@ -79,9 +87,12 @@ class CostEngineV2:
             registry: Provider registry supplying the v2 pricing strategies;
                 defaults to the built-in strategies (anthropic/openai/zai plus
                 a generic fallback) when omitted.
+            billing_mode_overrides: Account-level machine -> billing_mode
+                overrides (D-007); empty by default.
         """
         self._session = session
         self._registry = registry if registry is not None else default_v2_pricing_registry()
+        self._billing_mode_overrides: Mapping[str, str] = billing_mode_overrides or {}
 
     async def compute_and_record(
         self, event: UsageEventV2, pricing_version: str | None = None
@@ -100,6 +111,8 @@ class CostEngineV2:
             },
             reasoning_tokens=event.reasoning_tokens,
             billable_units=dict(event.billable_units or {}),
+            source_id=None,  # the wire event is not yet resolved to a source row
+            machine=event.machine,
         )
         return await self._record(event.provider, event.event_id, inputs, pricing_version)
 
@@ -125,6 +138,8 @@ class CostEngineV2:
             },
             reasoning_tokens=row.reasoning_tokens,
             billable_units=billable_units,
+            source_id=row.source_id,
+            machine=row.machine,
         )
         return await self._record(row.provider, row.event_id, inputs, pricing_version)
 
@@ -142,15 +157,35 @@ class CostEngineV2:
             else await current_pricing_version(self._session)
         )
         result = await self._compute(inputs)
+        billing_mode = resolve_billing_mode(
+            await self._source_billing_mode(inputs.source_id),
+            inputs.machine,
+            self._billing_mode_overrides,
+        )
+        # Subscription usage carries no real spend: the computed amount is the
+        # subscription-equivalent value and ``amount`` stays null (FR-COST-011).
+        subscription_equivalent = result.amount if billing_mode == SUBSCRIPTION else None
+        amount = None if billing_mode == SUBSCRIPTION else result.amount
         return await record_cost(
             self._session,
             provider,
             event_id,
-            amount=result.amount,
+            amount=amount,
             cost_status=result.cost_status,
             pricing_version=version,
+            billing_mode=billing_mode,
+            subscription_equivalent_amount=subscription_equivalent,
             missing_units={"units": result.missing_units} if result.missing_units else None,
         )
+
+    async def _source_billing_mode(self, source_id: int | None) -> str | None:
+        """Return the ``billing_mode`` of the event's source, or None if absent."""
+        if source_id is None:
+            return None
+        mode: str | None = await self._session.scalar(
+            select(models.Source.billing_mode).where(models.Source.id == source_id)
+        )
+        return mode
 
     async def _compute(self, inputs: PriceInputs) -> CostResult:
         """Compute the cost of a final attempt (status + amount)."""

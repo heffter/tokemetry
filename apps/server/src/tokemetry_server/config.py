@@ -126,6 +126,34 @@ class Settings(BaseSettings):
     source_error_window_seconds: float = Field(default=3600.0, gt=0)
     source_clock_skew_warn_seconds: float = Field(default=300.0, gt=0)
 
+    #: Account-level billing-mode overrides (D-007, FR-COST-011), as a
+    #: comma-separated ``machine=mode`` list (mode is ``api_billed`` or
+    #: ``subscription``). Covers usage whose source keeps the default mode --
+    #: notably v1 collector events from a subscription (Max) machine. Example:
+    #: ``"maxbook=subscription"``.
+    billing_mode_overrides: str = Field(default="")
+
+    @property
+    def billing_mode_override_map(self) -> dict[str, str]:
+        """Parse :attr:`billing_mode_overrides` into a machine -> mode dict.
+
+        Raises:
+            ValueError: On a malformed entry or an unknown billing mode.
+        """
+        from tokemetry_server.services.billing_mode import BILLING_MODES
+
+        result: dict[str, str] = {}
+        for part in self.billing_mode_overrides.split(","):
+            entry = part.strip()
+            if not entry:
+                continue
+            machine, sep, mode = entry.partition("=")
+            machine, mode = machine.strip(), mode.strip()
+            if not sep or not machine or mode not in BILLING_MODES:
+                raise ValueError(f"invalid billing_mode override: {entry!r}")
+            result[machine] = mode
+        return result
+
     @property
     def project_root_markers(self) -> tuple[str, ...]:
         """Parse :attr:`project_roots` into a tuple of marker segments."""

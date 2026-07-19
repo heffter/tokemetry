@@ -12,6 +12,7 @@ recomputation for the affected days is a Task 66 dependency (noted, not wired).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -60,10 +61,11 @@ async def reprice(
     end: datetime,
     provider: str | None = None,
     native_model: str | None = None,
+    billing_mode_overrides: Mapping[str, str] | None = None,
 ) -> RepriceResult:
     """Recompute cost for a range under a new pricing version; audited."""
     version = await bump_pricing_version(session)
-    engine = CostEngineV2(session)
+    engine = CostEngineV2(session, billing_mode_overrides=billing_mode_overrides)
     rows = (
         await session.execute(_matching_events(start, end, provider, native_model))
     ).scalars().all()
