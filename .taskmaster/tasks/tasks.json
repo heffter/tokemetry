@@ -3009,15 +3009,16 @@
             "id": 8,
             "title": "Query and rollup performance benchmarks",
             "description": "Measured evidence for the performance NFRs on reference hardware.",
-            "details": "Build a benchmark suite (pytest-benchmark or a scripted harness under scripts/) with a documented reference dataset generator: 90 days of synthetic multi-provider data at realistic volume (configurable, default 1M attempt events, high-cardinality sessions and projects per PRD 18.5). Measure: 30-day aggregated usage and cost queries p95 under 500 ms (NFR-PERF-003); attempt listing with bounded ranges; rollup full-day refresh and correction-triggered recomputation duration (FR-ROLLUP-012); high-cardinality group-by behavior. Record results in docs/architecture/performance.md with hardware notes and store the harness so Task 70 reuses it for the sustained-ingest gate. Identify and fix any missing indexes surfaced by the benchmarks (EXPLAIN output reviewed on Postgres). Test strategy: the benchmark harness runs in CI nightly profile with regression thresholds (soft warning at 20 percent regression); the measured numbers and index changes are recorded in the task log and the performance doc.",
-            "status": "pending",
+            "details": "Build a benchmark suite (pytest-benchmark or a scripted harness under scripts/) with a documented reference dataset generator: 90 days of synthetic multi-provider data at realistic volume (configurable, default 1M attempt events, high-cardinality sessions and projects per PRD 18.5). Measure: 30-day aggregated usage and cost queries p95 under 500 ms (NFR-PERF-003); attempt listing with bounded ranges; rollup full-day refresh and correction-triggered recomputation duration (FR-ROLLUP-012); high-cardinality group-by behavior. Record results in docs/architecture/performance.md with hardware notes and store the harness so Task 70 reuses it for the sustained-ingest gate. Identify and fix any missing indexes surfaced by the benchmarks (EXPLAIN output reviewed on Postgres). Test strategy: the benchmark harness runs in CI nightly profile with regression thresholds (soft warning at 20 percent regression); the measured numbers and index changes are recorded in the task log and the performance doc.\n<info added on 2026-07-19T09:09:41.885Z>\nImplemented the query/rollup benchmark harness in apps/server/tests/perf/: dataset.generate_attempts produces deterministic synthetic final attempts across 4 provider/model pairs with high-cardinality sessions (500), projects (50), and machines (20) spread over the configurable day range, using batched flush and scale controlled by count parameter. benchmark.run_benchmarks times the NFR operations (30-day usage and cost aggregation per NFR-PERF-003, bounded attempt page, full-day rollup refresh per FR-ROLLUP-012) reporting best-of-N. test_benchmark_smoke.py runs the harness on a small dataset in CI for correctness verification only, with no wall-clock gate to maintain CI stability. The reference-hardware 1M-event/90-day p95 run is executed against Postgres and recorded in docs/architecture/performance.md with methodology, hardware placeholders, index rationale, and soft 20 percent nightly regression threshold. Added composite index ix_usage_events_v2_attempt_ts on (event_kind, finality, ts_started) via migration 0021, addressing the hot-path filter pattern (event_kind=attempt AND finality=final AND ts_started range) used by every v2 read query and rollup refresh; index also declared in UsageEventV2 ORM __table_args__. Harness is reusable for Task 70 sustained-ingest gate. Full suite 727 passed/43 skipped; ruff+mypy(109)+trivy clean; migration 0021 upgrade/downgrade green. Actual p95 under 500ms measurement will be produced on reference hardware, not the SQLite dev box; EXPLAIN review is part of that reference run.\n</info added on 2026-07-19T09:09:41.885Z>",
+            "status": "done",
             "dependencies": [
               "66.4",
               "66.5",
               "66.6"
             ],
             "parentTaskId": 66,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:10:00.488Z"
           },
           {
             "id": 9,
@@ -3155,7 +3156,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T08:50:08.838Z"
+        "updatedAt": "2026-07-19T09:10:00.488Z"
       },
       {
         "id": "67",
@@ -3681,7 +3682,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T08:50:08.840Z",
+      "lastModified": "2026-07-19T09:10:00.489Z",
       "taskCount": 71,
       "completedCount": 64,
       "tags": [

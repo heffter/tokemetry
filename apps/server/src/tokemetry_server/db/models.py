@@ -100,6 +100,13 @@ class UsageEventV2(Base):
     """
 
     __tablename__ = "usage_events_v2"
+    __table_args__ = (
+        # The hot path for every v2 read query and the rollup refresh is the
+        # final-attempt time-range scan (Task 66.8, NFR-PERF-003).
+        Index(
+            "ix_usage_events_v2_attempt_ts", "event_kind", "finality", "ts_started"
+        ),
+    )
 
     provider: Mapped[str] = mapped_column(String(50), primary_key=True)
     event_id: Mapped[str] = mapped_column(String(200), primary_key=True)
