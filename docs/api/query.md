@@ -103,6 +103,20 @@ The trace surface under `/api/v2` (scope `query:read`); all take a bounded
   session rollups keyed by the scoped identity `(provider, source, session_id)`;
   the v1 sessions endpoints keep serving the old shape during the migration.
 
+## Other v2 read resources
+
+Read-only, keyset-paginated, scope `query:read`:
+
+- `GET /api/v2/limits?from&to` -- limit-utilization snapshots with
+  official/estimated provenance; filterable by `provider`, `machine`,
+  `window_kind`, `provenance`.
+- `GET /api/v2/data-quality` -- recorded anomalies filterable by `kind`,
+  `subject`, `source`, and `resolved` state (feeds the data-quality UI).
+- `GET /api/v2/pricing` -- the read-only rate-card listing (mutation is under
+  the pricing-admin endpoints).
+- `GET /api/v2/rollups?from&to` -- `daily_rollups` rows exposed directly for
+  external tooling with the stable column contract.
+
 ## Pricing administration (v2)
 
 The provider-neutral pricing surface is under `/api/v2/pricing`. Reads need

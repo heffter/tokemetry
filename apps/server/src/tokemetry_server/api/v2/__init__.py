@@ -13,6 +13,7 @@ from tokemetry_server.api.v2.ingest import router as _ingest_router
 from tokemetry_server.api.v2.pricing import router as _pricing_router
 from tokemetry_server.api.v2.registries import router as _registries_router
 from tokemetry_server.api.v2.requests import router as _requests_router
+from tokemetry_server.api.v2.resources import router as _resources_router
 from tokemetry_server.api.v2.sessions import router as _sessions_router
 from tokemetry_server.api.v2.sources import router as _sources_router
 from tokemetry_server.api.v2.usage import router as _usage_router
@@ -26,3 +27,4 @@ router.include_router(_usage_router)
 router.include_router(_costs_router)
 router.include_router(_requests_router)
 router.include_router(_sessions_router)
+router.include_router(_resources_router)

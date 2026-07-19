@@ -491,3 +491,89 @@ class SessionsResponse(BaseModel):
 
     sessions: list[SessionOut]
     next_cursor: str | None = None
+
+
+class LimitSnapshotOut(BaseModel):
+    """One limit-utilization snapshot with its provenance (FR-LIMIT-004)."""
+
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    id: int
+    provider: str
+    machine: str | None
+    ts: UtcDatetime
+    window_kind: str
+    utilization_pct: Decimal
+    resets_at: UtcDatetime | None
+    provenance: str
+
+
+class LimitsResponse(BaseModel):
+    """A keyset-paginated page of limit snapshots."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    limits: list[LimitSnapshotOut]
+    next_cursor: str | None = None
+
+
+class DataQualityEventOut(BaseModel):
+    """One recorded data-quality anomaly."""
+
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    id: int
+    kind: str
+    subject: str
+    detail: dict[str, Any]
+    source_id: str | None
+    ts: UtcDatetime
+    resolved: bool
+
+
+class DataQualityResponse(BaseModel):
+    """A keyset-paginated page of data-quality events."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    events: list[DataQualityEventOut]
+    next_cursor: str | None = None
+
+
+class RollupOut(BaseModel):
+    """One daily_rollups row exposed for external tooling (stable columns)."""
+
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    id: int
+    day: date
+    provider: str
+    model: str
+    machine: str
+    project: str
+    source: str
+    environment: str
+    billing_mode: str
+    provenance: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    reasoning_tokens: int
+    total_tokens: int
+    cost_usd: Decimal | None
+    cost_priced_usd: Decimal | None
+    cost_partial_usd: Decimal | None
+    cost_estimated_usd: Decimal | None
+    unpriced_event_count: int
+    subscription_value_usd: Decimal | None
+
+
+class RollupsResponse(BaseModel):
+    """A keyset-paginated page of daily rollup rows."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rollups: list[RollupOut]
+    next_cursor: str | None = None

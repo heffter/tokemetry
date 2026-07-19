@@ -2981,13 +2981,14 @@
             "id": 6,
             "title": "Limits, data-quality, pricing, and rollup query endpoints",
             "description": "Remaining v2 read resources.",
-            "details": "Add the remaining read endpoints (api/v2/): GET /api/v2/limits returning current and historical limit snapshots across the v2 dimensions with official versus estimated provenance (FR-LIMIT-004; window labels resolved through the registry once Task 69 lands, opaque kinds until then); GET /api/v2/data-quality listing data_quality_events filterable by kind, subject, source, resolved state (FR-QUERY resources; feeds the Task 67 page); GET /api/v2/pricing read-only rate-card listing for display (admin mutation lives in Task 64); GET /api/v2/rollups exposing daily_rollups rows directly for external tooling with the stable column contract. All through the query framework with scope query:read. /api/v2/sources ships in Task 63. Test strategy: integration tests per endpoint covering filters, pagination, provenance labeling, and the rollup column contract snapshot; scope denial tests; OpenAPI snapshot.",
-            "status": "pending",
+            "details": "Add the remaining read endpoints (api/v2/): GET /api/v2/limits returning current and historical limit snapshots across the v2 dimensions with official versus estimated provenance (FR-LIMIT-004; window labels resolved through the registry once Task 69 lands, opaque kinds until then); GET /api/v2/data-quality listing data_quality_events filterable by kind, subject, source, resolved state (FR-QUERY resources; feeds the Task 67 page); GET /api/v2/pricing read-only rate-card listing for display (admin mutation lives in Task 64); GET /api/v2/rollups exposing daily_rollups rows directly for external tooling with the stable column contract. All through the query framework with scope query:read. /api/v2/sources ships in Task 63. Test strategy: integration tests per endpoint covering filters, pagination, provenance labeling, and the rollup column contract snapshot; scope denial tests; OpenAPI snapshot.\n<info added on 2026-07-19T08:28:08.325Z>\nImplemented GET /api/v2/limits, /api/v2/data-quality, and /api/v2/rollups endpoints with scope query:read. Note that /api/v2/pricing read listing already shipped in subtask 64.10 (list_rate_cards with query:read scope) and was not duplicated. Added services/resource_queries.py with three query functions: list_limits (queries limit_snapshots over a bounded time range with keyset pagination by (ts,id) newest-first, filters by provider/machine/window_kind/provenance), list_data_quality (queries data_quality_events with keyset pagination by (ts,id), filters by kind/subject/source_id/resolved state, no mandatory range requirement), and list_rollups (queries daily_rollups over a day range with keyset pagination by (day,id), filters by provider/model/machine/source/environment/billing_mode to support the stable column contract for external tooling). Created api/v2/resources.py endpoints that map ORM rows via from_attributes Pydantic schemas; limits and rollups endpoints enforce range bounds and return 400 for invalid cursor format. Added schemas LimitSnapshotOut, DataQualityEventOut, and RollupOut with from_attributes configuration plus corresponding list response schemas with extra=forbid and next_cursor fields. Wired _resources_router into v2/__init__.py. Test coverage includes service-layer test_resource_queries.py with three tests (limits keyset pagination and filtering, data-quality filters and resolved state, rollups keyset pagination and filtering) and API-layer test_resources_api_v2.py with four tests (data-quality listing and filtering via read_engine seed, limits contract and range validation returning 400, rollups contract and reversed-range validation returning 400, query:read scope enforcement returning 403 on all three endpoints). Full test suite shows 719 passed and 40 skipped with ruff, mypy (106 modules), and trivy all clean. Updated docs/api/query.md with endpoint documentation. Deferred window-label resolution via registry until Task 69 lands and OpenAPI snapshot test.\n</info added on 2026-07-19T08:28:08.325Z>",
+            "status": "done",
             "dependencies": [
               "66.3"
             ],
             "parentTaskId": 66,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:28:27.758Z"
           },
           {
             "id": 7,
@@ -3153,7 +3154,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T08:07:46.460Z"
+        "updatedAt": "2026-07-19T08:28:27.758Z"
       },
       {
         "id": "67",
@@ -3679,7 +3680,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T08:07:46.461Z",
+      "lastModified": "2026-07-19T08:28:27.759Z",
       "taskCount": 71,
       "completedCount": 64,
       "tags": [
