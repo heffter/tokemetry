@@ -32,7 +32,11 @@ limits are not published.
 - `GET /api/v1/cost?from&to` -- total known cost and, when
   `TOKEMETRY_SUBSCRIPTION_MONTHLY_USD` is set, the value multiple vs the
   prorated subscription price.
-- `GET /api/v1/pricing` -- the pricing table.
+- `GET /api/v1/pricing` -- the v1 per-MTok pricing table. During the
+  provider-neutral migration this shape can also be reconstructed from the v2
+  rate cards (`services/pricing_adapter.py`) until Task 67 replaces the UI.
+- `POST /api/v1/pricing/sync-litellm` -- fetch LiteLLM prices; also feeds the
+  v2 `rate_cards` via the import (auto-apply, audited as `v1_sync`).
 
 ## API tokens
 
@@ -60,3 +64,25 @@ auth). See [registries.md](registries.md) for the full contract.
   `registered` flag for observed-but-unknown providers.
 - `GET /api/v2/models` -- model registry rows, filterable by `provider` and
   `lifecycle`, each with its native id and alias spellings.
+
+## Pricing administration (v2)
+
+The provider-neutral pricing surface is under `/api/v2/pricing`. Reads need
+`query:read`; every mutation needs `admin:pricing`, is audited, and returns the
+current pricing-state version. See
+[architecture/pricing-v2.md](../architecture/pricing-v2.md) for the model.
+
+- `GET /api/v2/pricing` -- list rate cards, filterable by `provider`,
+  `native_model`, `unit_type`, and `active_on` date.
+- `POST /api/v2/pricing` -- create a rate card (manual price or override);
+  `400` on a same-grain date overlap.
+- `POST /api/v2/pricing/{id}/close` -- close a rate card (`{ "effective_to" }`);
+  `404` if unknown.
+- `POST /api/v2/pricing/import?dry_run=true|false` -- diff a LiteLLM + curated
+  price set (dry run returns the structured diff and a `digest`); apply with
+  `dry_run=false` and that `digest` (`409` if the stored rates changed).
+- `POST /api/v2/pricing/reprice` / `POST /api/v2/pricing/revert` -- recompute a
+  time range under a new pricing version, retaining prior rows, or re-activate a
+  named prior version.
+- `GET /api/v2/pricing/reports/unpriced` -- unpriced/partial events by model.
+- `GET /api/v2/pricing/reports/unknown-models` -- unknown-model observations.

@@ -59,6 +59,9 @@ cost function, so every event is priced as it is stored.
 
 ## Provider-neutral v2 cost path
 
+See [pricing-v2.md](pricing-v2.md) for the canonical v2 model and the TOK-5
+requirements map; the subsections below are the per-component detail.
+
 The v2 pricing engine (`services/cost_v2.py`, `CostEngineV2`) prices a final
 attempt from the generic `rate_cards` grain and records a `computed_costs`
 row per `(provider, event_id, pricing_version)`, kept off the usage row. Cost

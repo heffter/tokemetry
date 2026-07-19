@@ -2649,7 +2649,7 @@
         "description": "Replace fixed token price rows with a generic rate-card system plus billable units; separate computed costs from immutable usage; add billing modes for dual cost metrics; async cost computation with auditable repricing; LiteLLM import with dry-run diff. PRD-TOK-002 Sections 12.7, 12.8; Epic TOK-5; FR-PRICE-001..022, FR-COST-001..013; decisions D-006, D-007, D-015, D-016.",
         "details": "Objective: provider-neutral pricing that preserves historical costs exactly (Migration Phase 2 and 3).\n\nDesign: rate_cards table with provider, native_model, unit_type, effective_from, optional effective_to, currency, region, service_tier, mode realtime|batch, context_bracket, decimal unit_price, source, verified_at, priority, override flag (D-006); overlap rejection (FR-PRICE-005); unit-type vocabulary from PRD 12.7.2 (input_token, output_token, cache_read_token, cache_write_short_token, cache_write_long_token, reasoning_token, request, web_search_request, tool_call, image_input, image_output, audio_input_second, audio_output_second, video_second, storage_byte_hour, batch_input_token, batch_output_token); billable_units table for non-token counts per event (FR-DIM-007/008). computed_costs separate from usage rows: cost_status priced|unpriced|partial|estimated|error, pricing_version, currency, calculated_at, observed_cost for exporter reconciliation (FR-COST-001..006, D-016); missing pricing yields unpriced, never a silent default (FR-PRICE-002); partial names missing units (FR-COST-007). Cost computation asynchronous so ingest is never rejected by pricing failures (FR-COST-008/009, NFR-REL-007); repricing is an explicit, audited, reversible admin operation (FR-PRICE-019/020). Billing modes: every source or account carries billing_mode api_billed|subscription (FR-COST-011); rollups and APIs expose actual API spend and subscription-equivalent value separately, never merged (FR-COST-012/013, D-007). Existing pricing rows migrate losslessly into rate_cards without changing historical results (FR-PRICE-009); Anthropic cache short and long writes, OpenAI cached input and reasoning, and Z.ai cached input remain supported (FR-PRICE-010..012). Imports: curated official sources preferred, LiteLLM labeled fallback; every import produces a dry-run diff requiring explicit audited apply (FR-PRICE-014/015/021, D-015). Decimal arithmetic only (FR-PRICE-017).\n\nAcceptance criteria (PRD Epic TOK-5): existing pricing migrates without historical change; Anthropic, OpenAI, and Z.ai rate cards supported; missing prices produce unpriced status; cost records retain pricing version and source; search and tool request charges and cached input representable; dry-run price import and diff exist.\n\nTest strategy: unit tests for pricing selection (tier, mode, context bracket, priority, override) and decimal cost computation and billable unit aggregation; regression test that historical costs are bit-identical after adding new rates (AC-007); migration-equality test that recomputing v1 events under rate_cards equals stored v1 costs; integration tests for missing pricing, unpriced reports, import dry-run and apply auditing.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "61",
           "62"
@@ -2791,15 +2791,16 @@
             "title": "Historical-stability regression suite and pricing documentation",
             "description": "Prove historical costs never change; document pricing-v2.",
             "details": "Deliver the epic acceptance evidence: a regression suite that (1) ingests a fixed multi-provider fixture set, snapshots all computed costs, applies new rate cards effective today, recomputes, and asserts historical amounts are bit-identical (AC-007, FR-PRICE-001); (2) proves migration equality by recomputing a copy of the v1 dataset under rate_cards and comparing to v1-legacy costs to the last decimal (FR-PRICE-009); (3) verifies unpriced visibility end to end (unknown model event lands, report shows it, alert kind from Task 68 will consume it). Write docs/architecture/pricing-v2.md covering the rate-card model, unit vocabulary, resolution precedence, billing modes and dual metrics, import and approval flow, repricing and reversibility, and pricing_version semantics; update docs/api/query.md pricing sections. Epic acceptance walkthrough of PRD Epic TOK-5 criteria recorded in the task log before the parent closes. Test strategy: the three regression suites green on SQLite and Postgres; docs review against FR-PRICE-001..022 and FR-COST-001..013 with every requirement mapped.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               "64.10"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T05:52:38.131Z"
           }
         ],
-        "updatedAt": "2026-07-19T05:35:53.408Z"
+        "updatedAt": "2026-07-19T05:52:38.131Z"
       },
       {
         "id": "65",
@@ -3551,9 +3552,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T05:35:53.409Z",
+      "lastModified": "2026-07-19T05:52:38.132Z",
       "taskCount": 71,
-      "completedCount": 63,
+      "completedCount": 64,
       "tags": [
         "master"
       ]
