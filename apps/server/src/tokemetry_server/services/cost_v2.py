@@ -23,6 +23,8 @@ from decimal import Decimal
 
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
+from tokemetry_core.pricing.strategies.defaults import default_v2_pricing_registry
+from tokemetry_core.registry import ProviderRegistry
 from tokemetry_core.usage_v2 import UsageEventV2
 
 from tokemetry_server.db import models
@@ -67,9 +69,19 @@ class PriceInputs:
 class CostEngineV2:
     """Prices final attempt events against the rate cards."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        """Create the engine bound to the caller's transaction."""
+    def __init__(
+        self, session: AsyncSession, registry: ProviderRegistry | None = None
+    ) -> None:
+        """Create the engine bound to the caller's transaction.
+
+        Args:
+            session: The async session/transaction to price within.
+            registry: Provider registry supplying the v2 pricing strategies;
+                defaults to the built-in strategies (anthropic/openai/zai plus
+                a generic fallback) when omitted.
+        """
         self._session = session
+        self._registry = registry if registry is not None else default_v2_pricing_registry()
 
     async def compute_and_record(
         self, event: UsageEventV2, pricing_version: str | None = None
@@ -178,26 +190,29 @@ class CostEngineV2:
         return CostResult(amount=total.quantize(_QUANTUM), cost_status="priced")
 
     async def _quantities(self, inputs: PriceInputs) -> dict[str, Decimal]:
-        """Gather unit quantities, folding reasoning and adding billable units."""
-        quantities: dict[str, Decimal] = {
-            unit_type: Decimal(count) for unit_type, count in inputs.token_counts.items()
-        }
-        if inputs.reasoning_tokens > 0:
-            reasoning_rate = await resolve_rate(
-                self._session, inputs.provider, inputs.native_model, "reasoning_token",
-                inputs.at, tier=inputs.service_tier,
+        """Gather priceable unit quantities via the provider's pricing strategy.
+
+        The strategy (resolved by provider, generic fallback) declares the
+        emitted token units and the reasoning rule; the engine supplies whether
+        a ``reasoning_token`` rate exists so a ``separate_if_rated`` provider can
+        price reasoning distinctly, and stays provider-neutral otherwise.
+        """
+        strategy = self._registry.pricing_v2(inputs.provider)
+        reasoning_rate_available = False
+        if strategy.needs_reasoning_rate(inputs.reasoning_tokens):
+            reasoning_rate_available = (
+                await resolve_rate(
+                    self._session, inputs.provider, inputs.native_model,
+                    "reasoning_token", inputs.at, tier=inputs.service_tier,
+                )
+                is not None
             )
-            if reasoning_rate is not None:
-                quantities["reasoning_token"] = Decimal(inputs.reasoning_tokens)
-            else:  # fold reasoning into output when no separate rate exists
-                quantities["output_token"] = quantities.get(
-                    "output_token", Decimal(0)
-                ) + Decimal(inputs.reasoning_tokens)
-        for unit_type, quantity in inputs.billable_units.items():
-            quantities[unit_type] = quantities.get(unit_type, Decimal(0)) + Decimal(
-                str(quantity)
-            )
-        return quantities
+        return strategy.quantities(
+            inputs.token_counts,
+            inputs.reasoning_tokens,
+            inputs.billable_units,
+            reasoning_rate_available=reasoning_rate_available,
+        )
 
     async def _zero_consumption_result(self, inputs: PriceInputs) -> CostResult:
         """Price a zero-usage attempt: priced=0 if the model is known, else unpriced."""

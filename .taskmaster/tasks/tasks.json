@@ -2736,13 +2736,14 @@
             "id": 7,
             "title": "Provider pricing strategy plugins: anthropic, openai, zai, generic",
             "description": "Per-provider unit semantics behind the plugin interface.",
-            "details": "Extend the PricingStrategy abstraction in packages/core (interfaces.py) to v2 semantics: a strategy declares which unit types a provider emits, how provider-reported counters map onto them, and provider-specific rules. Implement four plugins under packages/core pricing/strategies/: anthropic (port of current behavior; cache_write_short and cache_write_long distinct per FR-PRICE-010; reasoning folded into output since Anthropic does not bill it separately); openai (cached input tokens map to cache_read_token; a single cache-write concept must not be misrepresented as Anthropic TTL categories, metadata notes the semantic per FR-DIM-006; reasoning_tokens priced as output unless a separate reasoning rate exists per FR-PRICE-011; web_search_request and tool request fees additive); zai (GLM cached input pricing per FR-PRICE-012, reasoning handling per provider docs); generic (plain token-linear fallback for unregistered providers, NFR-MAIN-002). Strategies register through the existing provider registry (registry.py) so new providers are plugins without core changes (PP-011, NFR-MAIN-002, memory rule design-for-multi-provider). Test strategy: per-strategy unit tests with provider-realistic fixtures (Anthropic event with both cache TTL writes; OpenAI event with cached input plus reasoning plus web search; Z.ai event with cached input); a fake-provider test proving the abstraction (fake.py pattern); registry resolution tests.",
-            "status": "pending",
+            "details": "Extend the PricingStrategy abstraction in packages/core (interfaces.py) to v2 semantics: a strategy declares which unit types a provider emits, how provider-reported counters map onto them, and provider-specific rules. Implement four plugins under packages/core pricing/strategies/: anthropic (port of current behavior; cache_write_short and cache_write_long distinct per FR-PRICE-010; reasoning folded into output since Anthropic does not bill it separately); openai (cached input tokens map to cache_read_token; a single cache-write concept must not be misrepresented as Anthropic TTL categories, metadata notes the semantic per FR-DIM-006; reasoning_tokens priced as output unless a separate reasoning rate exists per FR-PRICE-011; web_search_request and tool request fees additive); zai (GLM cached input pricing per FR-PRICE-012, reasoning handling per provider docs); generic (plain token-linear fallback for unregistered providers, NFR-MAIN-002). Strategies register through the existing provider registry (registry.py) so new providers are plugins without core changes (PP-011, NFR-MAIN-002, memory rule design-for-multi-provider). Test strategy: per-strategy unit tests with provider-realistic fixtures (Anthropic event with both cache TTL writes; OpenAI event with cached input plus reasoning plus web search; Z.ai event with cached input); a fake-provider test proving the abstraction (fake.py pattern); registry resolution tests.\n<info added on 2026-07-19T03:54:21.310Z>\nImplemented v2 provider pricing strategy plugins with a new abstraction in `interfaces.py`: added `ReasoningBilling` enum (`FOLD_INTO_OUTPUT` | `SEPARATE_IF_RATED`) and `ProviderPricingStrategyV2` ABC (declares provider id, reasoning billing policy, and `emitted_token_units()`; base `quantities()` maps counters to unit-type `Decimal` map, filters to emitted units, applies reasoning rule, adds billable units; `needs_reasoning_rate()` gates reasoning-rate lookup). Four plugins implemented under `packages/core/pricing/strategies/`: `anthropic` (5 units including both cache-write TTL tiers; reasoning `FOLD_INTO_OUTPUT` since Anthropic never bills it separately), `openai` (input/output/cache_read only; cached input maps to `cache_read_token`, no TTL write tiers per FR-DIM-006; reasoning `SEPARATE_IF_RATED` per FR-PRICE-011; hosted-tool fees additive), `zai` (input/output/cache_read; `SEPARATE_IF_RATED`), and `generic` (5-unit token-linear fallback). In `defaults.py`, `register_pricing_strategies_v2(registry)` wires all four (generic as default), and `default_v2_pricing_registry()` is memoized. In `registry.py`, added `register_pricing_v2(strategy, default=?)`, `pricing_v2(provider)` with generic fallback, and `pricing_v2_providers()()`. `CostEngineV2` now accepts an optional `ProviderRegistry` (defaults to built-ins) and resolves the strategy in `_quantities`, replacing the hardcoded reasoning-fold; anthropic/generic behavior is byte-identical so existing tests stay green. Server `build_registry()` now registers v2 strategies. Design note: reasoning is provider-specific now, so the former engine-level `test_reasoning_priced_separately_with_rate` (which used anthropic) moved to openai (correct `SEPARATE_IF_RATED` provider); added `test_anthropic_folds_reasoning_even_with_rate` and `test_openai_prices_cached_input_and_ignores_cache_write_tiers`. Tests: core `test_pricing_strategies_v2.py` (8 tests: per-strategy fixtures, registry resolution + generic fallback, memoization, fake-provider abstraction proof). Gates: 612 passed/36 skipped, ruff + mypy (112 files) + trivy clean. Docs: `pricing.md` v2 section added.\n</info added on 2026-07-19T03:54:21.310Z>\n<info added on 2026-07-19T03:55:09.395Z>\nImplemented v2 provider pricing strategy plugins (anthropic/openai/zai/generic) behind `ProviderPricingStrategyV2` + `ReasoningBilling` in `interfaces.py`; registered via `ProviderRegistry.register_pricing_v2`/`pricing_v2` (generic fallback); `CostEngineV2` resolves the strategy in `_quantities` with anthropic/generic behavior byte-identical. Anthropic folds reasoning always; openai/zai separate-if-rated; openai/zai drop cache-write TTL tiers. Core `test_pricing_strategies_v2.py` (8). Gates: 612 passed/36 skipped, ruff+mypy+trivy clean.\n</info added on 2026-07-19T03:55:09.395Z>",
+            "status": "done",
             "dependencies": [
               "64.5"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T03:56:03.752Z"
           },
           {
             "id": 8,
@@ -2795,7 +2796,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T03:26:00.173Z"
+        "updatedAt": "2026-07-19T03:56:03.752Z"
       },
       {
         "id": "65",
@@ -3547,7 +3548,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T03:26:00.174Z",
+      "lastModified": "2026-07-19T03:56:03.753Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [

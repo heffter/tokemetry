@@ -107,14 +107,57 @@ async def test_reasoning_folds_into_output_without_rate(async_session: AsyncSess
 
 
 async def test_reasoning_priced_separately_with_rate(async_session: AsyncSession) -> None:
+    # OpenAI-style provider (SEPARATE_IF_RATED): reasoning is priced at its own
+    # reasoning_token rate when one is configured (FR-PRICE-011).
+    oai = {"provider": "openai", "native_model": "gpt-5"}
+    await _rate(async_session, "output_token", "0.000010", **oai)
+    await _rate(async_session, "reasoning_token", "0.000004", **oai)
+    await async_session.commit()
+    event = _event("openai:req_1", output_tokens=100, reasoning_tokens=50, **oai)
+    cost = await _cost(async_session, event)
+    assert cost is not None
+    # 100 * 0.00001 + 50 * 0.000004 = 0.001 + 0.0002
+    assert cost.amount == Decimal("0.001200")
+
+
+async def test_anthropic_folds_reasoning_even_with_rate(async_session: AsyncSession) -> None:
+    # Anthropic never bills reasoning separately (FOLD_INTO_OUTPUT): a stray
+    # reasoning_token rate is ignored and reasoning always folds into output.
     await _rate(async_session, "output_token", "0.000010")
     await _rate(async_session, "reasoning_token", "0.000004")
     await async_session.commit()
     event = _event(output_tokens=100, reasoning_tokens=50)
     cost = await _cost(async_session, event)
     assert cost is not None
-    # 100 * 0.00001 + 50 * 0.000004 = 0.001 + 0.0002
-    assert cost.amount == Decimal("0.001200")
+    # folded despite the rate: (100 + 50) * 0.00001
+    assert cost.amount == Decimal("0.001500")
+
+
+async def test_openai_prices_cached_input_and_ignores_cache_write_tiers(
+    async_session: AsyncSession,
+) -> None:
+    # OpenAI bills cached input as cache reads and has no cache-write TTL tiers,
+    # so a stray cache_write count is not priced (FR-DIM-006); hosted-tool fees
+    # are additive.
+    for unit, price in (
+        ("input_token", "0.000003"),
+        ("cache_read_token", "0.0000015"),
+        ("output_token", "0.000006"),
+        ("web_search_request", "0.010000"),
+    ):
+        await _rate(async_session, unit, price, provider="openai", native_model="gpt-5")
+    await async_session.commit()
+    event = _event(
+        "openai:req_2", provider="openai", native_model="gpt-5",
+        input_tokens=1000, cache_read_tokens=500, output_tokens=200,
+        cache_write_short_tokens=999,  # no OpenAI TTL write tier -> ignored
+        billable_units={"web_search_request": 2},
+    )
+    cost = await _cost(async_session, event)
+    assert cost is not None
+    assert cost.cost_status == "priced"  # dropped cache-write does not make it partial
+    # 1000*0.000003 + 500*0.0000015 + 200*0.000006 + 2*0.01
+    assert cost.amount == Decimal("0.024950")
 
 
 async def test_snapshot_is_not_priced(async_session: AsyncSession) -> None:

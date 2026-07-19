@@ -64,6 +64,34 @@ attempt from the generic `rate_cards` grain and records a `computed_costs`
 row per `(provider, event_id, pricing_version)`, kept off the usage row. Cost
 never runs in the ingest path.
 
+### Provider pricing strategy plugins
+
+The engine splits into a provider-neutral core (rate resolution, precedence,
+summation, cost status) and a small provider-specific plugin. A
+`ProviderPricingStrategyV2` (`tokemetry_core.interfaces`) declares the token
+`unit_type`s a provider bills and its reasoning rule; its `quantities(...)`
+maps an event's counters to the priceable `unit_type` -> quantity map, which
+the engine then resolves through the rate cards. Adding a provider is a plugin
+with no engine change (PP-011, NFR-MAIN-002).
+
+- `pricing/strategies/anthropic.py` -- five token units including both
+  cache-write TTL tiers (5m short, 1h long, FR-PRICE-010); reasoning always
+  folds into output (`FOLD_INTO_OUTPUT`) since Anthropic never bills it.
+- `pricing/strategies/openai.py` -- cached input as `cache_read_token`, no
+  cache-write TTL tiers (a single cache-write is not misrepresented as
+  Anthropic categories, FR-DIM-006); reasoning priced as output unless a
+  `reasoning_token` rate exists (`SEPARATE_IF_RATED`, FR-PRICE-011); hosted-tool
+  fees (`web_search_request`, `tool_call`) additive via billable units.
+- `pricing/strategies/zai.py` -- GLM cached input as `cache_read_token`
+  (FR-PRICE-012); reasoning `SEPARATE_IF_RATED`.
+- `pricing/strategies/generic.py` -- token-linear fallback for any unregistered
+  provider, so pricing never fails for lack of a plugin.
+
+Strategies register on the `ProviderRegistry` via `register_pricing_v2` /
+`register_pricing_strategies_v2`; `registry.pricing_v2(provider)` resolves the
+plugin or the generic default. The server `build_registry()` wires all four,
+and `CostEngineV2` uses the built-in set when no registry is injected.
+
 - **Async cost worker** (`services/cost_worker.py`): `sweep_uncosted_costs`
   finds final attempt events in `usage_events_v2` that lack an *active*
   `computed_costs` row and prices up to `batch_size` of them per call. The
