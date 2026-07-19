@@ -54,6 +54,61 @@ export function failureRateBy(
     .sort((a, b) => b.rate - a.rate);
 }
 
+/** Attempt-derived rollup for a session drilldown (FR-TRACE-012). */
+export interface AttemptSummary {
+  attempts: number;
+  successes: number;
+  failures: number;
+  totalTokens: number;
+  cacheReadTokens: number;
+  /** cache_read / total tokens in [0, 1]; 0 when no tokens. */
+  cacheRatio: number;
+  /** Distinct logical requests (a null id counts as its own request). */
+  logicalRequests: number;
+  /** Extra attempts beyond the first within a logical request (retries/failover). */
+  fallbacks: number;
+}
+
+/** Summarize a set of attempts into session-level, provider-neutral stats. */
+export function attemptSummary(attempts: AttemptV2[]): AttemptSummary {
+  const groups = new Map<string, number>();
+  let nullRequests = 0;
+  let successes = 0;
+  let totalTokens = 0;
+  let cacheReadTokens = 0;
+  for (const attempt of attempts) {
+    if (attempt.success) successes += 1;
+    totalTokens +=
+      attempt.input_tokens +
+      attempt.output_tokens +
+      attempt.cache_read_tokens +
+      attempt.cache_write_short_tokens +
+      attempt.cache_write_long_tokens +
+      attempt.reasoning_tokens;
+    cacheReadTokens += attempt.cache_read_tokens;
+    if (attempt.logical_request_id) {
+      groups.set(
+        attempt.logical_request_id,
+        (groups.get(attempt.logical_request_id) ?? 0) + 1
+      );
+    } else {
+      nullRequests += 1;
+    }
+  }
+  let fallbacks = 0;
+  for (const size of groups.values()) fallbacks += size - 1;
+  return {
+    attempts: attempts.length,
+    successes,
+    failures: attempts.length - successes,
+    totalTokens,
+    cacheReadTokens,
+    cacheRatio: totalTokens === 0 ? 0 : cacheReadTokens / totalTokens,
+    logicalRequests: groups.size + nullRequests,
+    fallbacks,
+  };
+}
+
 /** The non-null latency measurements across attempts, in ms. */
 export function latencyValues(attempts: AttemptV2[]): number[] {
   return attempts

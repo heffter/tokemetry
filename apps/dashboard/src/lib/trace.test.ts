@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  attemptSummary,
   failureRateBy,
   latencyValues,
   orderAttempts,
@@ -71,6 +72,52 @@ describe('failureRateBy', () => {
     expect(byKey.openai.rate).toBe(1);
     // Worst rate first.
     expect(stats[0].key).toBe('openai');
+  });
+});
+
+describe('attemptSummary', () => {
+  it('counts fallbacks as extra attempts within a logical request', () => {
+    const s = attemptSummary([
+      attempt({ event_id: '1', logical_request_id: 'r1', success: false }),
+      attempt({ event_id: '2', logical_request_id: 'r1', success: true }),
+      attempt({ event_id: '3', logical_request_id: 'r2', success: true }),
+    ]);
+    expect(s.attempts).toBe(3);
+    expect(s.successes).toBe(2);
+    expect(s.failures).toBe(1);
+    expect(s.logicalRequests).toBe(2); // r1, r2
+    expect(s.fallbacks).toBe(1); // r1 had one retry
+  });
+
+  it('treats null-request attempts as their own request with no fallback', () => {
+    const s = attemptSummary([
+      attempt({ event_id: '1', logical_request_id: null }),
+      attempt({ event_id: '2', logical_request_id: null }),
+    ]);
+    expect(s.logicalRequests).toBe(2);
+    expect(s.fallbacks).toBe(0);
+  });
+
+  it('computes the cache ratio over all token types', () => {
+    const s = attemptSummary([
+      attempt({
+        input_tokens: 100,
+        output_tokens: 100,
+        cache_read_tokens: 300,
+        cache_write_short_tokens: 0,
+        cache_write_long_tokens: 0,
+        reasoning_tokens: 0,
+      }),
+    ]);
+    // 300 cache read of 500 total.
+    expect(s.totalTokens).toBe(500);
+    expect(s.cacheRatio).toBeCloseTo(0.6);
+  });
+
+  it('is empty-safe', () => {
+    const s = attemptSummary([]);
+    expect(s.attempts).toBe(0);
+    expect(s.cacheRatio).toBe(0);
   });
 });
 
