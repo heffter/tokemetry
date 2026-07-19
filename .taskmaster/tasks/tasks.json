@@ -2994,15 +2994,16 @@
             "id": 7,
             "title": "CSV export and Grafana-compatible views",
             "description": "Tabular export and stable SQL views for external dashboards.",
-            "details": "CSV export: a format=csv parameter (or Accept negotiation) on /api/v2/usage, /api/v2/costs, /api/v2/attempts, and /api/v2/rollups streaming RFC 4180 output with a stable header row (FR-QUERY-009); size-bounded by the same range limits. Grafana views: versioned SQL views (grafana_daily_usage_v2, grafana_costs_v2, grafana_limits_v2, plus the preserved v1 usage_events compatibility view from 62.10) using only standard SQL features available on SQLite and Postgres (G-018, FR-QUERY-014); shipped as an Alembic migration; documented in docs/deployment/grafana.md with example panel queries for multi-provider usage, dual cost metrics, and fallback rate. View schema changes require a documented migration plan (FR-ROLLUP-011). Test strategy: CSV round-trip tests (parse the stream back and compare to JSON responses), header stability snapshot, view query fixtures on both engines returning identical data to the API, docs examples executed verbatim in a test.",
-            "status": "pending",
+            "details": "CSV export: a format=csv parameter (or Accept negotiation) on /api/v2/usage, /api/v2/costs, /api/v2/attempts, and /api/v2/rollups streaming RFC 4180 output with a stable header row (FR-QUERY-009); size-bounded by the same range limits. Grafana views: versioned SQL views (grafana_daily_usage_v2, grafana_costs_v2, grafana_limits_v2, plus the preserved v1 usage_events compatibility view from 62.10) using only standard SQL features available on SQLite and Postgres (G-018, FR-QUERY-014); shipped as an Alembic migration; documented in docs/deployment/grafana.md with example panel queries for multi-provider usage, dual cost metrics, and fallback rate. View schema changes require a documented migration plan (FR-ROLLUP-011). Test strategy: CSV round-trip tests (parse the stream back and compare to JSON responses), header stability snapshot, view query fixtures on both engines returning identical data to the API, docs examples executed verbatim in a test.\n<info added on 2026-07-19T08:49:49.452Z>\nImplementation complete: api/v2/csv_export.py provides csv_response helper streaming RFC 4180 CSV (CRLF line endings, None rendered as empty string) with stable header row, returned as StreamingResponse bypassing FastAPI response_model. Added format=csv query parameter (FastAPI param output_format with alias 'format' to avoid shadowing builtin) to GET /api/v2/usage, /costs, /attempts, /rollups endpoints; usage and costs endpoints stream grouped aggregation rows with fixed header order, attempts and rollups endpoints stream the fetched page using dataclass fields or RollupOut model_fields for header extraction. Migration 0020_grafana_views_v2.py creates three versioned standard-SQL views: grafana_daily_usage_v2 and grafana_costs_v2 aggregate daily_rollups back to classic (day, provider, model, machine, project) grain splitting usage metrics from dual cost columns (cost_usd and cost_usd_with_cache never summed together), grafana_limits_v2 projects limit_snapshots columns; all views portable across SQLite and Postgres using only standard SQL features; downgrade drops all three views. docs/deployment/grafana.md updated with view documentation and example panel queries demonstrating multi-provider usage visualization, dual cost metrics handling without incorrect summation, and fallback rate calculation from logical_requests column. Test coverage: test_csv_export.py includes three tests (usage CSV round-trips to JSON with stable header verification, costs endpoint header stability, attempts and rollups streaming validation) and test_grafana_views.py includes three tests (daily-usage view collapses v2 grain correctly, costs view splits metrics properly, limits view projects snapshots); all tests execute against migrated engine. Full test suite: 725 passed, 43 skipped; ruff, mypy (108 modules), and trivy all clean; migration 0020 upgrade and downgrade both green. Deferred item: OpenAPI snapshot test for new format parameter; pre-existing daily_rollups_grafana view from subtask 66.1 coexists with new v2 views.\n</info added on 2026-07-19T08:49:49.452Z>",
+            "status": "done",
             "dependencies": [
               "66.4",
               "66.5",
               "66.6"
             ],
             "parentTaskId": 66,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:50:08.838Z"
           },
           {
             "id": 8,
@@ -3154,7 +3155,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T08:28:27.758Z"
+        "updatedAt": "2026-07-19T08:50:08.838Z"
       },
       {
         "id": "67",
@@ -3680,7 +3681,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T08:28:27.759Z",
+      "lastModified": "2026-07-19T08:50:08.840Z",
       "taskCount": 71,
       "completedCount": 64,
       "tags": [

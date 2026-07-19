@@ -12,10 +12,12 @@ import dataclasses
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
+from tokemetry_server.api.v2.csv_export import CSV_FORMAT, csv_response
 from tokemetry_server.api.v2.query_deps import query_filters, to_utc
 from tokemetry_server.api.v2.schemas import QueryWarningOut, UsageResponse, UsageRowOut
 from tokemetry_server.config import Settings
@@ -39,6 +41,14 @@ router = APIRouter(prefix="/api/v2", tags=["usage"])
 _USAGE_SORTS = frozenset({"key", "total_tokens", "attempt_count"})
 
 
+#: The CSV header for /usage (stable column contract, FR-QUERY-009).
+_USAGE_CSV_HEADER = (
+    "key", "input_tokens", "output_tokens", "cache_read_tokens",
+    "cache_write_short_tokens", "cache_write_long_tokens", "reasoning_tokens",
+    "total_tokens", "attempt_count",
+)
+
+
 @router.get("/usage", response_model=UsageResponse)
 async def usage_endpoint(
     request: Request,
@@ -46,10 +56,11 @@ async def usage_endpoint(
     end: datetime = Query(alias="to"),
     group_by: str = Query(default="day"),
     sort: str | None = Query(default=None),
+    output_format: str = Query(default="json", alias="format"),
     filters: QueryFilters = Depends(query_filters),
     session: AsyncSession = Depends(get_session),
     _: Principal = Depends(require_scopes(QUERY_READ)),
-) -> UsageResponse:
+) -> UsageResponse | StreamingResponse:
     """Grouped final-attempt usage over a bounded range with warnings."""
     settings: Settings = request.app.state.settings
     start, end = to_utc(start), to_utc(end)
@@ -67,6 +78,19 @@ async def usage_endpoint(
     rows = sorted(
         rows, key=lambda r: getattr(r, sort_spec.field), reverse=sort_spec.descending
     )
+    if output_format == CSV_FORMAT:
+        return csv_response(
+            "usage.csv",
+            _USAGE_CSV_HEADER,
+            (
+                (
+                    r.key, r.input_tokens, r.output_tokens, r.cache_read_tokens,
+                    r.cache_write_short_tokens, r.cache_write_long_tokens,
+                    r.reasoning_tokens, r.total_tokens, r.attempt_count,
+                )
+                for r in rows
+            ),
+        )
     warnings = await collect_warnings(
         session, start, end,
         default_stale_before(datetime.now(UTC), settings.source_stale_default_seconds),

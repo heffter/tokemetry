@@ -60,6 +60,44 @@ ORDER BY day;
 > classic columns (`cost_usd`, token counters) plus the new cost columns. The
 > transitional `cost_usd` still equals the priced cost during the migration.
 
+## Versioned v2 views
+
+Stable, standard-SQL views (SQLite and Postgres) for provider-neutral
+dashboards; schema changes ship as documented migrations (FR-QUERY-014,
+FR-ROLLUP-011). `grafana_daily_usage_v2` and `grafana_costs_v2` aggregate
+`daily_rollups` to the classic `(day, provider, model, machine, project)` grain;
+`grafana_limits_v2` projects the limit snapshots.
+
+Multi-provider daily usage:
+
+```sql
+SELECT day AS time, provider, sum(total_tokens) AS total_tokens
+FROM grafana_daily_usage_v2
+GROUP BY day, provider
+ORDER BY day;
+```
+
+Dual cost metrics (kept separate, never summed together):
+
+```sql
+SELECT day AS time,
+       sum(cost_priced_usd) AS actual_spend_usd,
+       sum(subscription_value_usd) AS subscription_value_usd
+FROM grafana_costs_v2
+GROUP BY day
+ORDER BY day;
+```
+
+Fallback rate (share of logical requests that fell back):
+
+```sql
+SELECT date(ts_last) AS time,
+       avg(CASE WHEN fallback_count > 0 THEN 1.0 ELSE 0.0 END) AS fallback_rate
+FROM logical_requests
+GROUP BY date(ts_last)
+ORDER BY time;
+```
+
 Latest limit utilization:
 
 ```sql

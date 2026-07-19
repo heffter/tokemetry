@@ -14,10 +14,12 @@ import dataclasses
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
+from tokemetry_server.api.v2.csv_export import CSV_FORMAT, csv_response
 from tokemetry_server.api.v2.query_deps import query_filters, to_utc
 from tokemetry_server.api.v2.schemas import (
     CostResponse,
@@ -47,6 +49,12 @@ router = APIRouter(prefix="/api/v2", tags=["costs"])
 #: Fields ``/costs`` may be sorted by.
 _COST_SORTS = frozenset({"key", "actual_spend_usd", "subscription_value_usd"})
 
+#: The CSV header for /costs (stable column contract, FR-QUERY-009).
+_COST_CSV_HEADER = (
+    "key", "actual_spend_usd", "subscription_value_usd", "cost_priced_usd",
+    "cost_partial_usd", "cost_estimated_usd", "unpriced_event_count", "pricing_version",
+)
+
 
 @router.get("/costs", response_model=CostResponse)
 async def costs_endpoint(
@@ -55,10 +63,11 @@ async def costs_endpoint(
     end: datetime = Query(alias="to"),
     group_by: str = Query(default="provider"),
     sort: str | None = Query(default=None),
+    output_format: str = Query(default="json", alias="format"),
     filters: QueryFilters = Depends(query_filters),
     session: AsyncSession = Depends(get_session),
     _: Principal = Depends(require_scopes(QUERY_READ)),
-) -> CostResponse:
+) -> CostResponse | StreamingResponse:
     """Grouped costs with dual metrics, status split, and pricing version."""
     settings: Settings = request.app.state.settings
     start, end = to_utc(start), to_utc(end)
@@ -76,6 +85,19 @@ async def costs_endpoint(
     rows = sorted(
         rows, key=lambda r: getattr(r, sort_spec.field), reverse=sort_spec.descending
     )
+    if output_format == CSV_FORMAT:
+        return csv_response(
+            "costs.csv",
+            _COST_CSV_HEADER,
+            (
+                (
+                    r.key, r.actual_spend_usd, r.subscription_value_usd,
+                    r.cost_priced_usd, r.cost_partial_usd, r.cost_estimated_usd,
+                    r.unpriced_event_count, r.pricing_version,
+                )
+                for r in rows
+            ),
+        )
     warnings = await collect_warnings(
         session, start, end,
         default_stale_before(datetime.now(UTC), settings.source_stale_default_seconds),

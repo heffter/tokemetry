@@ -12,10 +12,12 @@ import dataclasses
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
+from tokemetry_server.api.v2.csv_export import CSV_FORMAT, csv_response
 from tokemetry_server.api.v2.query_deps import query_filters, to_utc
 from tokemetry_server.api.v2.schemas import (
     AttemptOut,
@@ -32,6 +34,7 @@ from tokemetry_server.services.query_framework import (
     enforce_range_bound,
 )
 from tokemetry_server.services.trace_queries import (
+    AttemptRow,
     list_attempts,
     list_requests,
     request_detail,
@@ -48,10 +51,11 @@ async def attempts_endpoint(
     logical_request_id: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = Query(default=None),
+    output_format: str = Query(default="json", alias="format"),
     filters: QueryFilters = Depends(query_filters),
     session: AsyncSession = Depends(get_session),
     _: Principal = Depends(require_scopes(QUERY_READ)),
-) -> AttemptsResponse:
+) -> AttemptsResponse | StreamingResponse:
     """Keyset-paginated newest-first listing of final attempt events."""
     settings: Settings = request.app.state.settings
     start, end = to_utc(start), to_utc(end)
@@ -62,6 +66,12 @@ async def attempts_endpoint(
         )
     except QueryParamError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    if output_format == CSV_FORMAT:
+        return csv_response(
+            "attempts.csv",
+            tuple(f.name for f in dataclasses.fields(AttemptRow)),
+            (dataclasses.astuple(a) for a in page.items),
+        )
     return AttemptsResponse(
         attempts=[AttemptOut(**dataclasses.asdict(a)) for a in page.items],
         next_cursor=page.next_cursor,

@@ -12,10 +12,12 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
+from tokemetry_server.api.v2.csv_export import CSV_FORMAT, csv_response
 from tokemetry_server.api.v2.query_deps import to_utc
 from tokemetry_server.api.v2.schemas import (
     DataQualityEventOut,
@@ -104,9 +106,10 @@ async def rollups_endpoint(
     billing_mode: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = Query(default=None),
+    output_format: str = Query(default="json", alias="format"),
     session: AsyncSession = Depends(get_session),
     _: Principal = Depends(require_scopes(QUERY_READ)),
-) -> RollupsResponse:
+) -> RollupsResponse | StreamingResponse:
     """Keyset-paginated daily_rollups rows over a day range for external tooling."""
     settings: Settings = request.app.state.settings
     try:
@@ -118,7 +121,12 @@ async def rollups_endpoint(
         )
     except QueryParamError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
-    return RollupsResponse(
-        rollups=[RollupOut.model_validate(row) for row in page.items],
-        next_cursor=page.next_cursor,
-    )
+    out = [RollupOut.model_validate(row) for row in page.items]
+    if output_format == CSV_FORMAT:
+        header = tuple(RollupOut.model_fields)
+        return csv_response(
+            "rollups.csv",
+            header,
+            (tuple(getattr(row, name) for name in header) for row in out),
+        )
+    return RollupsResponse(rollups=out, next_cursor=page.next_cursor)
