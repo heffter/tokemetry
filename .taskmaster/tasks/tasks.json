@@ -2943,11 +2943,12 @@
             "id": 3,
             "title": "Query framework: pagination, sorting, grain, bounds, warnings",
             "description": "Shared plumbing for all v2 query endpoints.",
-            "details": "Add services/query_framework.py plus api/v2 shared dependencies: keyset pagination with opaque cursors stable under concurrent inserts (FR-QUERY-003), explicit sort parameter with documented default per resource (FR-QUERY-004), selectable aggregation grain (day, week, month) where safe (FR-QUERY-005), enforced bounded time ranges for raw event-level queries with a configurable maximum span (NFR-PERF-004), uniform filter parsing for provider, model, source, machine, project, session, agent, environment, and outcome (FR-QUERY-002) including unknown-provider and unknown-model pseudo-filters (FR-QUERY-011), and a data-quality warning envelope attached to responses when the queried range contains unpriced events, unknown models, or stale sources (FR-QUERY-010). Response models in api/v2/schemas with extra=forbid. Test strategy: unit tests for cursor stability (insert between pages, no skips or duplicates), sort and grain validation, range-bound enforcement, filter parsing matrix, and warning attachment logic with seeded data-quality conditions.",
-            "status": "pending",
+            "details": "Add services/query_framework.py plus api/v2 shared dependencies: keyset pagination with opaque cursors stable under concurrent inserts (FR-QUERY-003), explicit sort parameter with documented default per resource (FR-QUERY-004), selectable aggregation grain (day, week, month) where safe (FR-QUERY-005), enforced bounded time ranges for raw event-level queries with a configurable maximum span (NFR-PERF-004), uniform filter parsing for provider, model, source, machine, project, session, agent, environment, and outcome (FR-QUERY-002) including unknown-provider and unknown-model pseudo-filters (FR-QUERY-011), and a data-quality warning envelope attached to responses when the queried range contains unpriced events, unknown models, or stale sources (FR-QUERY-010). Response models in api/v2/schemas with extra=forbid. Test strategy: unit tests for cursor stability (insert between pages, no skips or duplicates), sort and grain validation, range-bound enforcement, filter parsing matrix, and warning attachment logic with seeded data-quality conditions.\n<info added on 2026-07-19T07:18:25.269Z>\nImplementation complete: services/query_framework.py delivers the shared v2 read plumbing as pure, testable functions. parse_sort validates field or -field against per-resource whitelists and applies documented defaults (FR-QUERY-004). Grain enum (day/week/month) with parse_grain and truncate_to_grain (week anchored to Monday, FR-QUERY-005). enforce_range_bound rejects end<start and enforces config.query_max_range_days (366, NFR-PERF-004). Keyset pagination via encode_cursor/decode_cursor (opaque base64-JSON) and keyset_condition using row-value comparison (sort>v OR (sort=v AND id>id)) for SQLite/Postgres portability; build_page detects next via limit+1, stable under concurrent inserts (FR-QUERY-003). QueryFilters dataclass captures provider/model/source/machine/project/session/agent/environment/outcome plus unknown_provider/unknown_model pseudo-filters (FR-QUERY-002/011). collect_warnings envelope attaches data-quality warnings (unpriced/partial events, unknown_models, stale sources) scoped to the queried range (FR-QUERY-010) with default_stale_before helper. api/v2/schemas defines QueryWarningOut and PageMeta with extra=forbid. QueryParamError raised for invalid sort/grain/cursor/range (endpoints map to 400). Test coverage: unit test_query_framework.py validates sort/grain/truncate/range/cursor round-trip and garbage handling plus build_page logic; integration test_query_framework_db.py confirms keyset stability under concurrent insert (originals appear once, no skips/duplicates) and collect_warnings per-condition, range-scoped, and empty-case behavior. Full suite 688 passed/40 skipped; ruff+mypy(97)+trivy clean. Endpoints in 66.4-66.6 will wire these primitives.\n</info added on 2026-07-19T07:18:25.269Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 66,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:18:43.325Z"
           },
           {
             "id": 4,
@@ -3150,7 +3151,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T07:00:34.978Z"
+        "updatedAt": "2026-07-19T07:18:43.325Z"
       },
       {
         "id": "67",
@@ -3676,7 +3677,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T07:00:34.980Z",
+      "lastModified": "2026-07-19T07:18:43.326Z",
       "taskCount": 71,
       "completedCount": 64,
       "tags": [

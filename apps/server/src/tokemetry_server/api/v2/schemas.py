@@ -303,3 +303,22 @@ class UnknownModelReportRow(BaseModel):
     observations: int
     resolved: bool
     last_seen: UtcDatetime
+
+
+class QueryWarningOut(BaseModel):
+    """A data-quality caveat attached to a v2 query response (FR-QUERY-010)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str
+    detail: str
+    count: int
+
+
+class PageMeta(BaseModel):
+    """Keyset-pagination metadata for a v2 list response (FR-QUERY-003)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: Opaque cursor for the next page, or null on the last page.
+    next_cursor: str | None = None

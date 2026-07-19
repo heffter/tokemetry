@@ -133,6 +133,10 @@ class Settings(BaseSettings):
     #: ``"maxbook=subscription"``.
     billing_mode_overrides: str = Field(default="")
 
+    #: Maximum span (days) for a raw event-level v2 query (NFR-PERF-004). Grouped
+    #: rollup queries are not bound by this. Default one year plus a day.
+    query_max_range_days: int = Field(default=366, gt=0)
+
     @property
     def billing_mode_override_map(self) -> dict[str, str]:
         """Parse :attr:`billing_mode_overrides` into a machine -> mode dict.
