@@ -2908,7 +2908,7 @@
         "description": "Provider-neutral query endpoints for usage, costs, requests, attempts, sessions, limits, data quality, pricing, and rollups; new rollup grain with source, environment, billing mode, reasoning and cache dimensions; stable pagination; CSV export; Grafana views; v1 query parity. PRD-TOK-002 Sections 12.12, 12.13; Epic TOK-7; FR-QUERY-001..014, FR-ROLLUP-001..012.",
         "details": "Objective: provider-neutral analytics without double counting (Migration Phase 4).\n\nDesign: daily_rollups evolves to grain (day, provider, native_model, machine, project, source, environment, billing_mode, provenance) adding reasoning and cache dimensions and cost split by cost_status (FR-ROLLUP-004..007); rollups derive exclusively from final attempt events, never snapshots after a final exists and never logical summaries (FR-ROLLUP-001..003); refresh is incremental and idempotent with correction-triggered affected-period recomputation (FR-ROLLUP-008/009). Query framework: keyset pagination (FR-QUERY-003), explicit sort (FR-QUERY-004), selectable aggregation grain where safe (FR-QUERY-005), bounded time ranges for raw high-cardinality queries (NFR-PERF-004), data-quality warnings in responses (FR-QUERY-010), unknown provider and model filters (FR-QUERY-011). Endpoints: GET /api/v2/usage, /api/v2/costs (dual metrics, cost status, pricing version per FR-QUERY-006), /api/v2/requests, /api/v2/attempts, /api/v2/sessions (scoped identity per FR-TRACE-011, winning attempt, fallback filters), /api/v2/limits, /api/v2/data-quality, /api/v2/pricing, /api/v2/rollups. CSV export (FR-QUERY-009) and Grafana-compatible database views (FR-QUERY-014). Existing v1 query endpoints continue to work against the v2 ledger through the service layer (FR-QUERY-012).\n\nAcceptance criteria (PRD Epic TOK-7): v2 query endpoints exist; attempt and logical request semantics prevent double counting; cache and reasoning usage queryable; cost status visible; rollups include provider-neutral dimensions; v1 query endpoints remain functional.\n\nTest strategy: unit tests for the query framework and rollup aggregation; integration tests for rollup refresh, correction recomputation, and double-counting prevention with multi-attempt fixtures; v1 parity regression suite comparing pre-migration and post-migration v1 responses; performance benchmarks for 30-day aggregated views p95 under 500 ms and high-cardinality project and session dimensions (NFR-PERF-003, FR-ROLLUP-012).",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "62",
           "64"
@@ -3024,139 +3024,19 @@
             "id": 9,
             "title": "V1 query parity regression suite and epic documentation",
             "description": "Prove v1 endpoints unchanged; document query-v2.",
-            "details": "Extend the golden suite: after the full v2 query stack is live, replay the 60.4 fixtures and assert every /api/v1 query response byte-identical (FR-QUERY-012, AC-001 query side); add differential tests that the same underlying data queried through v1 and v2 endpoints agrees on totals (accounting consistency, no double counting across API generations, FR-QUERY-008). Write docs/api/query-v2.md documenting every v2 resource, filters, pagination cursors, sort defaults, grain rules, warning envelope, CSV export, and the attempt-versus-logical-request semantics with worked fallback examples; update docs/deployment/api-clients.md for the v2 clients. Epic acceptance walkthrough of PRD Epic TOK-7 criteria in the task log. Test strategy: golden and differential suites green on both engines; docs review mapping FR-QUERY-001..014 and FR-ROLLUP-001..012 to implementations; coverage threshold held.",
-            "status": "pending",
+            "details": "Extend the golden suite: after the full v2 query stack is live, replay the 60.4 fixtures and assert every /api/v1 query response byte-identical (FR-QUERY-012, AC-001 query side); add differential tests that the same underlying data queried through v1 and v2 endpoints agrees on totals (accounting consistency, no double counting across API generations, FR-QUERY-008). Write docs/api/query-v2.md documenting every v2 resource, filters, pagination cursors, sort defaults, grain rules, warning envelope, CSV export, and the attempt-versus-logical-request semantics with worked fallback examples; update docs/deployment/api-clients.md for the v2 clients. Epic acceptance walkthrough of PRD Epic TOK-7 criteria in the task log. Test strategy: golden and differential suites green on both engines; docs review mapping FR-QUERY-001..014 and FR-ROLLUP-001..012 to implementations; coverage threshold held.\n<info added on 2026-07-19T09:28:27.635Z>\nV1<->V2 query parity regression suite and TOK-7 epic documentation. Added apps/server/tests/integration/test_query_parity_v1_v2.py with 3 tests: (1) v1 rollup path and v2 ledger path agree on usage totals for identical ingested data (no double counting across API generations, FR-QUERY-012), (2) v2 attempt_count equals ingested events (no snapshot/logical-request inflation, FR-QUERY-008), (3) v1 /usage still serves its unchanged buckets shape. Wrote docs/api/query-v2.md as the canonical v2 read reference (resource table, uniform+pseudo filters, keyset pagination/sort/grain/bounds, warning envelope, CSV, attempts-vs-logical semantics with a worked fallback example, v1 parity, and the full TOK-7 requirements->code map). Added v2 pointers from docs/api/query.md and docs/deployment/api-clients.md. Gates: 730 passed / 43 skipped, ruff clean, mypy unchanged (test+docs only), trivy clean. Completes Task 66 (TOK-7).\n</info added on 2026-07-19T09:28:27.635Z>",
+            "status": "done",
             "dependencies": [
               "66.4",
               "66.5",
               "66.6"
             ],
             "parentTaskId": 66,
-            "parentId": "undefined"
-          },
-          {
-            "id": 10,
-            "title": "Implement Rollups v2 Grain Schema with New Dimensions",
-            "description": "Design and implement the new daily_rollups grain schema adding source, environment, billing_mode, reasoning, and cache dimensions, and split cost by cost_status per FR-ROLLUP-004..007.",
-            "dependencies": [],
-            "details": "Update the daily_rollups table schema to include columns: source, environment, billing_mode, reasoning_used, cache_used, and cost_status. Ensure cost is split by cost_status. Validate schema changes against FR-ROLLUP-004..007 and ensure compatibility with existing rollup refresh logic.",
-            "status": "pending",
-            "testStrategy": "Unit tests verifying schema migration, column presence, and cost split by cost_status. Integration test with sample events to confirm rollup grain includes all new dimensions.",
-            "parentId": "undefined"
-          },
-          {
-            "id": 11,
-            "title": "Implement Rollups v2 Refresh Logic from Final Attempt Events",
-            "description": "Implement rollup refresh logic that derives rollups exclusively from final attempt events, ensuring incremental, idempotent refresh with correction-triggered recomputation per FR-ROLLUP-001..003 and FR-ROLLUP-008/009.",
-            "dependencies": [
-              10
-            ],
-            "details": "Refactor rollups.py to compute rollups only from final attempt events, excluding snapshots after a final exists and logical summaries. Implement incremental refresh with idempotency and trigger recomputation for affected periods when corrections occur. Ensure compliance with FR-ROLLUP-001..003 and FR-ROLLUP-008/009.",
-            "status": "pending",
-            "testStrategy": "Integration tests for rollup refresh, correction recomputation, and double-counting prevention using multi-attempt fixtures. Verify idempotency and incremental behavior.",
-            "parentId": "undefined"
-          },
-          {
-            "id": 12,
-            "title": "Build Query API v2 Framework with Pagination and Filters",
-            "description": "Build the Query API v2 framework supporting keyset pagination, explicit sort, selectable aggregation grain, bounded time ranges, data-quality warnings, and unknown provider/model filters per FR-QUERY-003..011.",
-            "dependencies": [
-              11
-            ],
-            "details": "Create the query framework module implementing keyset pagination (FR-QUERY-003), explicit sort (FR-QUERY-004), selectable aggregation grain (FR-QUERY-005), bounded time ranges for high-cardinality queries (NFR-PERF-004), data-quality warnings in responses (FR-QUERY-010), and filters for unknown provider/model (FR-QUERY-011). Ensure framework is provider-neutral.",
-            "status": "pending",
-            "testStrategy": "Unit tests for pagination, sorting, aggregation, time range bounds, data-quality warnings, and filter logic. Performance benchmarks for 30-day aggregated views p95 under 500ms.",
-            "parentId": "undefined"
-          },
-          {
-            "id": 13,
-            "title": "Implement All Query API v2 Endpoints",
-            "description": "Implement all v2 query endpoints: /api/v2/usage, /api/v2/costs, /api/v2/requests, /api/v2/attempts, /api/v2/sessions, /api/v2/limits, /api/v2/data-quality, /api/v2/pricing, /api/v2/rollups with dual metrics, cost status, pricing version, and scoped identity per FR-QUERY-001..014.",
-            "dependencies": [
-              12
-            ],
-            "details": "Create endpoint handlers for each v2 route, integrating the query framework and rollups v2. Implement dual metrics and cost status in /api/v2/costs (FR-QUERY-006), scoped identity and winning attempt filters in /api/v2/sessions (FR-TRACE-011), and CSV export (FR-QUERY-009). Ensure Grafana-compatible views (FR-QUERY-014).",
-            "status": "pending",
-            "testStrategy": "Integration tests for each endpoint validating response structure, pagination, filters, and data accuracy. CSV export validation and Grafana view compatibility checks.",
-            "parentId": "undefined"
-          },
-          {
-            "id": 14,
-            "title": "Maintain v1 Query Parity and Implement Regression Suite",
-            "description": "Ensure v1 query endpoints remain functional against the v2 ledger via the service layer, and implement v1 parity regression suite comparing pre-migration and post-migration v1 responses per FR-QUERY-012.",
-            "dependencies": [
-              13
-            ],
-            "details": "Update the service layer to route v1 requests to the v2 ledger without breaking existing functionality. Create a regression test suite that compares v1 responses before and after migration to ensure parity. Validate that attempt and logical request semantics prevent double counting and that cache/reasoning usage is queryable.",
-            "status": "pending",
-            "testStrategy": "v1 parity regression suite comparing pre-migration and post-migration v1 responses. Unit tests for service layer routing. Verify double-counting prevention and cache/reasoning queryability.",
-            "parentId": "undefined"
-          },
-          {
-            "id": 15,
-            "title": "Design and implement v2 rollups schema with extended grain dimensions",
-            "description": "Evolve daily_rollups table to support the new grain with provider-neutral dimensions including source, environment, billing_mode, reasoning, cache, and cost_status split. Implement migration from v1 rollup schema.",
-            "dependencies": [
-              62,
-              64
-            ],
-            "details": "Create migration script to evolve daily_rollups table schema to grain (day, provider, native_model, machine, project, source, environment, billing_mode, provenance) with additional columns for reasoning tokens, cache tokens (prompt_cache_read, prompt_cache_write per FR-ROLLUP-005/006), and cost split by cost_status (FR-ROLLUP-007). Add indexes for common query patterns. Ensure rollups derive exclusively from final attempt events, never from snapshots after a final exists and never from logical summaries (FR-ROLLUP-001..003). Implement incremental and idempotent refresh logic with correction-triggered affected-period recomputation (FR-ROLLUP-008/009). Update rollups.py service to handle new dimensions.",
-            "status": "pending",
-            "testStrategy": "Unit tests for schema migration with rollback verification. Integration tests for rollup aggregation with multi-dimensional fixtures including reasoning and cache tokens. Verify idempotency by running refresh twice on same data. Test correction-triggered recomputation with modified attempt events.",
-            "parentId": "undefined"
-          },
-          {
-            "id": 16,
-            "title": "Implement query framework with keyset pagination and filtering",
-            "description": "Build the core query framework supporting keyset pagination, explicit sorting, selectable aggregation grain, bounded time ranges, and comprehensive filtering for all v2 endpoints.",
-            "dependencies": [
-              15
-            ],
-            "details": "Create apps/server/tokemetry_server/services/query_framework.py implementing keyset pagination (FR-QUERY-003), explicit sort parameters (FR-QUERY-004), selectable aggregation grain where safe (FR-QUERY-005), bounded time range validation for raw high-cardinality queries (NFR-PERF-004), data-quality warnings in responses (FR-QUERY-010), and unknown provider/model filters (FR-QUERY-011). Build reusable query builder with SQLAlchemy supporting multi-dimensional filters (provider, model, project, source, environment, billing_mode, cost_status). Implement response envelope with pagination metadata and data quality indicators.",
-            "status": "pending",
-            "testStrategy": "Unit tests for pagination logic with edge cases (first page, last page, empty results). Test sort parameter validation and SQL generation. Verify time range bounds enforcement. Test filter combinations with fixtures. Benchmark pagination performance with 100k+ row datasets.",
-            "parentId": "undefined"
-          },
-          {
-            "id": 17,
-            "title": "Implement v2 usage, costs, requests, attempts, and sessions endpoints",
-            "description": "Create the five core v2 query endpoints for usage, costs, requests, attempts, and sessions with provider-neutral semantics and double-counting prevention.",
-            "dependencies": [
-              16
-            ],
-            "details": "Implement GET /api/v2/usage (aggregated token metrics with reasoning and cache breakdown), /api/v2/costs (dual metrics with cost_status and pricing_version per FR-QUERY-006), /api/v2/requests (logical request semantics preventing double counting), /api/v2/attempts (raw attempt-level data with final/non-final distinction), and /api/v2/sessions (scoped identity per FR-TRACE-011, winning attempt, fallback filters). Wire endpoints into FastAPI router with OpenAPI documentation. Ensure attempt and logical request semantics prevent double counting across retries and fallbacks. Support all query framework features (pagination, filtering, sorting, aggregation grain).",
-            "status": "pending",
-            "testStrategy": "Integration tests for each endpoint with multi-attempt fixtures verifying double-counting prevention. Test cache and reasoning token queryability. Verify cost_status visibility in responses. Test session scoping with identity filters. Run v1 parity regression suite comparing v1 and v2 responses for equivalent queries. Performance benchmarks for 30-day aggregated views with p95 under 500ms (NFR-PERF-003).",
-            "parentId": "undefined"
-          },
-          {
-            "id": 18,
-            "title": "Implement v2 limits, data-quality, pricing, rollups endpoints and CSV export",
-            "description": "Create the remaining v2 endpoints for limits, data-quality, pricing, and rollups metadata, plus CSV export functionality for all query endpoints.",
-            "dependencies": [
-              16
-            ],
-            "details": "Implement GET /api/v2/limits (current and historical limit snapshots with provenance), /api/v2/data-quality (validation warnings, missing data indicators, correction history), /api/v2/pricing (active pricing table with version history), and /api/v2/rollups (rollup metadata, refresh status, affected periods). Add CSV export support (FR-QUERY-009) to all query endpoints via Accept: text/csv header or ?format=csv query parameter with streaming response for large datasets. Implement proper CSV escaping and UTF-8 BOM for Excel compatibility. Wire all endpoints into FastAPI router.",
-            "status": "pending",
-            "testStrategy": "Unit tests for CSV serialization with special characters and large datasets. Integration tests for each endpoint with realistic fixtures. Test streaming CSV export with 10k+ rows. Verify data-quality warnings appear correctly. Test pricing version resolution. Validate rollup metadata accuracy after refresh operations.",
-            "parentId": "undefined"
-          },
-          {
-            "id": 19,
-            "title": "Implement Grafana views and v1 query endpoint compatibility layer",
-            "description": "Create Grafana-compatible database views for v2 rollups and implement compatibility layer ensuring v1 query endpoints work against v2 ledger without breaking changes.",
-            "dependencies": [
-              15,
-              17,
-              18
-            ],
-            "details": "Create Grafana-compatible database views (FR-QUERY-014) exposing v2 rollups with time-series optimized schema for common dashboards (usage over time, cost by provider, top projects, cache hit rates). Implement v1 query endpoint compatibility layer (FR-QUERY-012) by mapping v1 requests to v2 service layer, translating v1 filter/grouping semantics to v2 equivalents, and reformatting v2 responses to v1 schema. Ensure existing v1 clients continue to work without modification. Document view schemas for Grafana configuration. Add migration guide for v1 to v2 API consumers.",
-            "status": "pending",
-            "testStrategy": "Create Grafana dashboard using views to verify query performance and correctness. Run v1 parity regression suite (FR-QUERY-012) comparing pre-migration v1 responses with post-migration v1 responses against v2 ledger. Test all v1 endpoints with existing client fixtures. Performance benchmarks for high-cardinality project and session dimensions (FR-ROLLUP-012). Verify p95 latency for 30-day aggregated views under 500ms (NFR-PERF-003).",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:28:55.881Z"
           }
         ],
-        "updatedAt": "2026-07-19T09:10:00.488Z"
+        "updatedAt": "2026-07-19T09:28:55.881Z"
       },
       {
         "id": "67",
@@ -3682,9 +3562,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T09:10:00.489Z",
+      "lastModified": "2026-07-19T09:28:55.882Z",
       "taskCount": 71,
-      "completedCount": 64,
+      "completedCount": 65,
       "tags": [
         "master"
       ]

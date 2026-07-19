@@ -67,6 +67,10 @@ auth). See [registries.md](registries.md) for the full contract.
 
 ## Usage and cost (v2)
 
+See [query-v2.md](query-v2.md) for the canonical v2 query reference (filters,
+pagination, warnings, CSV, attempt-vs-logical semantics, and the TOK-7
+requirements map).
+
 Provider-neutral read endpoints under `/api/v2` (scope `query:read`). Both take
 a bounded `from`/`to` range (max `TOKEMETRY_QUERY_MAX_RANGE_DAYS`), the uniform
 filters (`provider`, `model`, `source`, `machine`, `project`, `session`,

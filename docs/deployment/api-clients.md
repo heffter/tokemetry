@@ -53,3 +53,13 @@ ws://<WG_ADDRESS>:8787/api/v1/stream?token=tkm_...
 
 It emits one JSON message per accepted ingest batch
 (`{"type": "events"|"limits", "machine", "accepted"}`).
+
+## Provider-neutral v2 read API
+
+The `/api/v2` query endpoints (same bearer auth, scope `query:read`) expose
+usage, costs, attempts, requests, sessions, limits, data-quality, pricing, and
+rollups over the provider-neutral ledger. They add keyset pagination (opaque
+`cursor`/`next_cursor`), a uniform filter surface, bounded time ranges, a
+data-quality `warnings` envelope, and `format=csv` export. See
+[../api/query-v2.md](../api/query-v2.md) for the full contract. The v1 endpoints
+above keep working unchanged during the migration.
