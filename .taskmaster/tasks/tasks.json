@@ -3131,13 +3131,14 @@
             "id": 7,
             "title": "Sources and machines page with health",
             "description": "Extend MachinesView into fleet plus exporter health.",
-            "details": "Extend MachinesView (or add a SourcesView tab at /machines) backed by /api/v2/sources: table of all reporting sources with type, name, version, instance, linked machine, billing mode, first and last seen, freshness state, last successful ingest, recent error count, reported schema version, and clock skew; stale sources visually flagged (FR-SOURCE-006, FR-UI-009); schema-version drift against the server-supported version highlighted; source label and billing-mode editing through the PATCH endpoint with safe-action confirmation; machine fleet view preserved unchanged for v1 continuity. Test strategy: vitest tests for staleness and drift flag logic, edit flow with optimistic update and rollback, and coexistence of machine and source listings; manual check that a silent mock exporter turns stale within threshold using clock-injected fixtures.",
-            "status": "pending",
+            "details": "Extend MachinesView (or add a SourcesView tab at /machines) backed by /api/v2/sources: table of all reporting sources with type, name, version, instance, linked machine, billing mode, first and last seen, freshness state, last successful ingest, recent error count, reported schema version, and clock skew; stale sources visually flagged (FR-SOURCE-006, FR-UI-009); schema-version drift against the server-supported version highlighted; source label and billing-mode editing through the PATCH endpoint with safe-action confirmation; machine fleet view preserved unchanged for v1 continuity. Test strategy: vitest tests for staleness and drift flag logic, edit flow with optimistic update and rollback, and coexistence of machine and source listings; manual check that a silent mock exporter turns stale within threshold using clock-injected fixtures.\n<info added on 2026-07-19T11:38:30.248Z>\nNew SourcesView component created at /sources route with dedicated navigation entry, preserving MachinesView unchanged for v1 continuity. Table displays all reporting sources with columns: name/label (editable), type, version, linked machine, billing mode (editable with confirmation), freshness state, last successful ingest timestamp, recent error count, reported schema version, and clock skew. Visual indicators: stale sources receive row highlighting plus badge (FR-SOURCE-006, FR-UI-009); schema-version drift badge appears when a source reports below the newest version observed across all sources; clock skew exceeding 60 seconds triggers warning flag. Label and billing-mode editing implemented via PATCH /api/v2/sources/{id} with safe-action confirmation dialog on billing-mode changes (cost attribution impact), optimistic UI update, and automatic rollback on server error.\n\nlib/sources module extended with supportedSchemaVersion helper (computes maximum reported schema version across all sources) and sourceFlags function (evaluates stale passthrough from health, schema drift detection, and clock skew threshold). client/api added v2UpdateSource method for PATCH operations.\n\nLive validation completed: GET /api/v2/sources returns 2 sources with complete SourceV2 and health metadata (both flagged stale, schema version 1, large clock skew correctly triggering all flag conditions); PATCH request for label edit returns 200 with updated source object; /sources route serves correctly through Vite dev server. Full test suite: 144 dashboard tests passing; vue-tsc, eslint, and prettier all clean with no violations.\n</info added on 2026-07-19T11:38:30.248Z>",
+            "status": "done",
             "dependencies": [
               "67.1"
             ],
             "parentTaskId": 67,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T11:38:49.961Z"
           },
           {
             "id": 8,
@@ -3168,7 +3169,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T11:32:04.473Z"
+        "updatedAt": "2026-07-19T11:38:49.961Z"
       },
       {
         "id": "68",
@@ -3631,7 +3632,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T11:32:04.475Z",
+      "lastModified": "2026-07-19T11:38:49.961Z",
       "taskCount": 75,
       "completedCount": 65,
       "tags": [

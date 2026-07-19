@@ -389,6 +389,17 @@ export class ApiClient {
     return this.request<SourceV2[]>(`/api/v2/sources?${params}`);
   }
 
+  v2UpdateSource(
+    id: number,
+    fields: { tokenLabel?: string; billingMode?: string }
+  ): Promise<SourceV2> {
+    const body: Record<string, string> = {};
+    if (fields.tokenLabel !== undefined) body.token_label = fields.tokenLabel;
+    if (fields.billingMode !== undefined)
+      body.billing_mode = fields.billingMode;
+    return this.request<SourceV2>(`/api/v2/sources/${id}`, 'PATCH', body);
+  }
+
   v2Limits(
     query: V2PageQuery & { windowKind?: string; provenance?: string }
   ): Promise<LimitsResponseV2> {

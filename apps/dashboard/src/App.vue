@@ -16,6 +16,7 @@ const links = [
   { to: '/requests', label: 'Requests' },
   { to: '/sessions', label: 'Sessions' },
   { to: '/machines', label: 'Machines' },
+  { to: '/sources', label: 'Sources' },
   { to: '/report', label: 'Report' },
   { to: '/alerts', label: 'Alerts' },
   { to: '/settings', label: 'Settings' },
