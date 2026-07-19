@@ -6,6 +6,13 @@ import type { EChartsCoreOption } from 'echarts';
 import { isDark, seriesColor } from './palette';
 import { formatTokens } from './format';
 import type { PunchCell, UsageBucket } from '@/api/types';
+import type { UsageRowV2 } from '@/api/types-v2';
+
+/** A named, hue-ordered token component with an accessor over a usage row. */
+export interface TokenComponent<T> {
+  label: string;
+  get: (row: T) => number;
+}
 
 /** Format an axis/tooltip token value compactly. */
 function tokenValue(value: unknown): string {
@@ -131,10 +138,7 @@ export function trackedTokens(b: UsageBucket): number {
  * total exceeds the tracked sum draw a stacked bar shorter than their labelled
  * total, and a total-only bootstrap bucket would render at zero height.
  */
-export const TOKEN_COMPONENTS: {
-  label: string;
-  get: (b: UsageBucket) => number;
-}[] = [
+export const TOKEN_COMPONENTS: TokenComponent<UsageBucket>[] = [
   { label: 'input', get: (b) => b.input_tokens },
   { label: 'output', get: (b) => b.output_tokens },
   { label: 'cache read', get: (b) => b.cache_read_tokens },
@@ -157,16 +161,66 @@ export const TOKEN_TABLE_HEADERS = [
   'Total',
 ];
 
-/** Build accessible-table rows (label + formatted components + total). */
+/** Sum of the six explicitly-tracked v2 token components (adds reasoning). */
+export function trackedTokensV2(r: UsageRowV2): number {
+  return (
+    r.input_tokens +
+    r.output_tokens +
+    r.cache_read_tokens +
+    r.cache_write_short_tokens +
+    r.cache_write_long_tokens +
+    r.reasoning_tokens
+  );
+}
+
+/** The v2 token components, in hue order, with reasoning as a first-class
+ * dimension (FR-UI-003, FR-DIM-001/005). "other" reconciles the tracked
+ * components with total_tokens exactly as the v1 set does. */
+export const V2_TOKEN_COMPONENTS: TokenComponent<UsageRowV2>[] = [
+  { label: 'input', get: (r) => r.input_tokens },
+  { label: 'output', get: (r) => r.output_tokens },
+  { label: 'reasoning', get: (r) => r.reasoning_tokens },
+  { label: 'cache read', get: (r) => r.cache_read_tokens },
+  { label: 'cache write 5m', get: (r) => r.cache_write_short_tokens },
+  { label: 'cache write 1h', get: (r) => r.cache_write_long_tokens },
+  {
+    label: 'other',
+    get: (r) => Math.max(0, r.total_tokens - trackedTokensV2(r)),
+  },
+];
+
+/** Header labels for the v2 token-composition accessible table. */
+export const TOKEN_TABLE_HEADERS_V2 = [
+  'Input',
+  'Output',
+  'Reasoning',
+  'Cache read',
+  'Write 5m',
+  'Write 1h',
+  'Other',
+  'Total',
+];
+
+/** Build accessible-table rows (label + formatted components + total) for any
+ * component set over rows that carry a total_tokens. */
+export function componentTableRows<T extends { total_tokens: number }>(
+  rows: T[],
+  components: TokenComponent<T>[],
+  label: (row: T) => string
+): string[][] {
+  return rows.map((row) => [
+    label(row),
+    ...components.map((c) => formatTokens(c.get(row))),
+    formatTokens(row.total_tokens),
+  ]);
+}
+
+/** Build accessible-table rows for the v1 token components. */
 export function tokenTableRows(
   buckets: UsageBucket[],
   label: (b: UsageBucket) => string
 ): string[][] {
-  return buckets.map((b) => [
-    label(b),
-    ...TOKEN_COMPONENTS.map((c) => formatTokens(c.get(b))),
-    formatTokens(b.total_tokens),
-  ]);
+  return componentTableRows(buckets, TOKEN_COMPONENTS, label);
 }
 
 interface ThemeInk {
@@ -352,9 +406,10 @@ export function timeBarOption(
  * regardless of magnitude -- essential when cache-read is ~95% of every bar and
  * would otherwise crush the other components to sub-pixel slivers.
  */
-export function stackedTokenBarOption(
+export function stackedComponentBarOption<T>(
   categories: string[],
-  buckets: UsageBucket[],
+  rows: T[],
+  components: TokenComponent<T>[],
   opts: StackOptions = {}
 ): EChartsCoreOption {
   const theme = ink();
@@ -363,11 +418,9 @@ export function stackedTokenBarOption(
   const { axis, bottom } = categoryAxis(categories, theme);
   // Normalized denominator sums only the visible components, so hiding
   // cache-read re-normalizes the remaining components to fill 100%.
-  const visible = TOKEN_COMPONENTS.filter((c) =>
-    isSelected(opts.selected, c.label)
-  );
-  const totals = buckets.map(
-    (b) => visible.reduce((sum, c) => sum + c.get(b), 0) || 1
+  const visible = components.filter((c) => isSelected(opts.selected, c.label));
+  const totals = rows.map(
+    (row) => visible.reduce((sum, c) => sum + c.get(row), 0) || 1
   );
   const pct = (value: unknown): string => `${Number(value).toFixed(1)}%`;
   return {
@@ -388,13 +441,13 @@ export function stackedTokenBarOption(
       },
       splitLine: { lineStyle: { color: theme.grid } },
     },
-    series: TOKEN_COMPONENTS.map((component, index) => ({
+    series: components.map((component, index) => ({
       name: component.label,
       type: 'bar',
       stack: 'tokens',
       barMaxWidth: 48,
-      data: buckets.map((bucket, i) =>
-        norm ? (component.get(bucket) / totals[i]) * 100 : component.get(bucket)
+      data: rows.map((row, i) =>
+        norm ? (component.get(row) / totals[i]) * 100 : component.get(row)
       ),
       // A thin surface-colored border separates thin adjacent segments.
       itemStyle: {
@@ -404,6 +457,15 @@ export function stackedTokenBarOption(
       },
     })),
   };
+}
+
+/** A stacked bar of the v1 token components per category (hue-ordered). */
+export function stackedTokenBarOption(
+  categories: string[],
+  buckets: UsageBucket[],
+  opts: StackOptions = {}
+): EChartsCoreOption {
+  return stackedComponentBarOption(categories, buckets, TOKEN_COMPONENTS, opts);
 }
 
 /** A stacked area chart over a shared time/category axis. */
