@@ -527,6 +527,10 @@ class Provider(Base):
     pricing_strategy: Mapped[str] = mapped_column(String(50), default="")
     limit_semantics: Mapped[str] = mapped_column(String(50), default="none")
     supported_dimensions: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    #: Limit-window descriptors (kind/label/period semantics) exposed through the
+    #: registry so dashboards and alerts stop hardcoding window labels
+    #: (FR-LIMIT-012). A JSON list of dicts; empty for providers without windows.
+    windows: Mapped[list[dict[str, Any]]] = mapped_column(JSONType, default=list)
     registered: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

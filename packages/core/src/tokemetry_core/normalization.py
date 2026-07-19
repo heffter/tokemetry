@@ -10,10 +10,35 @@ alias mappings can record which version produced them.
 
 from __future__ import annotations
 
-from tokemetry_core.models import ProviderDescriptor
+from tokemetry_core.models import ProviderDescriptor, WindowDescriptor
 
 #: Bump when the alias rules below change so persisted mappings stay auditable.
 PROVIDER_NORMALIZATION_VERSION = 1
+
+_FIVE_HOURS = 5 * 3600
+_SEVEN_DAYS = 7 * 86_400
+
+#: Anthropic's OAuth limit windows, with the labels the dashboard hardcoded
+#: before the registry existed (Task 67.2's format.ts seed) so migrating to the
+#: registry is a zero-visual-change swap (FR-LIMIT-012).
+_ANTHROPIC_WINDOWS: tuple[WindowDescriptor, ...] = (
+    WindowDescriptor(
+        kind="five_hour", label="5-hour block",
+        period_kind="rolling", period_seconds=_FIVE_HOURS, sort_order=0,
+    ),
+    WindowDescriptor(
+        kind="seven_day", label="Weekly",
+        period_kind="rolling", period_seconds=_SEVEN_DAYS, sort_order=1,
+    ),
+    WindowDescriptor(
+        kind="seven_day_opus", label="Weekly (Opus)",
+        period_kind="rolling", period_seconds=_SEVEN_DAYS, sort_order=2,
+    ),
+    WindowDescriptor(
+        kind="seven_day_sonnet", label="Weekly (Sonnet)",
+        period_kind="rolling", period_seconds=_SEVEN_DAYS, sort_order=3,
+    ),
+)
 
 ANTHROPIC_DESCRIPTOR = ProviderDescriptor(
     id="anthropic",
@@ -22,6 +47,7 @@ ANTHROPIC_DESCRIPTOR = ProviderDescriptor(
     pricing_strategy="anthropic",
     limit_semantics="anthropic_oauth_windows",
     supported_dimensions=("machine", "model", "project", "session"),
+    windows=_ANTHROPIC_WINDOWS,
 )
 
 OPENAI_DESCRIPTOR = ProviderDescriptor(

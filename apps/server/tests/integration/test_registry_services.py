@@ -66,6 +66,34 @@ class TestProviderSeeding:
         assert anthropic is not None
         assert anthropic.registered is True
         assert "claude" in anthropic.aliases
+        # FR-LIMIT-012: the seed populates Anthropic's window registry.
+        kinds = {w["kind"] for w in anthropic.windows}
+        assert {"five_hour", "seven_day"} <= kinds
+
+    async def test_seeding_backfills_windows_on_a_pre_registry_row(
+        self, async_session: AsyncSession
+    ) -> None:
+        # An anthropic row that predates the window registry has empty windows
+        # (backfilled by the migration to []); re-seeding fills them in without
+        # a data migration, but leaves other fields untouched.
+        now = datetime.now(UTC)
+        async_session.add(
+            models.Provider(
+                id="anthropic", display_name="Anthropic", aliases=["claude"],
+                pricing_strategy="anthropic", limit_semantics="anthropic_oauth_windows",
+                supported_dimensions=["model"], windows=[], registered=True,
+                created_at=now, updated_at=now,
+            )
+        )
+        await async_session.commit()
+
+        inserted = await seed_default_providers(async_session)
+        await async_session.commit()
+        refreshed = await async_session.get(models.Provider, "anthropic")
+        assert refreshed is not None
+        # anthropic existed (not re-inserted), but its windows are now populated.
+        assert inserted == 2  # openai + zai inserted; anthropic backfilled
+        assert {w["kind"] for w in refreshed.windows} >= {"five_hour", "seven_day"}
 
     async def test_seeding_is_idempotent(self, async_session: AsyncSession) -> None:
         await seed_default_providers(async_session)

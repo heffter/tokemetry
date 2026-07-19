@@ -17,6 +17,18 @@ from pydantic import BaseModel, ConfigDict
 from tokemetry_server.api.serialization import UtcDatetime
 
 
+class WindowOut(BaseModel):
+    """One limit-window descriptor from the provider registry (FR-LIMIT-012)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str
+    label: str
+    period_kind: str
+    period_seconds: int | None = None
+    sort_order: int = 0
+
+
 class ProviderOut(BaseModel):
     """Registry metadata for one provider (FR-PROVIDER-010)."""
 
@@ -28,6 +40,7 @@ class ProviderOut(BaseModel):
     pricing_strategy: str
     limit_semantics: str
     supported_dimensions: list[str]
+    windows: list[WindowOut]
     registered: bool
 
 

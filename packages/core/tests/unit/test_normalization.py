@@ -94,6 +94,32 @@ class TestProviderDescriptor:
             for alias in descriptor.aliases:
                 assert normalize_provider(alias) == descriptor.id
 
+    def test_anthropic_seeds_its_windows_with_the_dashboard_labels(self) -> None:
+        # FR-LIMIT-012: the registry declares Anthropic's windows with exactly
+        # the labels the dashboard hardcoded, so migrating to it is a
+        # zero-visual-change swap.
+        labels = {w.kind: w.label for w in ANTHROPIC_DESCRIPTOR.windows}
+        assert labels == {
+            "five_hour": "5-hour block",
+            "seven_day": "Weekly",
+            "seven_day_opus": "Weekly (Opus)",
+            "seven_day_sonnet": "Weekly (Sonnet)",
+        }
+        five_hour = next(
+            w for w in ANTHROPIC_DESCRIPTOR.windows if w.kind == "five_hour"
+        )
+        assert five_hour.period_kind == "rolling"
+        assert five_hour.period_seconds == 5 * 3600
+        # Windows carry an explicit display order.
+        orders = [w.sort_order for w in ANTHROPIC_DESCRIPTOR.windows]
+        assert orders == sorted(orders)
+
+    def test_providers_without_windows_default_to_empty(self) -> None:
+        # OpenAI/Z.ai declare no windows until their limit sources land; the
+        # field is simply empty (FR-LIMIT-009: no schema requirement).
+        assert OPENAI_DESCRIPTOR.windows == ()
+        assert ZAI_DESCRIPTOR.windows == ()
+
 
 class TestRegistryDescriptors:
     """Descriptor registration, lookup, and normalize-then-resolve."""

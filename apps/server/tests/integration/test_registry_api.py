@@ -59,6 +59,13 @@ class TestProvidersEndpoint:
         assert anthropic["registered"] is True
         assert anthropic["limit_semantics"] == "anthropic_oauth_windows"
         assert "model" in anthropic["supported_dimensions"]
+        # FR-LIMIT-012: window registry is exposed so dashboards resolve labels.
+        windows = {w["kind"]: w for w in anthropic["windows"]}
+        assert windows["five_hour"]["label"] == "5-hour block"
+        assert windows["seven_day"]["label"] == "Weekly"
+        assert windows["five_hour"]["period_kind"] == "rolling"
+        # Providers without declared windows expose an empty list, not null.
+        assert by_id["openai"]["windows"] == []
 
     def test_unknown_provider_visible_as_unregistered(
         self, client: TestClient, auth: dict[str, str]

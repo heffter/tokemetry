@@ -54,14 +54,24 @@ async def seed_default_providers(session: AsyncSession) -> int:
     Idempotent (FR-PROVIDER-008): existing rows are left untouched so UI edits
     survive a restart; only missing seed providers are inserted. Returns the
     number of rows inserted.
+
+    One narrow exception (FR-LIMIT-012): a seed provider that predates the
+    window registry has an empty ``windows`` list (backfilled by the migration);
+    since window descriptors are registry metadata, not a user edit, they are
+    filled in from the descriptor so an upgraded deployment gains its windows
+    without a data migration. This never overwrites a non-empty ``windows``.
     """
     now = datetime.now(UTC)
     inserted = 0
     for descriptor in SEED_PROVIDER_DESCRIPTORS:
-        if await session.get(models.Provider, descriptor.id) is not None:
+        existing = await session.get(models.Provider, descriptor.id)
+        if existing is None:
+            session.add(_provider_row(descriptor, registered=True, now=now))
+            inserted += 1
             continue
-        session.add(_provider_row(descriptor, registered=True, now=now))
-        inserted += 1
+        if descriptor.windows and not existing.windows:
+            existing.windows = [window.model_dump() for window in descriptor.windows]
+            existing.updated_at = now
     return inserted
 
 
@@ -76,6 +86,7 @@ def _provider_row(
         pricing_strategy=descriptor.pricing_strategy,
         limit_semantics=descriptor.limit_semantics,
         supported_dimensions=list(descriptor.supported_dimensions),
+        windows=[window.model_dump() for window in descriptor.windows],
         registered=registered,
         created_at=now,
         updated_at=now,
@@ -174,6 +185,7 @@ class ProviderRegistryService:
             pricing_strategy="",
             limit_semantics="none",
             supported_dimensions=[],
+            windows=[],
             registered=False,
             created_at=now,
             updated_at=now,

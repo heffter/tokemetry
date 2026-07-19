@@ -18,6 +18,7 @@ import {
   windowLabel,
 } from '@/lib/format';
 import { clampRangeDays, presetRange } from '@/lib/filters';
+import { windowLabelsFrom } from '@/lib/windows';
 import type { LimitSnapshotV2, ProviderV2 } from '@/api/types-v2';
 
 const MAX_RANGE_DAYS = 365;
@@ -30,6 +31,9 @@ const providerName = computed(() => {
   const map = new Map(providers.value.map((p) => [p.id, p.display_name]));
   return (id: string): string => map.get(id) ?? id;
 });
+// Window labels resolved from the provider registry (FR-LIMIT-012), falling
+// back to the Anthropic seed inside windowLabel for kinds the registry omits.
+const windowLabels = computed(() => windowLabelsFrom(providers.value));
 
 // The latest snapshot per (provider, window_kind), grouped by provider.
 const byProvider = computed(() => {
@@ -102,7 +106,9 @@ onMounted(() => {
       <div class="grid windows">
         <div v-for="w in group.windows" :key="w.window_kind" class="window">
           <div class="wtop">
-            <span class="wlabel">{{ windowLabel(w.window_kind) }}</span>
+            <span class="wlabel">{{
+              windowLabel(w.window_kind, windowLabels)
+            }}</span>
             <span
               class="pct tabular"
               :style="{ color: statusVar(w.utilization_pct) }"

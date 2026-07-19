@@ -15,6 +15,16 @@
 
 // --- Registries (providers, models) ---
 
+/** One limit-window descriptor from the provider registry (WindowOut). */
+export interface WindowV2 {
+  kind: string;
+  label: string;
+  /** 'rolling' | 'calendar' | 'opaque'. */
+  period_kind: string;
+  period_seconds: number | null;
+  sort_order: number;
+}
+
 /** Provider registry metadata (ProviderOut). */
 export interface ProviderV2 {
   id: string;
@@ -23,6 +33,8 @@ export interface ProviderV2 {
   pricing_strategy: string;
   limit_semantics: string;
   supported_dimensions: string[];
+  /** Limit-window kinds/labels/period semantics (FR-LIMIT-012). */
+  windows: WindowV2[];
   /** False for observed-but-unregistered providers. */
   registered: boolean;
 }

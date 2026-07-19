@@ -12,7 +12,7 @@ import enum
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -219,6 +219,26 @@ class PriceRow(_FrozenModel):
     cache_write_long_per_mtok: Decimal = Field(ge=0)
 
 
+class WindowDescriptor(_FrozenModel):
+    """One limit-window kind a provider exposes (FR-LIMIT-012).
+
+    ``kind`` is the provider-defined, opaque window identifier that limit
+    snapshots store (FR-LIMIT-001); ``label`` is its display name so dashboards
+    and alerts stop hardcoding window names. ``period_kind`` describes how the
+    window resets -- a ``rolling`` duration, a ``calendar``-aligned reset, or
+    ``opaque`` when unknown; ``period_seconds`` is the rolling duration in
+    seconds when ``period_kind == "rolling"``. ``sort_order`` orders windows for
+    display. Unknown kinds need no schema change (FR-LIMIT-009): a consumer that
+    does not find a descriptor falls back to the raw kind.
+    """
+
+    kind: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    period_kind: Literal["rolling", "calendar", "opaque"] = "opaque"
+    period_seconds: int | None = Field(default=None, ge=0)
+    sort_order: int = 0
+
+
 class ProviderDescriptor(_FrozenModel):
     """Canonical registry metadata for one provider.
 
@@ -227,7 +247,9 @@ class ProviderDescriptor(_FrozenModel):
     :func:`tokemetry_core.normalization.normalize_provider`). The remaining
     fields are the metadata FR-PROVIDER-004 requires so later epics resolve
     pricing, limit-window semantics, and supported query dimensions from the
-    registry instead of provider-specific code.
+    registry instead of provider-specific code. ``windows`` declares the
+    provider's limit-window kinds and their labels/period semantics
+    (FR-LIMIT-012).
     """
 
     id: str = Field(min_length=1)
@@ -236,6 +258,7 @@ class ProviderDescriptor(_FrozenModel):
     pricing_strategy: str = ""
     limit_semantics: str = "none"
     supported_dimensions: tuple[str, ...] = ()
+    windows: tuple[WindowDescriptor, ...] = ()
 
     @field_validator("id")
     @classmethod

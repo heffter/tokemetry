@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
-from tokemetry_server.api.v2.schemas import ModelOut, ProviderOut
+from tokemetry_server.api.v2.schemas import ModelOut, ProviderOut, WindowOut
 from tokemetry_server.db import models
 from tokemetry_server.scopes import QUERY_READ
 
@@ -43,6 +43,7 @@ async def list_providers(
             pricing_strategy=row.pricing_strategy,
             limit_semantics=row.limit_semantics,
             supported_dimensions=list(row.supported_dimensions or []),
+            windows=[WindowOut(**window) for window in (row.windows or [])],
             registered=row.registered,
         )
         for row in rows
