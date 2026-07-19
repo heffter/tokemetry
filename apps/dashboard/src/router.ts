@@ -16,6 +16,11 @@ export const router = createRouter({
       component: () => import('@/views/BlocksView.vue'),
     },
     {
+      path: '/limits',
+      name: 'limits',
+      component: () => import('@/views/LimitsView.vue'),
+    },
+    {
       path: '/breakdowns',
       name: 'breakdowns',
       component: () => import('@/views/BreakdownsView.vue'),

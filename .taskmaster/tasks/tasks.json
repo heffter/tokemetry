@@ -3044,7 +3044,7 @@
         "description": "Replace Claude-only dashboard assumptions with provider-neutral views: global provider and model filters, dual cost metrics, request and fallback-chain visualization, source health, data quality, and pricing administration pages, while preserving the limit-centric Claude views. PRD-TOK-002 Section 12.14; Epic TOK-8; FR-UI-001..015; decisions D-007, D-017.",
         "details": "Objective: provider-neutral UI on top of the v2 query APIs (Migration Phase 5). Dashboard work never combines with core ingest changes (PRD Section 23 rule 11).\n\nDesign: global provider and model filter store applied across views (FR-UI-002); v2 typed API client layer generated from OpenAPI; overview covers all providers (FR-UI-001); token and cost charts distinguish cache, reasoning, input, and output (FR-UI-003); cost views expose actual API spend and subscription-equivalent value separately (D-007, FR-COST-012) plus cost status and reconciliation drift (FR-UI-008/013); request detail shows the logical request with its attempts and visualizes fallback chains (FR-UI-004/005); latency and time-to-first-token chartable (FR-UI-006); failure rate by provider and model chartable (FR-UI-007); sources page shows freshness and schema-version drift (FR-UI-009); data quality page shows unknown models and unpriced events; pricing administration page manages rate cards with dry-run diff review and apply; labels distinguish zero, unavailable, and unsupported values (FR-DIM-010) and official versus estimated (FR-UI-012); limits pages read window labels from the provider window registry instead of hardcoded WINDOW_LABELS while preserving the existing Claude block and prediction views (FR-UI-010/014); no routes removed (D-017); components must not hardcode provider sets (NFR-MAIN-006).\n\nAcceptance criteria (PRD Epic TOK-8): global provider and model filters exist; requests and fallback chains visible; source health and data quality visible; unknown and unpriced usage visible; cache, reasoning, input, and output distinguishable; existing Claude limit views remain useful.\n\nTest strategy: vitest unit tests for the filter store, client layer, formatting, and label logic; component tests for the fallback-chain visualization and dual-metric cost views; manual end-to-end verification against a server seeded with three-provider fixtures; regression check that all pre-existing routes still render.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "63",
           "66"
@@ -3158,8 +3158,8 @@
             "id": 9,
             "title": "Limits pages on the window registry, navigation, and epic verification",
             "description": "Registry-driven limit labels; preserved Claude views; nav restructure; epic acceptance.",
-            "details": "Replace hardcoded window handling: format.ts WINDOW_LABELS and AlertsView window pickers read from the registry endpoint (window kinds, labels, period semantics per FR-LIMIT-012) so provider windows appear without dashboard code changes (FR-UI-010); BlocksView and prediction logic key off registry period metadata while preserving the existing five-hour block and weekly-cap experience for Anthropic (FR-UI-014); LimitsView sections render per provider for every provider with limit data. Navigation restructure: group views into Overview, Usage, Costs, Requests, Sessions, Limits, Fleet (sources and machines), Quality (data quality and pricing admin), Alerts, Settings; all pre-existing routes keep working (decision D-017, FR-UI-015 deferred). Epic verification: walk PRD Epic TOK-8 acceptance criteria and AC-008/009/010/019/020 against the seeded dev stack and record evidence in the task log; full vitest suite green. Test strategy: vitest tests for registry-driven label resolution with unknown-window fallback to raw kind; route regression test enumerating all v1-era paths; manual multi-provider walkthrough with screenshots attached to the PR.",
-            "status": "pending",
+            "details": "Replace hardcoded window handling: format.ts WINDOW_LABELS and AlertsView window pickers read from the registry endpoint (window kinds, labels, period semantics per FR-LIMIT-012) so provider windows appear without dashboard code changes (FR-UI-010); BlocksView and prediction logic key off registry period metadata while preserving the existing five-hour block and weekly-cap experience for Anthropic (FR-UI-014); LimitsView sections render per provider for every provider with limit data. Navigation restructure: group views into Overview, Usage, Costs, Requests, Sessions, Limits, Fleet (sources and machines), Quality (data quality and pricing admin), Alerts, Settings; all pre-existing routes keep working (decision D-017, FR-UI-015 deferred). Epic verification: walk PRD Epic TOK-8 acceptance criteria and AC-008/009/010/019/020 against the seeded dev stack and record evidence in the task log; full vitest suite green. Test strategy: vitest tests for registry-driven label resolution with unknown-window fallback to raw kind; route regression test enumerating all v1-era paths; manual multi-provider walkthrough with screenshots attached to the PR.\n<info added on 2026-07-19T11:58:23.517Z>\nLimitsView delivered with per-provider sections rendering latest limit snapshots from /api/v2/limits, utilization bars, official/estimated provenance badges (FR-UI-012), and registry-aware windowLabel that preserves Anthropic's 5-hour/weekly experience via seed fallback (FR-UI-014) while showing raw kind for other providers until Task 69. BlocksView remains unchanged per D-017. Navigation restructured into logical sections (Overview, Usage, Costs, Requests, Sessions, Limits, Fleet, Quality, Reports, Alerts, Settings) with separators; all 15 pre-existing routes preserved. router.test.ts route-regression test confirms all routes register with components and every v1-era path resolves without duplicates (D-017).\n\nBLOCKED: Task 69 (TOK-12) pending for provider window-registry endpoint to source window kinds/labels/period semantics (FR-LIMIT-012, FR-UI-010) and enable BlocksView/AlertsView prediction keying off registry period metadata. The windowLabel seam from 67.2 is ready to consume the endpoint. FR-UI-015 navigation deferred as documented.\n\nEPIC TOK-8 ACCEPTANCE verified against live seeded 3-provider dev stack: global provider/model filters (useGlobalFilters + FilterBar, 67.1) PASS; requests and fallback chains visible (RequestsView 67.5, attempts shape validated) PASS; source health + data quality visible (SourcesView 67.7 with 2 sources health+PATCH validated, DataQualityView 67.8 with 7 real events validated) PASS; unknown and unpriced usage visible (data-quality feed + pricing reports, 4 unpriced + 4 unknown-models validated live) PASS; cache/reasoning/input/output distinguishable (V2_TOKEN_COMPONENTS with reasoning first-class, 67.3) PASS; existing Claude limit views remain useful (BlocksView unchanged + windowLabel Anthropic seed) PASS; dual cost metrics never merged (CostsView grouped non-stacked series + unit test, 67.4) PASS; scoped session identity (3 same-session_id sessions yielding distinct scoped_ids validated live, 67.6) PASS.\n\nCross-dialect day-grouping server bug found and fixed during smoke-testing (commit 3c037ed). All 15 routes serve 200 through Vite; production build compiles; 151 dashboard tests green; vue-tsc/eslint/prettier clean.\n</info added on 2026-07-19T11:58:23.517Z>",
+            "status": "done",
             "dependencies": [
               "67.2",
               "67.5",
@@ -3167,10 +3167,11 @@
               "67.8"
             ],
             "parentTaskId": 67,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T11:58:42.611Z"
           }
         ],
-        "updatedAt": "2026-07-19T11:48:03.193Z"
+        "updatedAt": "2026-07-19T11:58:42.611Z"
       },
       {
         "id": "68",
@@ -3633,9 +3634,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T11:48:03.195Z",
+      "lastModified": "2026-07-19T11:58:42.613Z",
       "taskCount": 75,
-      "completedCount": 65,
+      "completedCount": 66,
       "tags": [
         "master"
       ]

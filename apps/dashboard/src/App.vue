@@ -7,21 +7,25 @@ import { useToken } from '@/composables/useApi';
 const { token, setToken } = useToken();
 const draft = ref('');
 
+// Grouped into logical sections (Overview, Usage, Costs, Requests, Sessions,
+// Limits, Fleet, Quality, Reports, Alerts, Settings). Every pre-existing route
+// is kept (D-017); the section labels order the flat nav without hiding routes.
 const links = [
-  { to: '/', label: 'Now' },
-  { to: '/trends', label: 'Trends' },
-  { to: '/blocks', label: 'Blocks' },
-  { to: '/breakdowns', label: 'Breakdowns' },
-  { to: '/costs', label: 'Costs' },
-  { to: '/requests', label: 'Requests' },
-  { to: '/sessions', label: 'Sessions' },
-  { to: '/machines', label: 'Machines' },
-  { to: '/sources', label: 'Sources' },
-  { to: '/data-quality', label: 'Data quality' },
-  { to: '/pricing-admin', label: 'Pricing' },
-  { to: '/report', label: 'Report' },
-  { to: '/alerts', label: 'Alerts' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/', label: 'Now', section: 'Overview' },
+  { to: '/trends', label: 'Trends', section: 'Usage' },
+  { to: '/breakdowns', label: 'Breakdowns', section: 'Usage' },
+  { to: '/costs', label: 'Costs', section: 'Costs' },
+  { to: '/requests', label: 'Requests', section: 'Requests' },
+  { to: '/sessions', label: 'Sessions', section: 'Sessions' },
+  { to: '/blocks', label: 'Blocks', section: 'Limits' },
+  { to: '/limits', label: 'Limits', section: 'Limits' },
+  { to: '/machines', label: 'Machines', section: 'Fleet' },
+  { to: '/sources', label: 'Sources', section: 'Fleet' },
+  { to: '/data-quality', label: 'Data quality', section: 'Quality' },
+  { to: '/pricing-admin', label: 'Pricing', section: 'Quality' },
+  { to: '/report', label: 'Report', section: 'Reports' },
+  { to: '/alerts', label: 'Alerts', section: 'Alerts' },
+  { to: '/settings', label: 'Settings', section: 'Settings' },
 ];
 
 function saveToken(): void {
@@ -72,14 +76,16 @@ function saveToken(): void {
         />
       </RouterLink>
       <nav>
-        <RouterLink
-          v-for="link in links"
-          :key="link.to"
-          :to="link.to"
-          class="navlink"
-        >
-          {{ link.label }}
-        </RouterLink>
+        <template v-for="(link, i) in links" :key="link.to">
+          <span
+            v-if="i > 0 && links[i - 1].section !== link.section"
+            class="nav-sep"
+            aria-hidden="true"
+          ></span>
+          <RouterLink :to="link.to" class="navlink" :title="link.section">
+            {{ link.label }}
+          </RouterLink>
+        </template>
       </nav>
     </header>
     <main class="content">
@@ -131,6 +137,12 @@ nav {
 .navlink.router-link-active {
   background: var(--gridline);
   color: var(--text-primary);
+}
+.nav-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.15rem 0.15rem;
+  background: var(--border);
 }
 .content {
   padding: 1.5rem;
