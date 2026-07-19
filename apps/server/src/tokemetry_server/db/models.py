@@ -208,6 +208,47 @@ class BillableUnit(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6))
 
 
+class ComputedCost(Base):
+    """Cost for one event, kept separate from the usage facts (D-006, TOK-5).
+
+    Cost never lives on the usage row: a ``computed_costs`` row records the
+    amount for one ``(provider, event_id, pricing_version)`` with a
+    ``cost_status`` (``priced``/``unpriced``/``partial``/``estimated``/``error``,
+    FR-COST-006), the ``billing_mode`` cost split (D-007), an optional
+    ``subscription_equivalent_amount``, ``missing_units`` for partial cost
+    (FR-COST-007), and an ``observed_cost`` for exporter reconciliation
+    (FR-COST-003, D-016). Exactly one row per event is ``active`` -- the current
+    authoritative cost -- enforced in the service layer (FR-COST-001).
+    """
+
+    __tablename__ = "computed_costs"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "event_id", "pricing_version", name="computed_costs_grain"
+        ),
+        ForeignKeyConstraint(
+            ["provider", "event_id"],
+            ["usage_events_v2.provider", "usage_events_v2.event_id"],
+            name="fk_computed_costs_event",
+        ),
+        Index("ix_computed_costs_event", "provider", "event_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(50))
+    event_id: Mapped[str] = mapped_column(String(200))
+    pricing_version: Mapped[str] = mapped_column(String(50))
+    cost_status: Mapped[str] = mapped_column(String(20))
+    amount: Mapped[Decimal | None] = mapped_column(_MONEY)
+    currency: Mapped[str] = mapped_column(String(10), default="USD")
+    billing_mode: Mapped[str] = mapped_column(String(20), default="api_billed")
+    subscription_equivalent_amount: Mapped[Decimal | None] = mapped_column(_MONEY)
+    missing_units: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    observed_cost: Mapped[Decimal | None] = mapped_column(_MONEY)
+    calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class LogicalRequest(Base):
     """A non-billable grouping of the attempts of one logical request (D-003).
 

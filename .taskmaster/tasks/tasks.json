@@ -2695,13 +2695,14 @@
             "id": 4,
             "title": "computed_costs table separating cost from usage facts",
             "description": "Cost records with status, pricing version, and reconciliation fields.",
-            "details": "Alembic migration creating computed_costs (provider, event_id referencing usage_events_v2, pricing_version string, cost_status priced|unpriced|partial|estimated|error per FR-COST-006, amount Numeric(20,10) nullable, currency, billing_mode api_billed|subscription, subscription_equivalent_amount Numeric(20,10) nullable, missing_units JSONType nullable per FR-COST-007, observed_cost Numeric(20,10) nullable for exporter reconciliation per FR-COST-003 and decision D-016, calculated_at, active bool) with unique constraint on (provider, event_id, pricing_version) and a partial-unique concept for one active row per event per pricing version (FR-COST-001; enforce in service layer for SQLite compatibility). Backfill: the transitional v1 cost carried through 62.8 materializes as computed_costs rows with pricing_version v1-legacy and cost_status priced (or unpriced where cost was NULL), after which the transitional column on the ledger is dropped and the compatibility view of 62.10 re-points its cost_usd projection to the active computed cost. Observed cost never replaces authoritative cost automatically (FR-COST-004); drift between observed and computed is exposed by a query helper (FR-COST-005). Test strategy: migration and backfill equality tests (every v1 cost value reproduced exactly, NULLs become unpriced); active-row uniqueness service tests; view projection regression via the golden suite.",
-            "status": "pending",
+            "details": "Alembic migration creating computed_costs (provider, event_id referencing usage_events_v2, pricing_version string, cost_status priced|unpriced|partial|estimated|error per FR-COST-006, amount Numeric(20,10) nullable, currency, billing_mode api_billed|subscription, subscription_equivalent_amount Numeric(20,10) nullable, missing_units JSONType nullable per FR-COST-007, observed_cost Numeric(20,10) nullable for exporter reconciliation per FR-COST-003 and decision D-016, calculated_at, active bool) with unique constraint on (provider, event_id, pricing_version) and a partial-unique concept for one active row per event per pricing version (FR-COST-001; enforce in service layer for SQLite compatibility). Backfill: the transitional v1 cost carried through 62.8 materializes as computed_costs rows with pricing_version v1-legacy and cost_status priced (or unpriced where cost was NULL), after which the transitional column on the ledger is dropped and the compatibility view of 62.10 re-points its cost_usd projection to the active computed cost. Observed cost never replaces authoritative cost automatically (FR-COST-004); drift between observed and computed is exposed by a query helper (FR-COST-005). Test strategy: migration and backfill equality tests (every v1 cost value reproduced exactly, NULLs become unpriced); active-row uniqueness service tests; view projection regression via the golden suite.\n<info added on 2026-07-19T02:33:35.406Z>\nAdded computed_costs table (migration 0017 + ComputedCost ORM) separating cost from usage facts. Columns: id PK, provider, event_id, pricing_version, cost_status (priced|unpriced|partial|estimated|error, FR-COST-006), amount Numeric(20,10) nullable, currency, billing_mode (api_billed|subscription, D-007), subscription_equivalent_amount nullable, missing_units JSON nullable (FR-COST-007), observed_cost nullable (FR-COST-003/D-016), calculated_at, active bool; unique (provider, event_id, pricing_version), composite FK to usage_events_v2, ix on (provider, event_id). Backfill (db/pricing_migration.materialize_computed_costs, called by 0017): each ledger attempt row's transitional cost_usd -> an active v1-legacy computed_costs row, cost_status priced where cost exists / unpriced where NULL. services/computed_costs.py record_cost(...) enforces exactly one active row per event (FR-COST-001, service-enforced for SQLite): deactivates prior active rows then upserts the (provider,event_id,pricing_version) row active, keeping prior-version rows for audit; validates cost_status; active_cost() returns the current row. Observed cost stored separately, never auto-replaces authoritative cost (FR-COST-004); drift is a query concern (FR-COST-005). SCOPE DECISION (documented): the full cutover -- dropping the transitional usage_events_v2.cost_usd column and re-pointing the 62.10 compatibility view's cost_usd projection to the active computed cost -- is deferred to land WITH the cost engine (64.5) that becomes the authoritative computed_costs writer, isolating the high-risk cross-dialect view change (mirrors the 62.9->62.10 write-then-read split). Until then the table is dual-populated (backfill now; cost engine on ingest) and the view is unchanged so the golden suite stays byte-identical. Tests: test_computed_costs.py (materialization reproduces v1 cost incl NULL->unpriced + active + v1-legacy version; record_cost keeps one active row across repricing versions retaining old for audit; same-version upsert; unknown-status ValueError). Gates: pytest 618 passed/36 skipped, ruff clean, mypy strict clean (110 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-19T02:33:35.406Z>",
+            "status": "done",
             "dependencies": [
               "64.1"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T02:34:05.416Z"
           },
           {
             "id": 5,
@@ -2792,7 +2793,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T02:18:13.576Z"
+        "updatedAt": "2026-07-19T02:34:05.416Z"
       },
       {
         "id": "65",
@@ -3544,7 +3545,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T02:18:13.577Z",
+      "lastModified": "2026-07-19T02:34:05.417Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [

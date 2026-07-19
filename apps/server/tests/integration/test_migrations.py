@@ -29,6 +29,7 @@ _EXPECTED_TABLES = {
     "logical_requests",
     "ingest_batches",
     "billable_units",
+    "computed_costs",
     "sources",
     "alert_rules",
     "alert_events",

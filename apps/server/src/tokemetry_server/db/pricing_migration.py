@@ -69,3 +69,41 @@ def expand_pricing_to_rate_cards(connection: Connection) -> int:
     if values:
         connection.execute(sa.insert(models.RateCard), values)
     return len(values)
+
+
+def materialize_computed_costs(connection: Connection) -> int:
+    """Materialize each ledger row's transitional cost into ``computed_costs``.
+
+    The v1 cost carried on ``usage_events_v2.cost_usd`` (tasks 62.9/64.1) becomes
+    an active ``computed_costs`` row with ``pricing_version = 'v1-legacy'`` and
+    ``cost_status`` ``priced`` where a cost exists, ``unpriced`` where it is NULL.
+    The transitional column and the view re-point land with the cost engine
+    (task 64.5) once it is the authoritative writer.
+    """
+    event = models.UsageEventV2
+    rows = connection.execute(
+        sa.select(event.provider, event.event_id, event.cost_usd).where(
+            event.event_kind == "attempt"
+        )
+    ).all()
+    now = datetime.now(UTC)
+    values = [
+        {
+            "provider": provider,
+            "event_id": event_id,
+            "pricing_version": "v1-legacy",
+            "cost_status": "priced" if cost is not None else "unpriced",
+            "amount": cost,
+            "currency": "USD",
+            "billing_mode": "api_billed",
+            "subscription_equivalent_amount": None,
+            "missing_units": None,
+            "observed_cost": None,
+            "calculated_at": now,
+            "active": True,
+        }
+        for provider, event_id, cost in rows
+    ]
+    if values:
+        connection.execute(sa.insert(models.ComputedCost), values)
+    return len(values)
