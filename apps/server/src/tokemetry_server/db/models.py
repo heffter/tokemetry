@@ -345,7 +345,14 @@ class Source(Base):
 
 
 class LimitSnapshot(Base):
-    """Utilization of one provider limit window at one point in time."""
+    """Utilization of one provider limit window at one point in time.
+
+    The ``account``/``organization``/``source_id`` dimensions and the
+    ``limit_amount``/``remaining``/``unit`` measures are the v2 additions over
+    v1's utilization-only snapshot (FR-LIMIT-002/003); v1 and dimension-less
+    snapshots leave them null. ``window_kind`` stays an opaque provider-defined
+    label (FR-LIMIT-001).
+    """
 
     __tablename__ = "limit_snapshots"
 
@@ -357,6 +364,17 @@ class LimitSnapshot(Base):
     utilization_pct: Mapped[float] = mapped_column(Numeric(7, 3))
     resets_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     provenance: Mapped[str] = mapped_column(String(30))
+    #: v2 stream dimensions: distinct (provider, window_kind, account,
+    #: organization, source_id) tuples are never merged without an explicit
+    #: grouping rule (FR-LIMIT-005). ``source_id`` is the reporting source.
+    account: Mapped[str | None] = mapped_column(String(200))
+    organization: Mapped[str | None] = mapped_column(String(200))
+    source_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    #: v2 measures: absolute limit and remaining amount, and the unit they are
+    #: expressed in (tokens, requests, percent, ...).
+    limit_amount: Mapped[float | None] = mapped_column(Numeric(20, 4))
+    remaining: Mapped[float | None] = mapped_column(Numeric(20, 4))
+    unit: Mapped[str | None] = mapped_column(String(30))
     raw: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
 
 

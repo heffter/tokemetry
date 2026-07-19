@@ -71,14 +71,17 @@ def test_limits_append_only(
     assert _count(read_engine, "limit_snapshots") == 2
 
 
-def test_limits_extended_dimensions_preserved_in_raw(
+def test_limits_extended_dimensions_persist_to_columns(
     client: TestClient, auth: dict[str, str], read_engine: sa.Engine
 ) -> None:
+    # Task 69.2: the v2 dimensions now land in dedicated columns, not the raw
+    # stash (FR-LIMIT-002/003).
     body = {
         "schema_version": 2,
         "snapshots": [
             _snapshot(
                 account="team-a",
+                organization="org-x",
                 remaining=1000.0,
                 limit_amount=5000.0,
                 unit="tokens",
@@ -91,10 +94,12 @@ def test_limits_extended_dimensions_preserved_in_raw(
     with Session(read_engine) as session:
         row = session.execute(sa.select(models.LimitSnapshot)).scalar_one()
         assert row.provenance == "local_estimate"
-        dimensions = row.raw["v2_dimensions"]
-        assert dimensions["account"] == "team-a"
-        assert dimensions["remaining"] == 1000.0
-        assert dimensions["unit"] == "tokens"
+        assert row.account == "team-a"
+        assert row.organization == "org-x"
+        assert float(row.remaining) == 1000.0
+        assert float(row.limit_amount) == 5000.0
+        assert row.unit == "tokens"
+        assert "v2_dimensions" not in row.raw
 
 
 def test_limits_structured_error(client: TestClient, auth: dict[str, str]) -> None:

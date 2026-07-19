@@ -52,7 +52,12 @@ class MetaIngestV2Service:
         request_id: str | None = None,
         source_id: int | None = None,
     ) -> tuple[str, int]:
-        """Append limit snapshots; return the batch id and accepted count."""
+        """Append limit snapshots; return the batch id and accepted count.
+
+        The v2 dimensions now persist to dedicated columns (Task 69.2) rather
+        than the ``raw`` stash; ``source_id`` is the reporting source, and the
+        per-snapshot ``source`` reference (if any) is kept in ``raw``.
+        """
         self._session.add_all(
             models.LimitSnapshot(
                 provider=snapshot.provider,
@@ -62,7 +67,17 @@ class MetaIngestV2Service:
                 utilization_pct=snapshot.utilization_pct,
                 resets_at=snapshot.resets_at,
                 provenance=str(snapshot.provenance),
-                raw={"v2_dimensions": _extended_dimensions(snapshot)},
+                account=snapshot.account,
+                organization=snapshot.organization,
+                source_id=source_id,
+                limit_amount=snapshot.limit_amount,
+                remaining=snapshot.remaining,
+                unit=snapshot.unit,
+                raw=(
+                    {"source": snapshot.source.model_dump(mode="json")}
+                    if snapshot.source
+                    else {}
+                ),
             )
             for snapshot in snapshots
         )
@@ -115,18 +130,6 @@ class MetaIngestV2Service:
             )
         )
         return batch_id
-
-
-def _extended_dimensions(snapshot: LimitSnapshotV2) -> dict[str, Any]:
-    """The v2-only limit dimensions, preserved in ``raw`` until Task 69."""
-    return {
-        "account": snapshot.account,
-        "organization": snapshot.organization,
-        "remaining": snapshot.remaining,
-        "limit_amount": snapshot.limit_amount,
-        "unit": snapshot.unit,
-        "source": snapshot.source.model_dump(mode="json") if snapshot.source else None,
-    }
 
 
 def _rollup_row(aggregate: AggregateImportV2) -> dict[str, Any]:

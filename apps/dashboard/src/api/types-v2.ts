@@ -240,6 +240,13 @@ export interface LimitSnapshotV2 {
   resets_at: string | null;
   /** ``official`` or ``estimated`` (FR-UI-012). */
   provenance: string;
+  // v2 stream dimensions and measures; null for dimension-less snapshots.
+  account: string | null;
+  organization: string | null;
+  source_id: number | null;
+  limit_amount: string | null;
+  remaining: string | null;
+  unit: string | null;
 }
 
 /** A keyset-paginated page of limit snapshots (LimitsResponse). */

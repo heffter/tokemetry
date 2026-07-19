@@ -3290,13 +3290,14 @@
             "id": 2,
             "title": "limit_snapshots dimensions migration and grouping rules",
             "description": "Account, organization, and source dimensions with no-merge semantics.",
-            "details": "Alembic migration extending limit_snapshots: account (nullable string label), organization (nullable), source_id (nullable reference), limit_amount Numeric nullable, remaining Numeric nullable, unit (nullable string like tokens, requests, percent) alongside the existing utilization_pct, resets_at, provenance, and raw payload (FR-LIMIT-002/003); existing rows migrate with null new dimensions. Service-layer grouping rule: limit streams are keyed by (provider, window_kind, account, organization, source scope) and different keys are never merged into one series without an explicit configured grouping rule (FR-LIMIT-005); official and estimated snapshots stay distinguishable in every query (FR-LIMIT-004). Update the v2 limits ingest endpoint (62.7) to persist the full dimension set, removing its transitional feature flag. Test strategy: migration tests both engines with existing-data preservation; grouping-rule unit tests (two accounts same window produce two series); ingest round-trip with full dimensions; v1 limits ingest regression (dimension-less snapshots keep working, golden suite green).",
-            "status": "pending",
+            "details": "Alembic migration extending limit_snapshots: account (nullable string label), organization (nullable), source_id (nullable reference), limit_amount Numeric nullable, remaining Numeric nullable, unit (nullable string like tokens, requests, percent) alongside the existing utilization_pct, resets_at, provenance, and raw payload (FR-LIMIT-002/003); existing rows migrate with null new dimensions. Service-layer grouping rule: limit streams are keyed by (provider, window_kind, account, organization, source scope) and different keys are never merged into one series without an explicit configured grouping rule (FR-LIMIT-005); official and estimated snapshots stay distinguishable in every query (FR-LIMIT-004). Update the v2 limits ingest endpoint (62.7) to persist the full dimension set, removing its transitional feature flag. Test strategy: migration tests both engines with existing-data preservation; grouping-rule unit tests (two accounts same window produce two series); ingest round-trip with full dimensions; v1 limits ingest regression (dimension-less snapshots keep working, golden suite green).\n<info added on 2026-07-19T14:19:57.445Z>\nMigration 0023 adds six nullable columns (account, organization, source_id, limit_amount, remaining, unit) to limit_snapshots with a source_id index; existing rows preserve nulls. ingest_v2_meta.ingest_limits now writes these columns directly and removes the transitional raw['v2_dimensions'] stash; source_id captures the reporting source while raw retains a per-snapshot source reference. services/limit_grouping.py implements LimitStreamKey and group_limit_snapshots keyed by (provider, window_kind, account, organization, source_id) enforcing the no-merge default so two accounts with identically-named windows produce separate streams; provenance excluded from the key allows official and estimated readings in one stream. LimitSnapshotOut and dashboard LimitSnapshotV2 type expose the new fields via from_attributes auto-mapping. Tests cover grouping rules (two accounts yield two streams, official plus estimated together, org and source distinguish, key shape), ingest round-trip asserting column persistence not raw stash, v1 golden suite unchanged for dimension-less snapshots, and v2 endpoint returning new fields. ruff, mypy, 154 dashboard tests, vue-tsc, eslint, and prettier all clean with no new dependencies, secrets, or configuration.\n</info added on 2026-07-19T14:19:57.445Z>",
+            "status": "done",
             "dependencies": [
               "69.1"
             ],
             "parentTaskId": 69,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T14:20:20.964Z"
           },
           {
             "id": 3,
@@ -3362,7 +3363,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T14:05:44.084Z"
+        "updatedAt": "2026-07-19T14:20:20.964Z"
       },
       {
         "id": "70",
@@ -3636,7 +3637,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T14:05:44.086Z",
+      "lastModified": "2026-07-19T14:20:20.965Z",
       "taskCount": 75,
       "completedCount": 66,
       "tags": [

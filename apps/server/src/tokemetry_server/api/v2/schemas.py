@@ -507,7 +507,11 @@ class SessionsResponse(BaseModel):
 
 
 class LimitSnapshotOut(BaseModel):
-    """One limit-utilization snapshot with its provenance (FR-LIMIT-004)."""
+    """One limit-utilization snapshot with its provenance (FR-LIMIT-004).
+
+    The v2 dimensions (account/organization/source_id) and measures
+    (limit_amount/remaining/unit) are null for v1 and dimension-less snapshots.
+    """
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
@@ -519,6 +523,12 @@ class LimitSnapshotOut(BaseModel):
     utilization_pct: Decimal
     resets_at: UtcDatetime | None
     provenance: str
+    account: str | None = None
+    organization: str | None = None
+    source_id: int | None = None
+    limit_amount: Decimal | None = None
+    remaining: Decimal | None = None
+    unit: str | None = None
 
 
 class LimitsResponse(BaseModel):
