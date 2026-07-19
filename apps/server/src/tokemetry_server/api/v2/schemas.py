@@ -322,3 +322,74 @@ class PageMeta(BaseModel):
 
     #: Opaque cursor for the next page, or null on the last page.
     next_cursor: str | None = None
+
+
+class UsageRowOut(BaseModel):
+    """One grouped usage aggregate (six counters plus attempt count)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    reasoning_tokens: int
+    total_tokens: int
+    attempt_count: int
+
+
+class UsageResponse(BaseModel):
+    """Grouped final-attempt usage with data-quality warnings (FR-QUERY-007)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    group_by: str
+    rows: list[UsageRowOut]
+    warnings: list[QueryWarningOut]
+
+
+class CostRowOut(BaseModel):
+    """One grouped cost aggregate: dual metrics never merged (FR-COST-012)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    actual_spend_usd: Decimal
+    subscription_value_usd: Decimal
+    cost_priced_usd: Decimal
+    cost_partial_usd: Decimal
+    cost_estimated_usd: Decimal
+    unpriced_event_count: int
+    pricing_version: str
+
+
+class CostResponse(BaseModel):
+    """Grouped costs with data-quality warnings (FR-QUERY-006)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    group_by: str
+    rows: list[CostRowOut]
+    warnings: list[QueryWarningOut]
+
+
+class ReconciliationRowOut(BaseModel):
+    """Observed-versus-computed cost drift for one provider (FR-COST-003/005)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    computed_usd: Decimal
+    observed_usd: Decimal
+    drift_usd: Decimal
+    event_count: int
+
+
+class ReconciliationResponse(BaseModel):
+    """Cost reconciliation drift rows."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rows: list[ReconciliationRowOut]

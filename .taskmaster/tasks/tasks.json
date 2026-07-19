@@ -2954,14 +2954,15 @@
             "id": 4,
             "title": "Usage and cost query endpoints",
             "description": "GET /api/v2/usage and /api/v2/costs with dual metrics.",
-            "details": "Add api/v2/usage.py and api/v2/costs.py. GET /api/v2/usage: time-ranged, grouped by any grain dimension (day, provider, model, machine, project, source, environment, session), served from daily_rollups for rollup grains and from the ledger for session grouping mirroring the current v1 split; returns all six token counters plus attempt counts, distinguishing attempts from logical requests explicitly in the response envelope (FR-QUERY-007/008). GET /api/v2/costs: actual_spend_usd and subscription_value_usd as separate series (FR-COST-012, decision D-007), broken down by cost_status with unpriced_event_count, and each row carrying pricing_version where a single version applies or a mixed marker (FR-QUERY-006); reconciliation drift sub-resource (observed versus computed) from Task 65.6 exposed as /api/v2/costs/reconciliation. Both use the query framework: filters, pagination, sorting, warnings; scope query:read. Test strategy: integration tests over multi-provider seeded data for every group-by, dual-metric separation assertions (no endpoint returns a merged total), cost-status breakdown and pricing-version reporting, filter and warning behavior; contract snapshot into OpenAPI.",
-            "status": "pending",
+            "details": "Add api/v2/usage.py and api/v2/costs.py. GET /api/v2/usage: time-ranged, grouped by any grain dimension (day, provider, model, machine, project, source, environment, session), served from daily_rollups for rollup grains and from the ledger for session grouping mirroring the current v1 split; returns all six token counters plus attempt counts, distinguishing attempts from logical requests explicitly in the response envelope (FR-QUERY-007/008). GET /api/v2/costs: actual_spend_usd and subscription_value_usd as separate series (FR-COST-012, decision D-007), broken down by cost_status with unpriced_event_count, and each row carrying pricing_version where a single version applies or a mixed marker (FR-QUERY-006); reconciliation drift sub-resource (observed versus computed) from Task 65.6 exposed as /api/v2/costs/reconciliation. Both use the query framework: filters, pagination, sorting, warnings; scope query:read. Test strategy: integration tests over multi-provider seeded data for every group-by, dual-metric separation assertions (no endpoint returns a merged total), cost-status breakdown and pricing-version reporting, filter and warning behavior; contract snapshot into OpenAPI.\n<info added on 2026-07-19T07:44:14.454Z>\nImplementation complete. Endpoints serve from usage_events_v2 final attempts (not rollups) for /usage and computed_costs for /costs, ensuring dual-metric separation (actual_spend_usd and subscription_value_usd never merged). services/queries_v2.py implements grouped_usage (6 counters + total + attempt_count, group_by day/provider/model/machine/project/source/environment/session with sources join for source dimension, date cast for day grain) and grouped_costs (cost_status breakdown priced/partial/estimated + unpriced_event_count, pricing_version single or 'mixed' via count distinct, active rows only). cost_reconciliation sub-resource reports observed-vs-computed drift by provider where observed_cost is set. Uniform filters via api/v2/query_deps.py shared query_filters dependency + to_utc helper; unknown_provider/unknown_model pseudo-filters use NOT EXISTS against registry tables. Endpoints enforce_range_bound (query_max_range_days config), validate group_by/sort raising QueryParamError→400, attach collect_warnings envelope, sort in Python post-aggregation. Routers wired into v2/__init__. Schemas UsageRow/CostRow/ReconciliationRow + envelope responses with extra=forbid. Design decision: grouped endpoints use sort+bounded-range pattern (keyset cursors reserved for raw event listing in 66.5); /usage reads ledger directly so attempt_count available in single query; agent filter and week/month grain aggregation deferred to future iteration. Test coverage: service layer test_queries_v2.py (7 tests: group-by dimension matrix, snapshot exclusion, dual-metric separation assertions, cost_status+mixed-version reporting, reconciliation drift calculation, unknown-model filter behavior) + API layer test_query_api_v2.py (5 tests: grouped usage response shape, bad group_by/range 400 validation, dual-metric shape verification no merged total, reconciliation endpoint, query:read scope 403). Full suite 700 passed/40 skipped; ruff+mypy(101)+trivy clean. docs/api/query.md updated with endpoint specifications.\n</info added on 2026-07-19T07:44:14.454Z>",
+            "status": "done",
             "dependencies": [
               "66.2",
               "66.3"
             ],
             "parentTaskId": 66,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:44:32.960Z"
           },
           {
             "id": 5,
@@ -3151,7 +3152,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T07:18:43.325Z"
+        "updatedAt": "2026-07-19T07:44:32.960Z"
       },
       {
         "id": "67",
@@ -3677,7 +3678,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T07:18:43.326Z",
+      "lastModified": "2026-07-19T07:44:32.962Z",
       "taskCount": 71,
       "completedCount": 64,
       "tags": [

@@ -65,6 +65,27 @@ auth). See [registries.md](registries.md) for the full contract.
 - `GET /api/v2/models` -- model registry rows, filterable by `provider` and
   `lifecycle`, each with its native id and alias spellings.
 
+## Usage and cost (v2)
+
+Provider-neutral read endpoints under `/api/v2` (scope `query:read`). Both take
+a bounded `from`/`to` range (max `TOKEMETRY_QUERY_MAX_RANGE_DAYS`), the uniform
+filters (`provider`, `model`, `source`, `machine`, `project`, `session`,
+`environment`, `outcome`, plus `unknown_provider`/`unknown_model`), an explicit
+`sort`, and a data-quality `warnings` envelope (unpriced events, unknown models,
+stale sources).
+
+- `GET /api/v2/usage?from&to&group_by` -- final-attempt usage grouped by a
+  dimension (`day`, `provider`, `model`, `machine`, `project`, `source`,
+  `environment`, `session`); returns all six token counters plus `attempt_count`
+  (snapshots and logical-request summaries are excluded).
+- `GET /api/v2/costs?from&to&group_by` -- `actual_spend_usd` and
+  `subscription_value_usd` as separate series (never merged), a cost-status split
+  (`cost_priced_usd`/`cost_partial_usd`/`cost_estimated_usd`,
+  `unpriced_event_count`), and each row's `pricing_version` (`mixed` when it
+  spans several).
+- `GET /api/v2/costs/reconciliation?from&to` -- observed-versus-computed cost
+  drift by provider (populated once exporters supply observed costs).
+
 ## Pricing administration (v2)
 
 The provider-neutral pricing surface is under `/api/v2/pricing`. Reads need

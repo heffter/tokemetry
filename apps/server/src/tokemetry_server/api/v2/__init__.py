@@ -8,13 +8,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from tokemetry_server.api.v2.costs import router as _costs_router
 from tokemetry_server.api.v2.ingest import router as _ingest_router
 from tokemetry_server.api.v2.pricing import router as _pricing_router
 from tokemetry_server.api.v2.registries import router as _registries_router
 from tokemetry_server.api.v2.sources import router as _sources_router
+from tokemetry_server.api.v2.usage import router as _usage_router
 
 router = APIRouter()
 router.include_router(_registries_router)
 router.include_router(_ingest_router)
 router.include_router(_sources_router)
 router.include_router(_pricing_router)
+router.include_router(_usage_router)
+router.include_router(_costs_router)
