@@ -276,6 +276,82 @@ export interface RateCardV2 {
   override: boolean;
 }
 
+// --- Pricing administration (mutations, reports) ---
+
+/** Create a rate card (manual price or override) (RateCardCreateRequest). */
+export interface RateCardCreate {
+  provider: string;
+  native_model: string;
+  unit_type: string;
+  effective_from: string;
+  unit_price: string;
+  currency?: string;
+  mode?: string;
+  service_tier?: string | null;
+  context_bracket?: string | null;
+  region?: string | null;
+  source?: string;
+  priority?: number;
+  override?: boolean;
+  effective_to?: string | null;
+}
+
+/** A created rate card plus the current pricing-state version (RateCardMutationResponse). */
+export interface RateCardMutationResponse {
+  rate_card: RateCardV2;
+  pricing_version: string;
+}
+
+/** The outcome of closing a rate card (RateCardCloseResponse). */
+export interface RateCardCloseResponse {
+  rate_card_id: number;
+  pricing_version: string;
+}
+
+/** One row's effect in an import diff (ImportChangeOut). */
+export interface ImportChange {
+  action: string;
+  provider: string;
+  native_model: string;
+  unit_type: string;
+  priority: number;
+  new_price: string | null;
+}
+
+/** A rate-card import dry-run diff or apply result (ImportResponse, D-015). */
+export interface ImportResponse {
+  dry_run: boolean;
+  digest: string;
+  new: number;
+  superseded: number;
+  unchanged: number;
+  conflicts: number;
+  changes: ImportChange[];
+}
+
+/** The outcome of a reprice or revert operation (RepriceResponse). */
+export interface RepriceResponse {
+  pricing_version: string;
+  affected: number;
+}
+
+/** An aggregate of unpriced/partial events for one model (UnpricedReportRow). */
+export interface UnpricedReportRow {
+  provider: string;
+  native_model: string;
+  cost_status: string;
+  event_count: number;
+}
+
+/** An unknown-model observation recorded at ingest (UnknownModelReportRow). */
+export interface UnknownModelReportRow {
+  provider: string;
+  native_model: string;
+  observations: number;
+  resolved: boolean;
+  last_seen: string;
+}
+
 // --- Rollups ---
 
 /** One daily_rollups row exposed for external tooling (RollupOut). */

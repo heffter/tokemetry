@@ -24,11 +24,16 @@ import type {
   CostResponseV2,
   DataQualityResponseV2,
   LimitsResponseV2,
+  ImportResponse,
   ModelLifecycle,
   ModelV2,
   ProviderV2,
+  RateCardCreate,
+  RateCardCloseResponse,
+  RateCardMutationResponse,
   RateCardV2,
   ReconciliationResponseV2,
+  RepriceResponse,
   RequestDetailV2,
   RequestsResponseV2,
   RollupsResponseV2,
@@ -36,6 +41,8 @@ import type {
   SessionsResponseV2,
   SessionV2,
   SourceV2,
+  UnknownModelReportRow,
+  UnpricedReportRow,
   UsageResponseV2,
 } from './types-v2';
 
@@ -449,6 +456,76 @@ export class ApiClient {
     if (query.unitType) params.set('unit_type', query.unitType);
     if (query.activeOn) params.set('active_on', query.activeOn);
     return this.request<RateCardV2[]>(`/api/v2/pricing?${params}`);
+  }
+
+  // --- Pricing administration (scope admin:pricing; every mutation audited) ---
+
+  v2CreatePrice(card: RateCardCreate): Promise<RateCardMutationResponse> {
+    return this.request<RateCardMutationResponse>(
+      '/api/v2/pricing',
+      'POST',
+      card
+    );
+  }
+
+  v2ClosePrice(
+    id: number,
+    effectiveTo: string
+  ): Promise<RateCardCloseResponse> {
+    return this.request<RateCardCloseResponse>(
+      `/api/v2/pricing/${id}/close`,
+      'POST',
+      { effective_to: effectiveTo }
+    );
+  }
+
+  /** Diff (dry_run=true) or apply (dry_run=false, with the dry-run digest) a
+   *  LiteLLM + curated price import (D-015). */
+  v2ImportPricing(dryRun: boolean, digest?: string): Promise<ImportResponse> {
+    return this.request<ImportResponse>(
+      `/api/v2/pricing/import?dry_run=${dryRun}`,
+      'POST',
+      digest === undefined ? {} : { digest }
+    );
+  }
+
+  v2Reprice(body: {
+    start: string;
+    end: string;
+    provider?: string;
+    native_model?: string;
+  }): Promise<RepriceResponse> {
+    return this.request<RepriceResponse>(
+      '/api/v2/pricing/reprice',
+      'POST',
+      body
+    );
+  }
+
+  v2RevertPricing(body: {
+    pricing_version: string;
+    start: string;
+    end: string;
+    provider?: string;
+    native_model?: string;
+  }): Promise<RepriceResponse> {
+    return this.request<RepriceResponse>(
+      '/api/v2/pricing/revert',
+      'POST',
+      body
+    );
+  }
+
+  v2UnpricedReport(): Promise<UnpricedReportRow[]> {
+    return this.request<UnpricedReportRow[]>(
+      '/api/v2/pricing/reports/unpriced'
+    );
+  }
+
+  v2UnknownModelsReport(): Promise<UnknownModelReportRow[]> {
+    return this.request<UnknownModelReportRow[]>(
+      '/api/v2/pricing/reports/unknown-models'
+    );
   }
 
   v2Rollups(

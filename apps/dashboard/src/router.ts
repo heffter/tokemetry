@@ -46,6 +46,16 @@ export const router = createRouter({
       component: () => import('@/views/SourcesView.vue'),
     },
     {
+      path: '/data-quality',
+      name: 'data-quality',
+      component: () => import('@/views/DataQualityView.vue'),
+    },
+    {
+      path: '/pricing-admin',
+      name: 'pricing-admin',
+      component: () => import('@/views/PricingAdminView.vue'),
+    },
+    {
       path: '/report',
       name: 'report',
       component: () => import('@/views/ReportView.vue'),

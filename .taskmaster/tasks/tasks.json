@@ -3144,14 +3144,15 @@
             "id": 8,
             "title": "Data quality page and pricing administration page",
             "description": "Unknowns, unpriced, conflicts; rate-card management with diff review.",
-            "details": "Add DataQualityView (route /data-quality) on /api/v2/data-quality: filterable feed of unknown providers, unknown models, unpriced usage, sequence conflicts, schema drift, limit-source failures, and clock skew with resolve marking and deep links (unknown model links to pricing admin, unpriced to the affected cost range) satisfying FR-UI-008 and US-010/012. Rework the SettingsView pricing section into a PricingAdminView (route /pricing-admin): rate-card table with effective ranges, tier, mode, bracket, priority, source, and verification date; manual rate creation and closure; import flow rendering the dry-run diff (new, superseded, conflicting rows) with an explicit apply step per decision D-015; repricing launcher with range selection and revert list; every action confirms and displays the audit outcome. Admin actions are gated on an admin-scoped token in the client settings. Test strategy: vitest tests for feed filtering and deep links, diff rendering states, apply-confirmation flow, and admin-gate behavior; end-to-end manual pass creating a rate, importing with diff, and repricing against the dev server.",
-            "status": "pending",
+            "details": "Add DataQualityView (route /data-quality) on /api/v2/data-quality: filterable feed of unknown providers, unknown models, unpriced usage, sequence conflicts, schema drift, limit-source failures, and clock skew with resolve marking and deep links (unknown model links to pricing admin, unpriced to the affected cost range) satisfying FR-UI-008 and US-010/012. Rework the SettingsView pricing section into a PricingAdminView (route /pricing-admin): rate-card table with effective ranges, tier, mode, bracket, priority, source, and verification date; manual rate creation and closure; import flow rendering the dry-run diff (new, superseded, conflicting rows) with an explicit apply step per decision D-015; repricing launcher with range selection and revert list; every action confirms and displays the audit outcome. Admin actions are gated on an admin-scoped token in the client settings. Test strategy: vitest tests for feed filtering and deep links, diff rendering states, apply-confirmation flow, and admin-gate behavior; end-to-end manual pass creating a rate, importing with diff, and repricing against the dev server.\n<info added on 2026-07-19T11:47:43.765Z>\nImplemented both admin pages with live validation. DataQualityView serves a filterable feed (kind + resolved state) with keyset load-more and deep links via lib/dataQuality.deepLinkFor (unit-tested); resolve-marking is read-only (v2 API is GET-only, mutation deferred pending server endpoint). PricingAdminView provides rate-card table (provider, model, unit, price, effective range, tier/mode/bracket, priority, source, override) with manual create and close; LiteLLM+curated import renders dry-run diff (new/superseded/unchanged/conflicts + per-row changes) with confirmed apply using digest (D-015); reprice launcher (range + optional provider/model, confirmed); unpriced + unknown-model reports. Every mutation confirms and shows audit outcome (new pricing-state version); 403 surfaces as error (admin:pricing gating). Added pricing-admin client methods (create/close/import/reprice/revert/reports) + wire types in types-v2. Live validation: data-quality returned 7 real events (unknown_model/provider, clock_skew); reports/unpriced (4) and reports/unknown-models (4) populated; create rate card returned 201 (bootstrap token has admin:pricing); import dry-run returned 200 with 403 new cards; both routes serve. 147 dashboard tests pass; vue-tsc/eslint/prettier clean. Deferred: data-quality resolve-marking (requires small server addition for v2 mutation endpoint).\n</info added on 2026-07-19T11:47:43.765Z>",
+            "status": "done",
             "dependencies": [
               "67.1",
               "67.4"
             ],
             "parentTaskId": 67,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T11:48:03.193Z"
           },
           {
             "id": 9,
@@ -3169,7 +3170,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T11:38:49.961Z"
+        "updatedAt": "2026-07-19T11:48:03.193Z"
       },
       {
         "id": "68",
@@ -3632,7 +3633,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T11:38:49.961Z",
+      "lastModified": "2026-07-19T11:48:03.195Z",
       "taskCount": 75,
       "completedCount": 65,
       "tags": [

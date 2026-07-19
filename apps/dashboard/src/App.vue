@@ -17,6 +17,8 @@ const links = [
   { to: '/sessions', label: 'Sessions' },
   { to: '/machines', label: 'Machines' },
   { to: '/sources', label: 'Sources' },
+  { to: '/data-quality', label: 'Data quality' },
+  { to: '/pricing-admin', label: 'Pricing' },
   { to: '/report', label: 'Report' },
   { to: '/alerts', label: 'Alerts' },
   { to: '/settings', label: 'Settings' },
