@@ -7,6 +7,7 @@ clients (the dashboard, OpenClaw, scripts) authenticate with these.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -14,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
+from tokemetry_server.scopes import ALL_SCOPES, validate_scopes
 from tokemetry_server.security import generate_token, hash_token
 
 
@@ -24,6 +26,7 @@ class CreatedToken:
     label: str
     token: str
     created_at: datetime
+    scopes: list[str]
 
 
 @dataclass(frozen=True)
@@ -34,18 +37,33 @@ class TokenInfo:
     created_at: datetime
     last_used: datetime | None
     revoked: bool
+    scopes: list[str]
+    source_allowlist: list[str] | None
 
 
 class DuplicateLabelError(ValueError):
     """A token with the requested label already exists."""
 
 
-async def create_token(session: AsyncSession, label: str) -> CreatedToken:
+async def create_token(
+    session: AsyncSession,
+    label: str,
+    scopes: Iterable[str] | None = None,
+    source_allowlist: list[str] | None = None,
+) -> CreatedToken:
     """Create and store a new token; return its one-time plaintext.
+
+    ``scopes`` default to the full set for compatibility with pre-scope token
+    creation; unknown scopes are rejected (:class:`UnknownScopeError`).
 
     Raises:
         DuplicateLabelError: If the label is already in use.
+        UnknownScopeError: If any requested scope is unknown.
     """
+    resolved_scopes = (
+        list(ALL_SCOPES) if scopes is None else validate_scopes(scopes)
+    )
+
     existing = await session.execute(
         select(models.ApiToken).where(models.ApiToken.label == label)
     )
@@ -60,9 +78,13 @@ async def create_token(session: AsyncSession, label: str) -> CreatedToken:
             token_hash=hash_token(token),
             created_at=created_at,
             revoked=False,
+            scopes=resolved_scopes,
+            source_allowlist=source_allowlist,
         )
     )
-    return CreatedToken(label=label, token=token, created_at=created_at)
+    return CreatedToken(
+        label=label, token=token, created_at=created_at, scopes=resolved_scopes
+    )
 
 
 async def list_tokens(session: AsyncSession) -> list[TokenInfo]:
@@ -76,6 +98,8 @@ async def list_tokens(session: AsyncSession) -> list[TokenInfo]:
             created_at=_as_utc(row.created_at),
             last_used=_as_utc(row.last_used) if row.last_used else None,
             revoked=row.revoked,
+            scopes=list(row.scopes or []),
+            source_allowlist=list(row.source_allowlist) if row.source_allowlist else None,
         )
         for row in result.scalars()
     ]

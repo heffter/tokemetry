@@ -324,9 +324,16 @@ class SyncResult(BaseModel):
 
 
 class TokenCreateRequest(BaseModel):
-    """Request to mint an API token."""
+    """Request to mint an API token.
+
+    ``scopes`` default to the full set when omitted (compatibility with
+    pre-scope clients); ``source_allowlist`` optionally restricts which
+    reporting sources the token may ingest for.
+    """
 
     label: str
+    scopes: list[str] | None = None
+    source_allowlist: list[str] | None = None
 
 
 class TokenCreatedOut(BaseModel):
@@ -335,6 +342,7 @@ class TokenCreatedOut(BaseModel):
     label: str
     token: str
     created_at: UtcDatetime
+    scopes: list[str]
 
 
 class TokenInfoOut(BaseModel):
@@ -344,3 +352,5 @@ class TokenInfoOut(BaseModel):
     created_at: UtcDatetime
     last_used: UtcDatetime | None
     revoked: bool
+    scopes: list[str]
+    source_allowlist: list[str] | None

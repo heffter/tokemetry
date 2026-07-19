@@ -493,6 +493,10 @@ class ApiToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_used: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Least-privilege scopes (task 63.3) and an optional source-name allowlist
+    # that restricts which reporting sources the token may ingest for.
+    scopes: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    source_allowlist: Mapped[list[str] | None] = mapped_column(JSONType)
 
 
 class AppSetting(Base):

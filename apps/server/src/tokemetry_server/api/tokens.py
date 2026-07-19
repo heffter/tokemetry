@@ -16,6 +16,7 @@ from tokemetry_server.api.schemas_query import (
     TokenCreateRequest,
     TokenInfoOut,
 )
+from tokemetry_server.scopes import UnknownScopeError
 from tokemetry_server.services import tokens as token_service
 
 router = APIRouter(prefix="/api/v1/tokens", tags=["tokens"])
@@ -29,13 +30,22 @@ async def create_token(
 ) -> TokenCreatedOut:
     """Mint a new API token; the secret is returned only in this response."""
     try:
-        created = await token_service.create_token(session, payload.label)
+        created = await token_service.create_token(
+            session, payload.label, payload.scopes, payload.source_allowlist
+        )
     except token_service.DuplicateLabelError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="label already exists"
         ) from exc
+    except UnknownScopeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     return TokenCreatedOut(
-        label=created.label, token=created.token, created_at=created.created_at
+        label=created.label,
+        token=created.token,
+        created_at=created.created_at,
+        scopes=created.scopes,
     )
 
 
@@ -51,6 +61,8 @@ async def list_tokens(
             created_at=info.created_at,
             last_used=info.last_used,
             revoked=info.revoked,
+            scopes=info.scopes,
+            source_allowlist=info.source_allowlist,
         )
         for info in await token_service.list_tokens(session)
     ]

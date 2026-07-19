@@ -2579,11 +2579,12 @@
             "id": 3,
             "title": "Token scopes model and migration",
             "description": "Scoped API tokens with migration defaulting existing tokens to full access.",
-            "details": "Alembic migration adding scopes (JSONType list) and source_allowlist (JSONType list, nullable) to api_tokens. Scope vocabulary: ingest:events, ingest:limits, ingest:aggregates, query:read, admin:tokens, admin:corrections, admin:pricing, admin:retention (FR-INGEST-003 extended by decisions D-002 and D-015; admin scopes cover the administrative surfaces landing in Tasks 64 and 70). Existing tokens migrate to the full scope set so current collectors keep working (compatibility default documented); the env bootstrap token implicitly holds all scopes (FR-SEC-008). Token creation API accepts a scope list; hashing, single plaintext display, revocation, and last_used behavior unchanged (FR-SEC-001/002/005/006). services/tokens.py returns scope data with the auth principal. Test strategy: migration tests asserting existing tokens receive full scopes on upgrade and clean downgrade; unit tests for scope parsing and validation (unknown scope rejected at creation); creation and revocation round trips with scoped tokens.",
-            "status": "pending",
+            "details": "Alembic migration adding scopes (JSONType list) and source_allowlist (JSONType list, nullable) to api_tokens. Scope vocabulary: ingest:events, ingest:limits, ingest:aggregates, query:read, admin:tokens, admin:corrections, admin:pricing, admin:retention (FR-INGEST-003 extended by decisions D-002 and D-015; admin scopes cover the administrative surfaces landing in Tasks 64 and 70). Existing tokens migrate to the full scope set so current collectors keep working (compatibility default documented); the env bootstrap token implicitly holds all scopes (FR-SEC-008). Token creation API accepts a scope list; hashing, single plaintext display, revocation, and last_used behavior unchanged (FR-SEC-001/002/005/006). services/tokens.py returns scope data with the auth principal. Test strategy: migration tests asserting existing tokens receive full scopes on upgrade and clean downgrade; unit tests for scope parsing and validation (unknown scope rejected at creation); creation and revocation round trips with scoped tokens.\n<info added on 2026-07-19T00:27:18.674Z>\nAdded token scopes and source_allowlist to the api_tokens model with Migration 0013. The new scopes.py vocabulary defines INGEST_EVENTS, INGEST_LIMITS, INGEST_AGGREGATES, QUERY_READ, and ADMIN_TOKENS, ADMIN_CORRECTIONS, ADMIN_PRICING, ADMIN_RETENTION (per FR-INGEST-003 + D-002/D-015), plus ALL_SCOPES (ordered full set) and KNOWN_SCOPES (frozenset); validate_scopes() returns de-duped canonical order and raises UnknownScopeError on unknowns. Migration 0013 adds scopes and source_allowlist JSON columns to api_tokens and grants existing tokens the full scope set via a typed core-table UPDATE (dialect-safe on SQLite + Postgres) so current collectors keep working (compatibility default documented); the env bootstrap token implicitly holds all scopes (FR-SEC-008, never a row). ORM ApiToken gains scopes (default list) and source_allowlist. services/tokens.create_token(scopes=None → full set default, source_allowlist) validates scopes; CreatedToken/TokenInfo carry scopes (+ TokenInfo.source_allowlist). API: TokenCreateRequest accepts optional scopes + source_allowlist; TokenCreatedOut/TokenInfoOut expose scopes; UnknownScopeError → 400; hashing/single-plaintext-display/revocation/last_used unchanged (FR-SEC-001/002/005/006). Tests: unit test_scopes.py (all-known, canonical-order dedup, unknown rejected, empty allowed, full set) and integration test_token_scopes.py (migration grants existing tokens full scopes at upgrade from rev 0012 on both engines, create-with-scopes round trip via API + list, default-is-full, unknown-scope 400, source_allowlist round trip). Scope enforcement across v1/v2/WebSocket + auth principal is in subtask 63.4. Gates: pytest 569 passed/28 skipped, ruff clean, mypy strict clean (101 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-19T00:27:18.674Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 63,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T00:27:49.547Z"
           },
           {
             "id": 4,
@@ -2636,7 +2637,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T00:12:52.589Z"
+        "updatedAt": "2026-07-19T00:27:49.547Z"
       },
       {
         "id": "64",
@@ -3535,7 +3536,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T00:12:52.591Z",
+      "lastModified": "2026-07-19T00:27:49.549Z",
       "taskCount": 71,
       "completedCount": 62,
       "tags": [
