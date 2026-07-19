@@ -99,12 +99,12 @@ class TestProviderDescriptor:
         # the labels the dashboard hardcoded, so migrating to it is a
         # zero-visual-change swap.
         labels = {w.kind: w.label for w in ANTHROPIC_DESCRIPTOR.windows}
-        assert labels == {
-            "five_hour": "5-hour block",
-            "seven_day": "Weekly",
-            "seven_day_opus": "Weekly (Opus)",
-            "seven_day_sonnet": "Weekly (Sonnet)",
-        }
+        assert labels["five_hour"] == "5-hour block"
+        assert labels["seven_day"] == "Weekly"
+        assert labels["seven_day_opus"] == "Weekly (Opus)"
+        assert labels["seven_day_sonnet"] == "Weekly (Sonnet)"
+        # Gateway-observed API rate-limit windows are declared too (69.5).
+        assert "requests_per_minute" in labels
         five_hour = next(
             w for w in ANTHROPIC_DESCRIPTOR.windows if w.kind == "five_hour"
         )

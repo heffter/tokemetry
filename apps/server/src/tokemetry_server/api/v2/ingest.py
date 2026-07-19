@@ -431,7 +431,10 @@ async def ingest_limits(
 
     service = MetaIngestV2Service(session, request.app.state.dialect_name)
     batch_id, accepted = await service.ingest_limits(
-        snapshots, token_label=principal.label, request_id=request_id
+        snapshots,
+        token_label=principal.label,
+        request_id=request_id,
+        min_interval_seconds=settings.limit_snapshot_min_interval_seconds,
     )
     await session.commit()
     return MetaIngestResponse(batch_id=batch_id, request_id=request_id, accepted=accepted)

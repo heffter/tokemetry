@@ -3329,13 +3329,14 @@
             "id": 5,
             "title": "Gateway rate-limit header snapshots",
             "description": "Proxy-observed provider rate limits as optional estimated snapshots.",
-            "details": "Support gateways submitting observed rate-limit headers as limit snapshots (FR-LIMIT-010): document the mapping in the proxy integration contract (anthropic-ratelimit-* and x-ratelimit-* header families to window kinds like requests_per_minute, tokens_per_minute with limit_amount, remaining, resets_at), provenance estimated (headers are point-in-time observations, FR-LIMIT-004), source identity attached so gateway-observed and collector-official streams stay separate under the no-merge rule; per-window-kind rate limiting of snapshot ingest (accept at most one snapshot per source per window kind per configurable interval) so high-traffic gateways do not flood the table. Registry entries for the API rate-limit window kinds with labels. Extend the conformance fixtures (65.7) with a limits batch. Test strategy: integration test posting header-derived snapshots through /api/v2/ingest/limits with an ingest:limits token asserting provenance, dimensions, and flood-control behavior; documentation review of the header mapping table; no-merge verification with simultaneous collector and gateway streams for the same provider.",
-            "status": "pending",
+            "details": "Support gateways submitting observed rate-limit headers as limit snapshots (FR-LIMIT-010): document the mapping in the proxy integration contract (anthropic-ratelimit-* and x-ratelimit-* header families to window kinds like requests_per_minute, tokens_per_minute with limit_amount, remaining, resets_at), provenance estimated (headers are point-in-time observations, FR-LIMIT-004), source identity attached so gateway-observed and collector-official streams stay separate under the no-merge rule; per-window-kind rate limiting of snapshot ingest (accept at most one snapshot per source per window kind per configurable interval) so high-traffic gateways do not flood the table. Registry entries for the API rate-limit window kinds with labels. Extend the conformance fixtures (65.7) with a limits batch. Test strategy: integration test posting header-derived snapshots through /api/v2/ingest/limits with an ingest:limits token asserting provenance, dimensions, and flood-control behavior; documentation review of the header mapping table; no-merge verification with simultaneous collector and gateway streams for the same provider.\n<info added on 2026-07-19T15:08:11.943Z>\nImplemented: source resolution via SourceRegistryService ensures gateway-observed and collector-official streams for the same provider/window remain distinct (FR-LIMIT-005); flood control accepts at most one snapshot per resolved source per window kind per limit_snapshot_min_interval_seconds (new config, default 0 = off, gateways typically 60s) with rapid repeats silently dropped and keyed on (source_id, provider, window_kind); provenance estimated preserved with promoted dimension columns persisting limit_amount/remaining/unit. Added anthropic requests_per_minute and tokens_per_minute window kinds to registry (labels 'Requests / min', 'Tokens / min') for anthropic-ratelimit-*/x-ratelimit-* header families (FR-LIMIT-012). Documented header-to-window-kind mapping table, utilization derivation, example snapshot, source identity, and flood-control contract in docs/api/gateway-limits.md (linked from ingest-v2.md). test_limit_ingest_flood verifies source resolution to source_id, dimensions, estimated provenance, flood-drop behavior, off-by-default passthrough, and no-merge guarantee for gateway+collector distinct source_ids; targeted server tests and core normalization green, ruff+mypy clean. Conformance-fixture limits batch (65.7) deferred pending Task 65.\n</info added on 2026-07-19T15:08:11.943Z>",
+            "status": "done",
             "dependencies": [
               "69.2"
             ],
             "parentTaskId": 69,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T15:08:35.292Z"
           },
           {
             "id": 6,
@@ -3365,7 +3366,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T14:56:27.522Z"
+        "updatedAt": "2026-07-19T15:08:35.292Z"
       },
       {
         "id": "70",
@@ -3655,7 +3656,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T14:56:27.524Z",
+      "lastModified": "2026-07-19T15:08:35.293Z",
       "taskCount": 76,
       "completedCount": 66,
       "tags": [

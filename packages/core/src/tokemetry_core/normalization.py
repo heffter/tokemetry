@@ -38,6 +38,16 @@ _ANTHROPIC_WINDOWS: tuple[WindowDescriptor, ...] = (
         kind="seven_day_sonnet", label="Weekly (Sonnet)",
         period_kind="rolling", period_seconds=_SEVEN_DAYS, sort_order=3,
     ),
+    # Gateway-observed API rate-limit windows (anthropic-ratelimit-* headers,
+    # FR-LIMIT-010): distinct from the OAuth subscription windows above.
+    WindowDescriptor(
+        kind="requests_per_minute", label="Requests / min",
+        period_kind="rolling", period_seconds=60, sort_order=4,
+    ),
+    WindowDescriptor(
+        kind="tokens_per_minute", label="Tokens / min",
+        period_kind="rolling", period_seconds=60, sort_order=5,
+    ),
 )
 
 ANTHROPIC_DESCRIPTOR = ProviderDescriptor(

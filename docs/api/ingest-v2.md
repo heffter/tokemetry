@@ -34,6 +34,9 @@ client-supplied one when present.
 | GET | `/api/v2/schemas/usage-event` | The published usage-event JSON schema. |
 | GET | `/api/v2/ready` | Unauthenticated readiness (DB + migration). |
 
+Gateways submitting observed rate-limit headers as limit snapshots follow the
+mapping and flood-control contract in [gateway-limits.md](gateway-limits.md).
+
 ## Batch envelope
 
 ```json

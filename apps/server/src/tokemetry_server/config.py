@@ -126,6 +126,12 @@ class Settings(BaseSettings):
     source_error_window_seconds: float = Field(default=3600.0, gt=0)
     source_clock_skew_warn_seconds: float = Field(default=300.0, gt=0)
 
+    #: Flood control for limit-snapshot ingest (FR-LIMIT-010): accept at most
+    #: one snapshot per source per window kind per this many seconds, so a
+    #: high-traffic gateway reporting rate-limit headers does not flood the
+    #: table. 0 disables it (the default; enable it for gateway deployments).
+    limit_snapshot_min_interval_seconds: float = Field(default=0.0, ge=0)
+
     #: Account-level billing-mode overrides (D-007, FR-COST-011), as a
     #: comma-separated ``machine=mode`` list (mode is ``api_billed`` or
     #: ``subscription``). Covers usage whose source keeps the default mode --
