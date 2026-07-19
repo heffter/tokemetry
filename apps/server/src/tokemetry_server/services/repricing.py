@@ -12,7 +12,7 @@ recomputation for the affected days is a Task 66 dependency (noted, not wired).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -23,6 +23,7 @@ from tokemetry_server.db import models
 from tokemetry_server.services.cost_v2 import CostEngineV2
 from tokemetry_server.services.cost_worker import billable_units_for
 from tokemetry_server.services.pricing_v2 import bump_pricing_version
+from tokemetry_server.services.rollups import refresh_rollups_for_days
 
 
 @dataclass(frozen=True)
@@ -73,13 +74,27 @@ async def reprice(
         billable = await billable_units_for(session, row.provider, row.event_id)
         await engine.compute_and_record_row(row, billable, version)
 
+    await _refresh_affected_rollups(session, rows)
     _audit(
         session, actor, "reprice", provider, native_model,
         {"start": start.isoformat(), "end": end.isoformat(), "affected": len(rows),
          "pricing_version": version},
     )
-    # NOTE: rollup recomputation for the affected days is a Task 66 dependency.
     return RepriceResult(pricing_version=version, affected=len(rows))
+
+
+async def _refresh_affected_rollups(
+    session: AsyncSession, rows: Sequence[models.UsageEventV2]
+) -> None:
+    """Recompute rollups for the days a reprice touched (FR-ROLLUP-009)."""
+    bind = session.bind
+    if not rows or bind is None:
+        return
+    days = {
+        (r.ts_started if r.ts_started.tzinfo else r.ts_started.replace(tzinfo=UTC)).date()
+        for r in rows
+    }
+    await refresh_rollups_for_days(session, bind.dialect.name, sorted(days))
 
 
 async def revert(

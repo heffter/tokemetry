@@ -2930,13 +2930,14 @@
             "id": 2,
             "title": "Rollup service v2: final attempts only, incremental, correction-aware",
             "description": "Recompute rollups from the v2 ledger without double counting.",
-            "details": "Rewrite services/rollups.py against usage_events_v2 joined with computed_costs: aggregation selects only event_kind attempt with finality final (FR-ROLLUP-001), never superseded snapshots (revision engine guarantees single active row, FR-ROLLUP-002) and never logical_request summaries (FR-ROLLUP-003); group by the full v2 grain with project_group folding preserved; cost columns split by cost_status and billing_mode from the active computed_costs row; provenance preserved. Refresh remains whole-affected-day recomputation triggered by ingest (matching current architecture) but now also triggered by corrections and repricing for their affected periods (FR-ROLLUP-009 consuming the Task 64 repricing hook); refresh is idempotent (FR-ROLLUP-008) and incremental per day (NFR-PERF-006). rebuild_all_rollups admin path updated. Test strategy: unit tests for grain aggregation with mixed providers, statuses, and billing modes; double-counting prevention tests (snapshot-then-final, multi-attempt logical requests, correction flow recomputing exactly the affected days); idempotency test (double refresh identical); parity test that a pure-v1-shaped dataset produces rollups summing identically to the pre-migration algorithm.",
-            "status": "pending",
+            "details": "Rewrite services/rollups.py against usage_events_v2 joined with computed_costs: aggregation selects only event_kind attempt with finality final (FR-ROLLUP-001), never superseded snapshots (revision engine guarantees single active row, FR-ROLLUP-002) and never logical_request summaries (FR-ROLLUP-003); group by the full v2 grain with project_group folding preserved; cost columns split by cost_status and billing_mode from the active computed_costs row; provenance preserved. Refresh remains whole-affected-day recomputation triggered by ingest (matching current architecture) but now also triggered by corrections and repricing for their affected periods (FR-ROLLUP-009 consuming the Task 64 repricing hook); refresh is idempotent (FR-ROLLUP-008) and incremental per day (NFR-PERF-006). rebuild_all_rollups admin path updated. Test strategy: unit tests for grain aggregation with mixed providers, statuses, and billing modes; double-counting prevention tests (snapshot-then-final, multi-attempt logical requests, correction flow recomputing exactly the affected days); idempotency test (double refresh identical); parity test that a pure-v1-shaped dataset produces rollups summing identically to the pre-migration algorithm.\n<info added on 2026-07-19T07:00:16.827Z>\nImplementation complete: services/rollups.py now aggregates from usage_events_v2 (event_kind=attempt AND finality=final only, excluding snapshots and logical_requests per FR-ROLLUP-001/002/003) LEFT JOIN computed_costs (active rows only) for cost split and LEFT JOIN sources for source dimension. Groups by v2 grain (provider, native_model, machine, project_group, source, environment, billing_mode); provenance remains 'derived' for rebuild_all_rollups compatibility. Cost split implemented via SQL CASE sums: cost_priced_usd/cost_partial_usd/cost_estimated_usd by cost_status (api_billed only), unpriced_event_count for unpriced/error statuses, subscription_value_usd from subscription_equivalent_amount for subscription billing_mode; cost_usd = priced+partial+estimated. NULL handling: contributions default to NULL (not 0) so SUM preserves NULL for all-unknown groups; uncosted events fall back to transitional cost_usd in priced bucket for exact v1 parity. _span switched to usage_events_v2 final attempts. Reprice-to-rollup refresh hook wired (FR-ROLLUP-009): repricing.reprice now triggers rollup refresh for affected days using session.bind dialect. Test suite test_rollups_v2_service.py added (6 tests): cost split by status, billing_mode grain split with subscription value, final-attempts-only filter (snapshots/logical_requests excluded), idempotent double refresh, v1 parity via transitional cost, reprice triggers affected rollup refresh. Full suite 676 passed/40 skipped; ruff+mypy(122)+trivy clean; no golden-fixture or query/analytics regressions.\n</info added on 2026-07-19T07:00:16.827Z>",
+            "status": "done",
             "dependencies": [
               "66.1"
             ],
             "parentTaskId": 66,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:00:34.978Z"
           },
           {
             "id": 3,
@@ -3149,7 +3150,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T06:35:46.522Z"
+        "updatedAt": "2026-07-19T07:00:34.978Z"
       },
       {
         "id": "67",
@@ -3675,7 +3676,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T06:35:46.524Z",
+      "lastModified": "2026-07-19T07:00:34.980Z",
       "taskCount": 71,
       "completedCount": 64,
       "tags": [
