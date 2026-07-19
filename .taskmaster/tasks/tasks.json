@@ -2682,13 +2682,14 @@
             "id": 3,
             "title": "Rate resolution service",
             "description": "Effective-date, tier, mode, bracket, and priority aware price lookup with overlap rejection.",
-            "details": "Add services/pricing_v2.py: resolve(provider, native_model, unit_type, at_ts, tier, mode, context_bracket) returning the applicable rate. Selection rules: candidate rows where effective_from <= at_ts date and (effective_to null or >= date), matching unit_type and mode, tier match or null-tier fallback, bracket match or null-bracket fallback, then highest priority wins with override rows beating non-override at equal priority (FR-PRICE-004 documented precedence); dated-model to base-model fallback preserved from the current PricingTable.resolve base_model_id logic so dated Claude ids keep resolving. Overlap validation on write: two rows with identical (provider, model, unit_type, tier, mode, bracket, priority) and intersecting date ranges are rejected (FR-PRICE-005). Historical cost always uses the rate effective at event time (FR-PRICE-001); adding rows with later effective_from never changes past results (FR-PRICE-016 for automation paths). All arithmetic Decimal (FR-PRICE-017). Test strategy: exhaustive unit tests over the precedence lattice (tier and bracket fallbacks, priority, override), date-boundary tests at exact effective_from midnight UTC, overlap rejection matrix, base-id fallback parity against existing pricing/table.py tests.",
-            "status": "pending",
+            "details": "Add services/pricing_v2.py: resolve(provider, native_model, unit_type, at_ts, tier, mode, context_bracket) returning the applicable rate. Selection rules: candidate rows where effective_from <= at_ts date and (effective_to null or >= date), matching unit_type and mode, tier match or null-tier fallback, bracket match or null-bracket fallback, then highest priority wins with override rows beating non-override at equal priority (FR-PRICE-004 documented precedence); dated-model to base-model fallback preserved from the current PricingTable.resolve base_model_id logic so dated Claude ids keep resolving. Overlap validation on write: two rows with identical (provider, model, unit_type, tier, mode, bracket, priority) and intersecting date ranges are rejected (FR-PRICE-005). Historical cost always uses the rate effective at event time (FR-PRICE-001); adding rows with later effective_from never changes past results (FR-PRICE-016 for automation paths). All arithmetic Decimal (FR-PRICE-017). Test strategy: exhaustive unit tests over the precedence lattice (tier and bracket fallbacks, priority, override), date-boundary tests at exact effective_from midnight UTC, overlap rejection matrix, base-id fallback parity against existing pricing/table.py tests.\n<info added on 2026-07-19T02:17:44.849Z>\nAdded `services/pricing_v2.py` with `resolve_rate(session, provider, native_model, unit_type, at, tier=None, mode='realtime', context_bracket=None) -> ResolvedRate|None` and `check_overlap(...)`. Candidates are date-valid (`effective_from <= at.date() <= effective_to` or open), matching `unit_type` + `mode`; tier requested requires `service_tier == tier` OR `IS NULL` (null-tier fallback), no tier requires `IS NULL` only; same for `context_bracket`. Survivors use `_precedence` to pick max by `(tier-exact, bracket-exact, priority, override, effective_from)` where higher wins (FR-PRICE-004). Dated-to-base model fallback preserved via `tokemetry_core.pricing.table.base_model_id`: `_candidate_models` yields native, then base (dated→undated), or for undated queries the base's dated snapshots newest-first (parity with v1 `PricingTable`). Historical cost uses the rate effective at event time (FR-PRICE-001), so later `effective_from` rows never change past results (FR-PRICE-016). `check_overlap` rejects two cards on identical grain (`provider, native_model, unit_type, tier, mode, bracket, priority`) with intersecting date ranges (open-ended = `date.max`; FR-PRICE-005), with `exclude_id` for updates. All arithmetic uses `Decimal` (FR-PRICE-017). Fixed mypy: `_null_match` returns `ColumnElement[bool]`. Tests in `test_pricing_v2.py` cover basic resolve, date boundaries (exact `effective_from` and past `effective_to`), tier exact-beats-null-fallback + unknown-tier-fallback + no-tier, priority higher wins + override-at-equal-priority beats non-override across date ranges, dated→base fallback, unknown model `None`, and overlap rejection (adjacent allowed + different-grain allowed). Gates: pytest 614 passed/35 skipped, ruff clean, mypy strict clean (108 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-19T02:17:44.849Z>",
+            "status": "done",
             "dependencies": [
               "64.1"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T02:18:13.576Z"
           },
           {
             "id": 4,
@@ -2791,7 +2792,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T02:03:30.053Z"
+        "updatedAt": "2026-07-19T02:18:13.576Z"
       },
       {
         "id": "65",
@@ -3543,7 +3544,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T02:03:30.054Z",
+      "lastModified": "2026-07-19T02:18:13.577Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [
