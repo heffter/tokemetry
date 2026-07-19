@@ -8,6 +8,7 @@ tests.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -173,3 +174,39 @@ class RepriceResponse(BaseModel):
 
     pricing_version: str
     affected: int
+
+
+class ImportRequest(BaseModel):
+    """Apply a rate-card import; ``digest`` is required to apply a dry run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The digest returned by the dry run; required when ``dry_run=false``.
+    digest: str | None = None
+
+
+class ImportChangeOut(BaseModel):
+    """One row's effect in an import diff (new/superseded/unchanged/conflict)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: str
+    provider: str
+    native_model: str
+    unit_type: str
+    priority: int
+    new_price: Decimal | None = None
+
+
+class ImportResponse(BaseModel):
+    """A rate-card import dry-run diff or apply result (D-015)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dry_run: bool
+    digest: str
+    new: int
+    superseded: int
+    unchanged: int
+    conflicts: int
+    changes: list[ImportChangeOut]

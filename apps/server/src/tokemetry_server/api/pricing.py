@@ -30,8 +30,10 @@ from tokemetry_server.scopes import QUERY_READ
 from tokemetry_server.services.cost import CostEngine
 from tokemetry_server.services.litellm_sync import (
     fetch_litellm_prices,
+    import_rate_cards_from_data,
     sync_anthropic_pricing,
 )
+from tokemetry_server.services.pricing_import import apply_import, compute_import_diff
 from tokemetry_server.services.pricing_repo import (
     load_pricing_table,
     recompute_costs,
@@ -90,10 +92,21 @@ async def sync_litellm(
     historical events (equivalent-cost estimation for a subscriber, where
     prices rarely change). Does not recompute stored costs; call
     ``/recompute`` afterward.
+
+    For v2 compatibility this also feeds the ``rate_cards`` table by running the
+    v2 import (dry run plus immediate auto-apply, labeled ``v1_sync`` in the
+    audit log), so the legacy endpoint keeps both pricing stacks current.
     """
     data = await fetch_litellm_prices(request.app.state.http_client)
     synced = await sync_anthropic_pricing(
         session, request.app.state.dialect_name, data, _SYNC_EFFECTIVE_DATE
+    )
+    now = datetime.now(UTC)
+    rows = import_rate_cards_from_data(data, _SYNC_EFFECTIVE_DATE, now)
+    diff = await compute_import_diff(session, rows, _SYNC_EFFECTIVE_DATE)
+    await apply_import(
+        session, rows, _SYNC_EFFECTIVE_DATE, diff.digest,
+        actor="v1_sync", source_label="litellm+official (v1_sync)", now=now,
     )
     return SyncResult(synced=synced)
 

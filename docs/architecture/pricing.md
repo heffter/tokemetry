@@ -116,6 +116,32 @@ subscription (Max) machine, whose derived collector source defaults to
   `subscription` rows). The dataclass has no combined total, so the two figures
   cannot be summed by accident. (Rollup columns land in Task 66.)
 
+### Rate-card imports (dry run + audited apply)
+
+Prices reach `rate_cards` through a reviewable import, never a silent rewrite
+(D-015, FR-PRICE-015/016).
+
+- **Sources** (`tokemetry_core.pricing.sources`): `litellm.rate_cards_from_litellm`
+  transforms the LiteLLM database (USD per token, matching the `rate_cards`
+  grain) into rows, emitting only the token unit types each provider's v2
+  strategy bills. `curated.curated_rate_cards` holds hand-verified `official`
+  rows (Z.ai, which LiteLLM lacks) at a higher `priority` so they win at the
+  same grain (FR-PRICE-021).
+- **Diff/apply** (`services/pricing_import.py`): `compute_import_diff` classifies
+  each incoming row against the stored open card on its grain as
+  new/superseded/unchanged/conflict and returns a sha256 `digest`, persisting
+  nothing. `apply_import` recomputes the diff, requires the caller's digest to
+  match (a change to the stored rates since the dry run is a 409), then closes
+  superseded rows (`effective_to = effective_from - 1 day`) and inserts the new
+  rows, writing an audit entry. A stored card already effective on the import
+  date is reported as a conflict and left untouched -- past periods are never
+  rewritten. Re-importing unchanged prices is a no-op diff (idempotent).
+- **API** (`POST /api/v2/pricing/import?dry_run=true|false`, `admin:pricing`):
+  a dry run returns the structured diff and digest; apply passes that digest.
+- The legacy `POST /api/v1/pricing/sync-litellm` keeps its v1 behavior and now
+  also feeds `rate_cards` by running the import (dry run plus immediate
+  auto-apply), labeled `v1_sync` in the audit log.
+
 - **Async cost worker** (`services/cost_worker.py`): `sweep_uncosted_costs`
   finds final attempt events in `usage_events_v2` that lack an *active*
   `computed_costs` row and prices up to `batch_size` of them per call. The

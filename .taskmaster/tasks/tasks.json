@@ -2764,12 +2764,13 @@
             "title": "LiteLLM import v2 with dry-run diff and audited apply",
             "description": "Price imports land as reviewable diffs, never silent rewrites.",
             "details": "Rework the import pipeline: packages/core pricing/sources/litellm.py transforms the LiteLLM JSON into rate_cards rows for all three providers (extending the current anthropic-only sync), carrying source litellm and verified_at; a curated official source module (pricing/sources/curated.py) holds hand-verified provider prices with source official taking precedence by priority (FR-PRICE-021). Import flow per decision D-015: POST /api/v2/pricing/import?dry_run=true returns a structured diff (new rows, superseded rows via effective_to closure, conflicts, unchanged) without persisting; apply requires a second call referencing the dry-run digest, requires admin:pricing scope, writes an audit entry (FR-PRICE-015), and never rewrites past effective periods silently (FR-PRICE-016; changes to current prices close the old row with effective_to and open a new row effective today). The legacy /api/v1/pricing/sync-litellm endpoint keeps working by internally running dry-run plus auto-apply for v1 compatibility, labeled in audit. Test strategy: transform unit tests against a recorded LiteLLM fixture for all three providers including the cache multiplier fallbacks; diff correctness tests (idempotent re-import yields empty diff); apply audit and effective-date closure tests; digest mismatch rejection test.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               "64.3"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T05:14:27.242Z"
           },
           {
             "id": 10,
@@ -2797,7 +2798,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T04:27:42.273Z"
+        "updatedAt": "2026-07-19T05:14:27.242Z"
       },
       {
         "id": "65",
@@ -3549,7 +3550,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T04:27:42.274Z",
+      "lastModified": "2026-07-19T05:14:27.243Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [
