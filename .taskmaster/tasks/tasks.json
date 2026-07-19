@@ -2545,7 +2545,7 @@
         "description": "Represent gateways, collectors, SDKs, and importers as first-class reporting sources with health tracking; add token scopes and optional per-token source allowlists; enforce scopes across v1, v2, and WebSocket. PRD-TOK-002 Sections 12.6, 12.16; Epic TOK-4; FR-SOURCE-001..012, FR-SEC-001..011; decision D-011.",
         "details": "Objective: separate exporter identity from machine identity and introduce least-privilege ingest tokens (Migration Phase 2).\n\nDesign: sources table (type collector|gateway|sdk|importer|manual, name, version, instance_id, optional machine link, token label, first_seen, last_seen, billing_mode per D-007); auto-registration from v2 payload source identity (D-011); source health (last successful ingest, recent error count, schema version, clock skew per R-009); v1 collector traffic attributed to a derived source so the existing machines table remains supported (FR-SOURCE-008, FR-SOURCE-003); source labels mutable without changing event identity (FR-SOURCE-010); revoked sources never delete history (FR-SOURCE-012). Token scopes: ingest:events, ingest:limits, ingest:aggregates, query:read, admin:tokens, admin:corrections (FR-INGEST-003 plus D-002); ingest-only tokens cannot access query endpoints (FR-INGEST-004); optional per-token source allowlist (FR-INGEST-020, FR-SEC-004); tokens remain hashed at rest with plaintext shown once (FR-SEC-001/002); bootstrap token stays full-admin for first-run (FR-SEC-008); auth failures reveal nothing about label existence (FR-SEC-010); last-used retained (FR-SEC-006); WebSocket authorization matches REST (NFR-SEC-008).\n\nAcceptance criteria (PRD Epic TOK-4): source type and version stored; ingest tokens have scopes; sources have freshness and health status; existing machine tracking remains compatible; aiProviderProxy can receive an ingest-only token.\n\nTest strategy: unit tests for scope authorization; integration tests for token scope enforcement (ingest-only denied on query, admin required for token and correction endpoints), revoked token rejection, WebSocket auth; migration tests for api_tokens scope columns; source auto-registration and health tests including clock-skew warning.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "62"
         ],
@@ -2630,17 +2630,18 @@
             "id": 7,
             "title": "Epic tests and source-health documentation",
             "description": "Round out coverage and write docs/architecture/source-health.md.",
-            "details": "Write docs/architecture/source-health.md: source model and identity rules, health fields and thresholds, staleness semantics per source type, clock-skew policy, token scope vocabulary with least-privilege examples (collector token: ingest:events plus ingest:limits; gateway token: ingest:events; dashboard token: query:read), source allowlists, rotation runbook, and the v1 derived-source behavior. Verify epic acceptance criteria: source type and version stored; tokens scoped; freshness and health visible via API; machine tracking compatible; an ingest-only token provisioned end to end. Extend the shared fixtures with a registered gateway source (aiProviderProxy-shaped) used by Tasks 65 and 67. Full pytest suite green with coverage threshold; docs reviewed against FR-SOURCE-001..012 and FR-SEC-001..011 with each requirement implemented or explicitly deferred. Test strategy: documentation review checklist plus the acceptance-criteria integration test added under apps/server/tests/integration/test_source_epic_acceptance.py.",
-            "status": "pending",
+            "details": "Write docs/architecture/source-health.md: source model and identity rules, health fields and thresholds, staleness semantics per source type, clock-skew policy, token scope vocabulary with least-privilege examples (collector token: ingest:events plus ingest:limits; gateway token: ingest:events; dashboard token: query:read), source allowlists, rotation runbook, and the v1 derived-source behavior. Verify epic acceptance criteria: source type and version stored; tokens scoped; freshness and health visible via API; machine tracking compatible; an ingest-only token provisioned end to end. Extend the shared fixtures with a registered gateway source (aiProviderProxy-shaped) used by Tasks 65 and 67. Full pytest suite green with coverage threshold; docs reviewed against FR-SOURCE-001..012 and FR-SEC-001..011 with each requirement implemented or explicitly deferred. Test strategy: documentation review checklist plus the acceptance-criteria integration test added under apps/server/tests/integration/test_source_epic_acceptance.py.\n<info added on 2026-07-19T01:31:17.653Z>\nEpic TOK-4 finalization. Wrote docs/architecture/source-health.md covering the source model and (type, name, instance_id) identity rules (distinct from machine), v1 derived-source behavior, a health fields table, per-type staleness thresholds (collector 30m, gateway 10m, default 30m), clock-skew policy, and a full token scope vocabulary with least-privilege examples (collector: ingest:events + ingest:limits; gateway: ingest:events; dashboard: query:read), plus source allowlists, a rotation runbook, and a requirement-coverage table for FR-SOURCE-001..012 and FR-SEC-001..011 (each implemented or explicitly deferred to Task 68). Added shared conftest GATEWAY_SOURCE (aiProviderProxy-shaped) and the registered_gateway_source fixture for Tasks 65 and 67. The acceptance test test_source_epic_acceptance.py verifies end-to-end: an ingest-only source-scoped token is provisioned in one call; the proxy ingests a v2 gateway event; source type and version are stored with health visible via GET /api/v2/sources (stale=false, last_successful_ingest, reported_schema_version=2); the event is attributed to the source id in the ledger; the ingest-only token receives a 403 on query endpoints; and v1 ingest still registers a machine and its distinct derived collector source (machine tracking compatible). Gates: pytest 589 passed/29 skipped, coverage 92.71% (>=80% threshold), ruff clean, mypy strict clean (103 files), and trivy no HIGH/CRITICAL issues.\n</info added on 2026-07-19T01:31:17.653Z>",
+            "status": "done",
             "dependencies": [
               "63.5",
               "63.6"
             ],
             "parentTaskId": 63,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T01:31:35.469Z"
           }
         ],
-        "updatedAt": "2026-07-19T01:19:03.959Z"
+        "updatedAt": "2026-07-19T01:31:35.469Z"
       },
       {
         "id": "64",
@@ -3539,9 +3540,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T01:19:03.960Z",
+      "lastModified": "2026-07-19T01:31:35.471Z",
       "taskCount": 71,
-      "completedCount": 62,
+      "completedCount": 63,
       "tags": [
         "master"
       ]

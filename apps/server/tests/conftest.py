@@ -10,11 +10,22 @@ import pytest_asyncio
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from tokemetry_core.usage_v2 import SourceRef, SourceType
 from tokemetry_server.app import create_app
 from tokemetry_server.config import Settings
 from tokemetry_server.db import models
 from tokemetry_server.db.migrate import upgrade_to_head, upgrade_to_revision
 from tokemetry_server.services.registries import seed_default_providers
+from tokemetry_server.services.sources import SourceRegistryService
+
+#: An aiProviderProxy-shaped gateway source, reused by the proxy and dashboard
+#: epics (Tasks 65 and 67) so they exercise a registered gateway consistently.
+GATEWAY_SOURCE = SourceRef(
+    type=SourceType.GATEWAY,
+    name="aiProviderProxy",
+    version="1.0.0",
+    instance_id="proxy-01",
+)
 
 #: v1-only usage-event fields that live under ``extra['_v1']`` in the v2 ledger.
 _V1_ONLY_FIELDS = (
@@ -255,3 +266,13 @@ async def registry_session(async_session: AsyncSession) -> AsyncIterator[AsyncSe
     await seed_three_provider_registry(async_session)
     await async_session.commit()
     yield async_session
+
+
+@pytest_asyncio.fixture
+async def registered_gateway_source(async_session: AsyncSession) -> int:
+    """A registered aiProviderProxy gateway source; returns its id."""
+    source_id = await SourceRegistryService(async_session).resolve_or_create(
+        GATEWAY_SOURCE, datetime.now(UTC)
+    )
+    await async_session.commit()
+    return source_id
