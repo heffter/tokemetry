@@ -13,6 +13,7 @@ const links = [
   { to: '/blocks', label: 'Blocks' },
   { to: '/breakdowns', label: 'Breakdowns' },
   { to: '/costs', label: 'Costs' },
+  { to: '/requests', label: 'Requests' },
   { to: '/sessions', label: 'Sessions' },
   { to: '/machines', label: 'Machines' },
   { to: '/report', label: 'Report' },

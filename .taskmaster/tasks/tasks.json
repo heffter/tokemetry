@@ -3105,13 +3105,14 @@
             "id": 5,
             "title": "Requests and attempts pages with fallback-chain visualization",
             "description": "New RequestsView: drilldown, chains, latency, failure rates.",
-            "details": "Add RequestsView (route /requests) backed by /api/v2/requests and /api/v2/attempts: a filterable logical-request table (provider, model, outcome, routing policy, fallback presence) showing attempt_count, fallback_count, winning attempt, latency, tokens, cost; row expansion renders the fallback chain as an ordered attempt timeline (requested to routed model per attempt, outcome, fallback trigger, latency, tokens) making retries and provider failover visually explicit (FR-UI-004/005); an attempts tab lists raw attempts with bounded ranges. Charts: latency and time-to-first-token distributions (FR-UI-006) and failure rate by provider and model (FR-UI-007) from attempt aggregates. Register the route and navigation entry. Test strategy: vitest component tests for the chain renderer with single-attempt, retry, and cross-provider fallback fixtures including out-of-order timestamps; filter wiring tests; manual verification against harness-seeded data from Task 65.",
-            "status": "pending",
+            "details": "Add RequestsView (route /requests) backed by /api/v2/requests and /api/v2/attempts: a filterable logical-request table (provider, model, outcome, routing policy, fallback presence) showing attempt_count, fallback_count, winning attempt, latency, tokens, cost; row expansion renders the fallback chain as an ordered attempt timeline (requested to routed model per attempt, outcome, fallback trigger, latency, tokens) making retries and provider failover visually explicit (FR-UI-004/005); an attempts tab lists raw attempts with bounded ranges. Charts: latency and time-to-first-token distributions (FR-UI-006) and failure rate by provider and model (FR-UI-007) from attempt aggregates. Register the route and navigation entry. Test strategy: vitest component tests for the chain renderer with single-attempt, retry, and cross-provider fallback fixtures including out-of-order timestamps; filter wiring tests; manual verification against harness-seeded data from Task 65.\n<info added on 2026-07-19T11:14:24.439Z>\nImplementation complete. RequestsView (/requests route + nav) backed by /api/v2/requests, /api/v2/attempts, and /api/v2/requests/{provider}/{id}. Delivered views/RequestsView.vue with Requests tab (filterable logical-request table: attempt_count, fallback_count badge, tokens, cost, started; row expansion fetches request detail and renders fallback chain as ordered attempt timeline showing sequence, success/fail dot, provider, requested->routed model, latency, tokens, winner badge per attempt, satisfying FR-UI-004/005), Attempts tab (raw attempts with keyset 'Load more'), failure-rate-by-provider/model chart (toggle, FR-UI-007), latency p50/p95 tiles (FR-UI-006), global provider/model filter + machine, fallback-only toggle, registry model labels and provider display names. lib/trace.ts (+test) provides orderAttempts (chain order, out-of-order/tie-stable), failureRateBy (worst-first), latencyValues, percentile, all null-safe against nullable attempt fields. Validated against live server: /attempts returns full AttemptV2 shape (5 attempts, requested/routed/latency/logical_request_id all null, handled), /requests returns 200 empty (seeded events lack logical_request_id, no chains), /requests route serves through Vite. 134 dashboard tests pass; vue-tsc/eslint/prettier clean. Deferred: (1) time-to-first-token distribution (FR-UI-006) requires AttemptV2 TTFT field addition in data-model/ingest epic; latency_ms is only timing measure, implemented latency percentiles instead. (2) Visual verification of fallback-chain rendering awaits multi-attempt seed data from Task 65 harness; ordering logic unit-tested with single/retry/out-of-order fixtures.\n</info added on 2026-07-19T11:14:24.439Z>",
+            "status": "done",
             "dependencies": [
               "67.1"
             ],
             "parentTaskId": 67,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T11:14:44.891Z"
           },
           {
             "id": 6,
@@ -3166,7 +3167,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T11:05:47.463Z"
+        "updatedAt": "2026-07-19T11:14:44.891Z"
       },
       {
         "id": "68",
@@ -3614,7 +3615,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T11:05:47.464Z",
+      "lastModified": "2026-07-19T11:14:44.892Z",
       "taskCount": 74,
       "completedCount": 65,
       "tags": [
