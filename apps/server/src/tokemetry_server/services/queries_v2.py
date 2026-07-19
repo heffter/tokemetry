@@ -16,8 +16,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, and_, case, cast, func, select
-from sqlalchemy import Date as SQLDate
+from sqlalchemy import ColumnElement, Select, String, and_, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
@@ -78,9 +77,17 @@ class ReconciliationRow:
 
 
 def _usage_key(dimension: str) -> Any:
-    """The group-by key column for a usage/cost dimension."""
+    """The group-by key column for a usage/cost dimension.
+
+    The ``day`` bucket is the first 10 chars of the ISO-rendered timestamp
+    (``YYYY-MM-DD``) rather than ``CAST(ts_started AS DATE)``: casting to DATE
+    is not portable -- on SQLite it yields NUMERIC affinity and the Date result
+    processor then fails ``fromisoformat`` on a non-string. Substring of the
+    text form groups by UTC calendar day on both SQLite and PostgreSQL and
+    sorts chronologically as a plain string.
+    """
     if dimension == "day":
-        return cast(models.UsageEventV2.ts_started, SQLDate)
+        return func.substr(cast(models.UsageEventV2.ts_started, String), 1, 10)
     if dimension == "source":
         return func.coalesce(models.Source.name, "")
     return _LEDGER_DIMENSIONS[dimension]

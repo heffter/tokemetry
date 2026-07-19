@@ -143,3 +143,42 @@ async def test_unknown_model_pseudo_filter(async_session: AsyncSession) -> None:
         async_session, "model", _START, _END, QueryFilters(unknown_model=True)
     )
     assert {r.key for r in rows} == {"ghost-9"}  # only the unregistered model
+
+
+async def test_grouped_usage_by_day_is_cross_dialect(
+    async_session: AsyncSession,
+) -> None:
+    """Day grouping buckets by UTC calendar day as YYYY-MM-DD.
+
+    Regression for the SQLite CAST(ts_started AS DATE) failure: the key must be
+    a portable ISO-day string, not a Date cast (which the SQLite Date result
+    processor cannot parse).
+    """
+    _event(async_session, "d:1", ts=datetime(2026, 7, 10, 9, 0, tzinfo=UTC), input_tokens=1000)
+    _event(async_session, "d:2", ts=datetime(2026, 7, 10, 18, 0, tzinfo=UTC), input_tokens=500)
+    _event(async_session, "d:3", ts=datetime(2026, 7, 12, 1, 0, tzinfo=UTC), input_tokens=300)
+    await async_session.commit()
+
+    rows = await grouped_usage(async_session, "day", _START, _END, _NONE)
+    by_key = {r.key: r for r in rows}
+    assert set(by_key) == {"2026-07-10", "2026-07-12"}
+    assert by_key["2026-07-10"].input_tokens == 1500
+    assert by_key["2026-07-12"].input_tokens == 300
+
+
+async def test_grouped_costs_by_day_is_cross_dialect(
+    async_session: AsyncSession,
+) -> None:
+    """Cost day grouping buckets actual spend by UTC calendar day (SQLite-safe)."""
+    _event(async_session, "d:1", ts=datetime(2026, 7, 10, 9, 0, tzinfo=UTC), input_tokens=1000)
+    _event(async_session, "d:2", ts=datetime(2026, 7, 12, 9, 0, tzinfo=UTC), input_tokens=500)
+    await async_session.commit()
+    await _cost(async_session, "d:1", amount=Decimal("0.50"))
+    await _cost(async_session, "d:2", amount=Decimal("0.25"))
+    await async_session.commit()
+
+    rows = await grouped_costs(async_session, "day", _START, _END, _NONE)
+    by_key = {r.key: r for r in rows}
+    assert set(by_key) == {"2026-07-10", "2026-07-12"}
+    assert by_key["2026-07-10"].actual_spend_usd == Decimal("0.50")
+    assert by_key["2026-07-12"].actual_spend_usd == Decimal("0.25")
