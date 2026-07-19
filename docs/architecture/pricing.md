@@ -142,6 +142,27 @@ Prices reach `rate_cards` through a reviewable import, never a silent rewrite
   also feeds `rate_cards` by running the import (dry run plus immediate
   auto-apply), labeled `v1_sync` in the audit log.
 
+### Rate-card administration and reports
+
+`services/pricing_admin.py` plus the v2 pricing router expose the admin surface
+(FR-PRICE-022, US-010):
+
+- `GET /api/v2/pricing` lists rate cards, filterable by provider, model, unit
+  type, and active-on date (`query:read`).
+- `POST /api/v2/pricing` creates a rate card (a manual price or an override)
+  after rejecting a same-grain date overlap (400, FR-PRICE-005); a higher
+  `priority`/`override` wins in resolution (FR-PRICE-004). `POST
+  /api/v2/pricing/{id}/close` sets `effective_to`. Both require `admin:pricing`,
+  are audited, and return the current pricing-state version.
+- `GET /api/v2/pricing/reports/unpriced` aggregates active `unpriced`/`partial`
+  events by model (from `computed_costs`); `GET .../reports/unknown-models`
+  lists unknown-model observations (from `data_quality_events`).
+- `services/pricing_adapter.py` (`price_rows_from_rate_cards`) reconstructs the
+  v1 per-MTok `PriceRow` shape from the active rate cards, so the existing v1
+  SettingsView keeps working from the v2 source of truth until Task 67 replaces
+  it (the best card per token unit wins; a model missing input/output is
+  skipped).
+
 - **Async cost worker** (`services/cost_worker.py`): `sweep_uncosted_costs`
   finds final attempt events in `usage_events_v2` that lack an *active*
   `computed_costs` row and prices up to `batch_size` of them per call. The

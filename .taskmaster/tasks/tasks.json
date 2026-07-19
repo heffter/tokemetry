@@ -2777,13 +2777,14 @@
             "title": "Pricing administration API v2 and unpriced reports",
             "description": "Rate-card CRUD, import endpoints, and unknown-model and unpriced-event reporting.",
             "details": "Add api/v2/pricing.py: GET /api/v2/pricing (rate cards filterable by provider, model, unit type, active-at date), POST rate card create with overlap validation, close (set effective_to), manual override creation with priority precedence (FR-PRICE-004), import dry-run and apply endpoints from subtask 9, reprice and revert endpoints from subtask 6, and GET /api/v2/pricing/reports/unpriced plus /unknown-models returning unpriced event aggregates and unknown-model observations backed by computed_costs and data_quality_events (FR-PRICE-022, US-010). All mutating endpoints require admin:pricing, are audited, and return the pricing-state version after the change. The existing /api/v1/pricing endpoints continue to serve token-shaped rows derived from rate_cards through an adapter so the current SettingsView keeps working until Task 67 replaces it. Test strategy: integration tests for CRUD with overlap rejection, override precedence effect on subsequent computation, report contents after ingesting unpriced fixtures, scope denial for non-admin tokens, and v1 pricing endpoint adapter parity against pre-migration responses.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               "64.6",
               "64.9"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T05:35:53.408Z"
           },
           {
             "id": 11,
@@ -2798,7 +2799,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T05:14:27.242Z"
+        "updatedAt": "2026-07-19T05:35:53.408Z"
       },
       {
         "id": "65",
@@ -3550,7 +3551,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T05:14:27.243Z",
+      "lastModified": "2026-07-19T05:35:53.409Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [

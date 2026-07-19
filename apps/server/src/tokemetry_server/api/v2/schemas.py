@@ -8,6 +8,7 @@ tests.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -210,3 +211,95 @@ class ImportResponse(BaseModel):
     unchanged: int
     conflicts: int
     changes: list[ImportChangeOut]
+
+
+class RateCardOut(BaseModel):
+    """One stored rate card (the v2 per-unit pricing grain)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    provider: str
+    native_model: str
+    unit_type: str
+    effective_from: date
+    effective_to: date | None
+    currency: str
+    region: str | None
+    service_tier: str | None
+    mode: str
+    context_bracket: str | None
+    unit_price: Decimal
+    source: str
+    priority: int
+    override: bool
+
+
+class RateCardCreateRequest(BaseModel):
+    """Create a rate card (manual price or override)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    native_model: str
+    unit_type: str
+    effective_from: date
+    unit_price: Decimal
+    currency: str = "USD"
+    mode: str = "realtime"
+    service_tier: str | None = None
+    context_bracket: str | None = None
+    region: str | None = None
+    source: str = "manual"
+    priority: int = 0
+    override: bool = False
+    effective_to: date | None = None
+
+
+class RateCardMutationResponse(BaseModel):
+    """A created rate card plus the current pricing-state version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rate_card: RateCardOut
+    pricing_version: str
+
+
+class RateCardCloseRequest(BaseModel):
+    """Close a rate card by setting its effective_to date."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    effective_to: date
+
+
+class RateCardCloseResponse(BaseModel):
+    """The outcome of closing a rate card."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rate_card_id: int
+    pricing_version: str
+
+
+class UnpricedReportRow(BaseModel):
+    """An aggregate of unpriced or partially priced events for one model."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    native_model: str
+    cost_status: str
+    event_count: int
+
+
+class UnknownModelReportRow(BaseModel):
+    """An unknown-model observation recorded at ingest."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    native_model: str
+    observations: int
+    resolved: bool
+    last_seen: UtcDatetime
