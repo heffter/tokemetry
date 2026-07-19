@@ -8,6 +8,7 @@ import {
   formatDateTime,
   formatDuration,
   formatPct,
+  isLongHorizonReset,
   timeUntil,
   utilizationStatus,
   windowLabel,
@@ -19,8 +20,10 @@ const props = withDefaults(
     limit: Limit;
     history?: number[];
     projected?: number | null;
+    /** Registry-derived window labels; falls back to the Anthropic seed. */
+    windowLabels?: Record<string, string>;
   }>(),
-  { history: () => [], projected: null }
+  { history: () => [], projected: null, windowLabels: undefined }
 );
 
 // A snapshot older than this is flagged: the collector has not reported
@@ -31,17 +34,16 @@ const status = computed(() => utilizationStatus(props.limit.utilization_pct));
 const color = computed(() => `var(--status-${status.value})`);
 const width = computed(() => `${Math.min(100, props.limit.utilization_pct)}%`);
 
-// Weekly windows reset on a distant calendar date, so an absolute date reads
-// better than a long countdown; the 5-hour block keeps the countdown primary.
-const isWeekly = computed(() =>
-  props.limit.window_kind.startsWith('seven_day')
-);
+// A far-out reset (any provider's long window, not just Anthropic's weekly)
+// reads better as an absolute date than a long countdown; a near reset keeps
+// the countdown primary. Derived from the reset time, not the window name.
+const longHorizon = computed(() => isLongHorizonReset(props.limit.resets_at));
 const isStale = computed(() => props.limit.age_seconds >= STALE_SECONDS);
 
 const resetText = computed(() => {
   const resets = props.limit.resets_at;
   if (resets === null) return 'resets —';
-  return isWeekly.value
+  return longHorizon.value
     ? `resets ${formatDateTime(resets)}`
     : `resets ${timeUntil(resets)}`;
 });
@@ -49,7 +51,7 @@ const resetText = computed(() => {
 const resetTitle = computed(() => {
   const resets = props.limit.resets_at;
   if (resets === null) return '';
-  const complement = isWeekly.value
+  const complement = longHorizon.value
     ? timeUntil(resets)
     : formatDateTime(resets);
   return props.limit.derived_reset
@@ -61,7 +63,7 @@ const resetTitle = computed(() => {
 <template>
   <div class="card gauge">
     <div class="head">
-      <span>{{ windowLabel(limit.window_kind) }}</span>
+      <span>{{ windowLabel(limit.window_kind, windowLabels) }}</span>
       <span class="tabular pct" :style="{ color }">{{
         formatPct(limit.utilization_pct)
       }}</span>

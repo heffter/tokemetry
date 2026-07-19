@@ -6,6 +6,7 @@ import {
   formatDuration,
   formatPct,
   formatTokens,
+  isLongHorizonReset,
   modelLabel,
   timeAgo,
   timeUntil,
@@ -109,6 +110,34 @@ describe('windowLabel', () => {
   it('maps known windows and passes through unknown', () => {
     expect(windowLabel('five_hour')).toBe('5-hour block');
     expect(windowLabel('mystery')).toBe('mystery');
+  });
+
+  it('prefers a registry-supplied label over the anthropic seed', () => {
+    const registry = { five_hour: 'Rolling 5h', rpm: 'Requests / min' };
+    // Registry wins for a seed key...
+    expect(windowLabel('five_hour', registry)).toBe('Rolling 5h');
+    // ...and supplies labels for non-Anthropic windows the seed lacks.
+    expect(windowLabel('rpm', registry)).toBe('Requests / min');
+    // Falls back to the seed for keys the registry omits.
+    expect(windowLabel('seven_day', registry)).toBe('Weekly');
+  });
+});
+
+describe('isLongHorizonReset', () => {
+  const now = new Date('2026-07-19T00:00:00Z');
+
+  it('is false for a null or near reset (countdown reads better)', () => {
+    expect(isLongHorizonReset(null, now)).toBe(false);
+    expect(isLongHorizonReset('2026-07-19T04:00:00Z', now)).toBe(false);
+  });
+
+  it('is true for a far-out reset (absolute date reads better)', () => {
+    // A weekly window resetting days out, regardless of its name.
+    expect(isLongHorizonReset('2026-07-24T00:00:00Z', now)).toBe(true);
+  });
+
+  it('is false for an unparseable timestamp', () => {
+    expect(isLongHorizonReset('not-a-date', now)).toBe(false);
   });
 });
 

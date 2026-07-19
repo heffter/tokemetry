@@ -89,6 +89,10 @@ export function utilizationStatus(
   return 'good';
 }
 
+// The seed labels for the Anthropic windows. These stay as the fallback so a
+// pure-Anthropic deployment renders identically until the provider window
+// registry (Task 69) supplies labels; a caller may pass a registry-derived map
+// to override or extend them for other providers (FR-UI-010/014).
 const WINDOW_LABELS: Record<string, string> = {
   five_hour: '5-hour block',
   seven_day: 'Weekly',
@@ -96,9 +100,32 @@ const WINDOW_LABELS: Record<string, string> = {
   seven_day_sonnet: 'Weekly (Sonnet)',
 };
 
-/** Friendly label for a limit window kind. */
-export function windowLabel(kind: string): string {
-  return WINDOW_LABELS[kind] ?? kind;
+/** Friendly label for a limit window kind.
+ *
+ * Resolution order: a registry-supplied ``labels`` map, then the Anthropic
+ * seed, then the raw kind (so an unknown window shows its id, not a blank).
+ */
+export function windowLabel(
+  kind: string,
+  labels?: Record<string, string>
+): string {
+  return labels?.[kind] ?? WINDOW_LABELS[kind] ?? kind;
+}
+
+// A reset farther out than this reads better as an absolute date than a long
+// countdown. Used instead of a provider-specific window-name check so any
+// provider's long window (not just Anthropic's "seven_day*") gets a date.
+const LONG_RESET_HORIZON_MS = 36 * 3600 * 1000;
+
+/** True when a reset is far enough out to prefer an absolute date over a countdown. */
+export function isLongHorizonReset(
+  resetsAt: string | null,
+  now: Date = new Date()
+): boolean {
+  if (resetsAt === null) return false;
+  const target = new Date(resetsAt).getTime();
+  if (Number.isNaN(target)) return false;
+  return target - now.getTime() > LONG_RESET_HORIZON_MS;
 }
 
 /** Compact relative-past time ("3m ago", "2h ago", "5d ago"). */

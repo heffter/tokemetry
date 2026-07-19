@@ -4,6 +4,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import GaugeCard from '@/components/GaugeCard.vue';
 import StatTile from '@/components/StatTile.vue';
+import LabeledValue from '@/components/LabeledValue.vue';
 import EChart from '@/components/EChart.vue';
 import ChartTable from '@/components/ChartTable.vue';
 import AsyncState from '@/components/AsyncState.vue';
@@ -34,6 +35,7 @@ const STATUS_WORD: Record<string, string> = {
   critical: 'Critical',
 };
 import { costIsTrustworthy, pricedCoverage } from '@/lib/coverage';
+import { resolveMoneyState, resolveValueState } from '@/lib/valueState';
 import { loadSelection, saveSelection } from '@/composables/useSettings';
 import { throttle } from '@/lib/throttle';
 import type { CostResponse, StreamMessage } from '@/api/types';
@@ -122,15 +124,21 @@ const cacheShare = computed(() =>
   cacheReadShare(summary.value?.today.by_model ?? [])
 );
 
-// Guard the cache tile so a no-usage day reads "no usage yet", not a fake 0.0%.
-const cacheTile = computed(() => {
+// Cache-read share as a labeled value: no usage today is "unavailable" (not a
+// fake 0.0%), while genuine usage with no cache reads is a real zero -- the two
+// read differently (FR-DIM-010).
+const cacheState = computed(() => {
   const models = summary.value?.today.by_model ?? [];
   const total = models.reduce((sum, m) => sum + m.total_tokens, 0);
-  if (total === 0) return { value: '—', sub: 'no usage yet today' };
-  return {
-    value: formatPct(cacheShare.value * 100),
-    sub: "of today's tokens served from cache",
-  };
+  const pct = total === 0 ? null : cacheShare.value * 100;
+  return resolveValueState(pct, { format: (n) => formatPct(n) });
+});
+const cacheSub = computed(() => {
+  const models = summary.value?.today.by_model ?? [];
+  const total = models.reduce((sum, m) => sum + m.total_tokens, 0);
+  return total === 0
+    ? 'no usage yet today'
+    : "of today's tokens served from cache";
 });
 
 // Coverage of today's cost: never present a bare dollar figure derived from
@@ -148,19 +156,21 @@ const todayCostSub = computed(() => {
   return `cost partial — ${cov.unpricedKeys.length} model(s) unpriced`;
 });
 
-const valueTile = computed(() => {
+// Subscription value: the subscription-equivalent dollar value is the headline
+// metric (dual-metric model -- kept distinct from actual API spend), with the
+// value-multiple vs the plan price demoted to the sublabel.
+const subscriptionValueState = computed(() =>
+  resolveMoneyState(cost.value?.total_cost_usd ?? null, {
+    format: (n) => formatCost(String(n)),
+  })
+);
+const subscriptionValueSub = computed(() => {
   const c = cost.value;
-  if (!c) return { value: '—', sub: '' };
+  if (!c) return '';
   if (c.value_multiple !== null) {
-    return {
-      value: `${c.value_multiple.toFixed(1)}x`,
-      sub: `vs $${c.subscription_monthly_usd}/mo · last 30d · priced only`,
-    };
+    return `${c.value_multiple.toFixed(1)}x vs $${c.subscription_monthly_usd}/mo · last 30d · priced only`;
   }
-  return {
-    value: formatCost(c.total_cost_usd),
-    sub: 'equivalent, last 30 days',
-  };
+  return 'equivalent, last 30 days';
 });
 
 async function load(): Promise<void> {
@@ -251,16 +261,12 @@ onBeforeUnmount(() => {
           :value="formatTokens(summary.today.total_tokens)"
           :sub="todayCostSub"
         />
-        <StatTile
-          label="Plan value"
-          :value="valueTile.value"
-          :sub="valueTile.sub"
+        <LabeledValue
+          label="Subscription value"
+          :state="subscriptionValueState"
+          :sub="subscriptionValueSub"
         />
-        <StatTile
-          label="Cache reads"
-          :value="cacheTile.value"
-          :sub="cacheTile.sub"
-        />
+        <LabeledValue label="Cache reads" :state="cacheState" :sub="cacheSub" />
         <StatTile
           v-if="summary.prediction"
           label="Predicted limit"

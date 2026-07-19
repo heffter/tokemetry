@@ -3066,13 +3066,14 @@
             "id": 2,
             "title": "Overview generalization",
             "description": "NowView covers all providers with official-versus-estimated and unavailability labeling.",
-            "details": "Generalize NowView (src/views/NowView.vue): the live snapshot aggregates all providers honoring global filters (FR-UI-001); limit gauges render per provider from window-registry metadata instead of assuming the four Anthropic windows (labels resolved from the registry endpoint; until Task 69 data exists, Anthropic windows continue rendering identically via registry seed); burn rate and exhaustion prediction sections scope to providers that expose subscription windows; every metric tile distinguishes official versus estimated provenance (FR-UI-012) and zero versus unavailable versus unsupported values (FR-DIM-010) using a shared LabeledValue component; the plan-value multiple tile becomes the subscription-value metric consistent with dual metrics. WebSocket live refresh unchanged. Test strategy: vitest component tests with three-provider fixture payloads asserting gauge sets, label states, and filter application; visual verification against the seeded dev server; regression check that a pure-Anthropic deployment renders equivalently to today.",
-            "status": "pending",
+            "details": "Generalize NowView (src/views/NowView.vue): the live snapshot aggregates all providers honoring global filters (FR-UI-001); limit gauges render per provider from window-registry metadata instead of assuming the four Anthropic windows (labels resolved from the registry endpoint; until Task 69 data exists, Anthropic windows continue rendering identically via registry seed); burn rate and exhaustion prediction sections scope to providers that expose subscription windows; every metric tile distinguishes official versus estimated provenance (FR-UI-012) and zero versus unavailable versus unsupported values (FR-DIM-010) using a shared LabeledValue component; the plan-value multiple tile becomes the subscription-value metric consistent with dual metrics. WebSocket live refresh unchanged. Test strategy: vitest component tests with three-provider fixture payloads asserting gauge sets, label states, and filter application; visual verification against the seeded dev server; regression check that a pure-Anthropic deployment renders equivalently to today.\n<info added on 2026-07-19T10:03:24.282Z>\nOverview generalization: removed the Claude-only assumptions from the front page's rendering and built the provider-neutral presentation primitives the rest of the epic reuses.\n\nDelivered:\n- lib/valueState.ts (new, tested): ValueState model distinguishing value / real-zero / unavailable / unsupported (FR-DIM-010) via resolveValueState + resolveMoneyState, valueDisplay for text+tooltip+muting, and provenanceLabel (official vs estimated, FR-UI-012).\n- components/LabeledValue.vue (new): presentational tile consuming a ValueState with an optional provenance badge; the provider-neutral counterpart to StatTile.\n- lib/format.ts: windowLabel(kind, labels?) now takes an optional registry-derived label map, falling back to the Anthropic seed then the raw kind, so a pure-Anthropic deployment renders identically until Task 69 supplies labels; added isLongHorizonReset (reset >36h out prefers an absolute date) to replace a provider-specific check.\n- components/GaugeCard.vue: dropped the isWeekly = window_kind.startsWith('seven_day') Claude assumption for the provider-neutral isLongHorizonReset(resets_at); added an optional windowLabels prop threaded into windowLabel.\n- views/NowView.vue: Cache-reads and Subscription-value tiles now use LabeledValue (no-usage reads 'unavailable', not a fake 0.0%; a genuine 0 cache reads as zero); the former 'Plan value' multiple tile is reframed as 'Subscription value' with the subscription-equivalent dollar value as the headline and the multiple demoted to the sublabel (dual-metric model, kept distinct from actual spend).\n- Tests: valueState.test.ts (9), format.test.ts (+4: registry windowLabel, isLongHorizonReset). 105 dashboard tests pass; vue-tsc, eslint, prettier clean.\n\nDeferred (server dependency, tracked as Task 73): filter-aware aggregation of the LIVE snapshot across providers (FR-UI-001). NowView reads the v1 /summary/now, which takes no provider/model filters, and there is no v2 equivalent for burn rate / prediction / today-by-model. The gauges already iterate summary.limits (any provider) and now label provider-neutrally; wiring the global filter to the live snapshot needs the new v2 endpoint from Task 73. Full window-registry label sourcing is Task 69's job (67.9); the windowLabel/windowLabels seam is ready for it.\n\nNo new dependencies; security posture unchanged (dev-toolchain advisories tracked in Task 72).\n</info added on 2026-07-19T10:03:24.282Z>",
+            "status": "done",
             "dependencies": [
               "67.1"
             ],
             "parentTaskId": 67,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T10:03:52.779Z"
           },
           {
             "id": 3,
@@ -3163,7 +3164,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T09:51:03.471Z"
+        "updatedAt": "2026-07-19T10:03:52.779Z"
       },
       {
         "id": "68",
@@ -3574,12 +3575,29 @@
         ],
         "priority": "high",
         "subtasks": []
+      },
+      {
+        "id": "73",
+        "title": "Provider-Neutral v2 Live Overview Endpoint and NowView Integration",
+        "description": "Add a provider-neutral v2 live-overview capability with filter support so the dashboard NowView front page can aggregate live snapshots across all providers honoring global provider/model filters (FR-UI-001). Replace the Claude-oriented v1 GET /api/v1/summary/now with a v2 endpoint that accepts uniform filter parameters and returns per-provider live limits, burn rate, and exhaustion prediction.",
+        "details": "Objective: Enable NowView to display filtered, provider-neutral live overview data using the v2 query framework and provider registry infrastructure.\n\nServer work:\n1. Create new endpoint GET /api/v2/summary/live-overview that accepts the uniform v2 filter surface (provider, model, machine, project, source, environment, billing_mode filters matching the v2 query framework from Task 66).\n2. Response schema should include:\n   - Per-provider live limits grouped by window kind (using provider window registry from Task 69 for window labels and period semantics)\n   - Current burn rate (tokens/min) calculated from recent usage_events\n   - Exhaustion prediction (time until limit reset or estimated depletion) with confidence labels\n   - Today-by-model composition (token breakdown by native_model for current day)\n   - All data filtered and aggregated according to request filters\n3. Implement query logic:\n   - Query limit_snapshots filtered by provider/model/account/organization/source, joining with provider window registry for display metadata\n   - Calculate burn rate from usage_events in recent window (e.g., last 5-15 minutes) filtered by all dimensions\n   - Compute exhaustion prediction using remaining capacity / burn rate, respecting window reset horizons from registry\n   - Aggregate today's usage by native_model from daily_rollups or usage_events, filtered by request parameters\n4. Leverage provider registry (Task 61) for provider normalization and model registry for native_model resolution\n5. Return structured JSON with per-provider sections, each containing windows array, burn_rate, prediction, and model_composition\n\nDashboard work:\n1. Update NowView.vue to call GET /api/v2/summary/live-overview instead of v1 /api/v1/summary/now\n2. Pass useGlobalFilters().filtersForApi() to the new endpoint\n3. Integrate with Task 67.2 provider-neutral presentation layer:\n   - Use LabeledValue components for display\n   - Apply value-state logic for status coloring\n   - Use registry-aware window labels from response (no hardcoded \"5h\" or \"7d\")\n   - Respect provider-neutral gauge reset horizon for countdown timers\n4. Handle multi-provider aggregation in UI:\n   - Display separate gauge sections per provider or unified view based on filter selection\n   - Show \"All Providers\" when no provider filter, individual provider name when filtered\n   - Aggregate burn rate and prediction across providers when showing unified view\n5. Maintain backward compatibility during migration: feature-flag or gradual rollout\n\nImplementation notes:\n- Reuse v2 query filter parsing and validation from Task 66 framework\n- Use provider window registry API from Task 69 for window metadata\n- Ensure burn rate calculation handles sparse data gracefully (no events = 0 burn)\n- Prediction confidence should reflect data quality (recent snapshots = high confidence)\n- Handle edge cases: no limits available, no recent usage, multiple providers with different window semantics",
+        "testStrategy": "Server tests:\n1. Unit test GET /api/v2/summary/live-overview with various filter combinations (provider only, model only, machine+project, all filters, no filters)\n2. Verify response structure includes per-provider limits, burn_rate, prediction, and model_composition\n3. Test burn rate calculation with mock usage_events at known rates\n4. Test exhaustion prediction logic with known remaining capacity and burn rates\n5. Verify today-by-model composition aggregates correctly from daily_rollups\n6. Test filter application: confirm only matching limit_snapshots and usage_events are included\n7. Test multi-provider scenarios: multiple providers with different window kinds\n8. Test edge cases: no snapshots, no recent usage, zero burn rate, already exhausted limits\n9. Integration test with real provider registry and window registry data\n10. Verify pytest coverage >= 80%, ruff/mypy strict/trivy clean\n\nDashboard tests:\n1. Unit test NowView.vue calls correct v2 endpoint with filtersForApi() payload\n2. Mock API responses and verify rendering of LabeledValue components with registry-aware labels\n3. Test multi-provider display logic: unified vs. per-provider sections\n4. Test value-state application for gauge coloring based on utilization\n5. Test reset horizon countdown timers update correctly\n6. Test filter changes trigger re-fetch and UI update\n7. Visual regression test: compare NowView rendering before/after migration\n8. Integration test: verify WebSocket live feed still works alongside new endpoint\n9. E2E test: apply global filters, verify NowView reflects filtered data\n10. Verify vitest passes, ESLint/Prettier clean, build succeeds",
+        "status": "pending",
+        "dependencies": [
+          "66",
+          "69",
+          "61",
+          "12",
+          "33"
+        ],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T09:51:03.473Z",
-      "taskCount": 72,
+      "lastModified": "2026-07-19T10:03:52.781Z",
+      "taskCount": 73,
       "completedCount": 65,
       "tags": [
         "master"
