@@ -19,6 +19,24 @@ import type {
   SummaryNow,
   UsageResponse,
 } from './types';
+import type {
+  AttemptsResponseV2,
+  CostResponseV2,
+  DataQualityResponseV2,
+  LimitsResponseV2,
+  ModelLifecycle,
+  ModelV2,
+  ProviderV2,
+  RateCardV2,
+  ReconciliationResponseV2,
+  RequestDetailV2,
+  RequestsResponseV2,
+  RollupsResponseV2,
+  SessionsResponseV2,
+  SessionV2,
+  SourceV2,
+  UsageResponseV2,
+} from './types-v2';
 
 export class ApiError extends Error {
   constructor(
@@ -276,6 +294,164 @@ export class ApiClient {
       'DELETE'
     );
   }
+
+  // --- Provider-neutral v2 read API (scope query:read) -------------------
+  // Thin typed wrappers over the /api/v2 read endpoints. Registry data
+  // (providers, models) drives the UI so no view hardcodes a provider set
+  // (NFR-MAIN-006); the query endpoints all take the uniform filter surface
+  // built by buildV2Filters (FR-QUERY-002/011).
+
+  v2Providers(): Promise<ProviderV2[]> {
+    return this.request<ProviderV2[]>('/api/v2/providers');
+  }
+
+  v2Models(
+    opts: {
+      provider?: string;
+      lifecycle?: ModelLifecycle;
+    } = {}
+  ): Promise<ModelV2[]> {
+    const params = new URLSearchParams();
+    if (opts.provider) params.set('provider', opts.provider);
+    if (opts.lifecycle) params.set('lifecycle', opts.lifecycle);
+    return this.request<ModelV2[]>(`/api/v2/models?${params}`);
+  }
+
+  v2Usage(query: V2GroupedQuery): Promise<UsageResponseV2> {
+    return this.request<UsageResponseV2>(
+      `/api/v2/usage?${buildV2GroupedParams(query)}`
+    );
+  }
+
+  v2Costs(query: V2GroupedQuery): Promise<CostResponseV2> {
+    return this.request<CostResponseV2>(
+      `/api/v2/costs?${buildV2GroupedParams(query)}`
+    );
+  }
+
+  v2Reconciliation(query: V2RangeQuery): Promise<ReconciliationResponseV2> {
+    const params = new URLSearchParams({ from: query.from, to: query.to });
+    return this.request<ReconciliationResponseV2>(
+      `/api/v2/costs/reconciliation?${params}`
+    );
+  }
+
+  v2Attempts(
+    query: V2PageQuery & { logicalRequestId?: string }
+  ): Promise<AttemptsResponseV2> {
+    const params = buildV2RangeParams(query);
+    appendV2Page(params, query);
+    if (query.logicalRequestId) {
+      params.set('logical_request_id', query.logicalRequestId);
+    }
+    return this.request<AttemptsResponseV2>(`/api/v2/attempts?${params}`);
+  }
+
+  v2Requests(
+    query: V2PageQuery & { routingPolicy?: string; fallbackOnly?: boolean }
+  ): Promise<RequestsResponseV2> {
+    const params = buildV2RangeParams(query);
+    appendV2Page(params, query);
+    if (query.routingPolicy) params.set('routing_policy', query.routingPolicy);
+    if (query.fallbackOnly) params.set('fallback_only', 'true');
+    return this.request<RequestsResponseV2>(`/api/v2/requests?${params}`);
+  }
+
+  v2RequestDetail(
+    provider: string,
+    logicalRequestId: string
+  ): Promise<RequestDetailV2> {
+    return this.request<RequestDetailV2>(
+      `/api/v2/requests/${encodeURIComponent(provider)}/` +
+        encodeURIComponent(logicalRequestId)
+    );
+  }
+
+  v2Sessions(query: V2PageQuery): Promise<SessionsResponseV2> {
+    const params = buildV2RangeParams(query);
+    appendV2Page(params, query);
+    return this.request<SessionsResponseV2>(`/api/v2/sessions?${params}`);
+  }
+
+  v2SessionDetail(scopedId: string): Promise<SessionV2> {
+    return this.request<SessionV2>(
+      `/api/v2/sessions/${encodeURIComponent(scopedId)}`
+    );
+  }
+
+  v2Sources(
+    opts: { type?: string; stale?: boolean } = {}
+  ): Promise<SourceV2[]> {
+    const params = new URLSearchParams();
+    if (opts.type) params.set('type', opts.type);
+    if (opts.stale !== undefined) params.set('stale', String(opts.stale));
+    return this.request<SourceV2[]>(`/api/v2/sources?${params}`);
+  }
+
+  v2Limits(
+    query: V2PageQuery & { windowKind?: string; provenance?: string }
+  ): Promise<LimitsResponseV2> {
+    const params = new URLSearchParams({ from: query.from, to: query.to });
+    if (query.provider) params.set('provider', query.provider);
+    if (query.machine) params.set('machine', query.machine);
+    if (query.windowKind) params.set('window_kind', query.windowKind);
+    if (query.provenance) params.set('provenance', query.provenance);
+    appendV2Page(params, query);
+    return this.request<LimitsResponseV2>(`/api/v2/limits?${params}`);
+  }
+
+  v2DataQuality(
+    query: {
+      kind?: string;
+      subject?: string;
+      source?: string;
+      resolved?: boolean;
+      limit?: number;
+      cursor?: string;
+    } = {}
+  ): Promise<DataQualityResponseV2> {
+    const params = new URLSearchParams();
+    if (query.kind) params.set('kind', query.kind);
+    if (query.subject) params.set('subject', query.subject);
+    if (query.source) params.set('source', query.source);
+    if (query.resolved !== undefined) {
+      params.set('resolved', String(query.resolved));
+    }
+    appendV2Page(params, query);
+    return this.request<DataQualityResponseV2>(
+      `/api/v2/data-quality?${params}`
+    );
+  }
+
+  v2Pricing(
+    query: {
+      provider?: string;
+      nativeModel?: string;
+      unitType?: string;
+      activeOn?: string;
+    } = {}
+  ): Promise<RateCardV2[]> {
+    const params = new URLSearchParams();
+    if (query.provider) params.set('provider', query.provider);
+    if (query.nativeModel) params.set('native_model', query.nativeModel);
+    if (query.unitType) params.set('unit_type', query.unitType);
+    if (query.activeOn) params.set('active_on', query.activeOn);
+    return this.request<RateCardV2[]>(`/api/v2/pricing?${params}`);
+  }
+
+  v2Rollups(
+    query: V2PageQuery & { environment?: string; billingMode?: string }
+  ): Promise<RollupsResponseV2> {
+    const params = new URLSearchParams({ from: query.from, to: query.to });
+    if (query.provider) params.set('provider', query.provider);
+    if (query.model) params.set('model', query.model);
+    if (query.machine) params.set('machine', query.machine);
+    if (query.source) params.set('source', query.source);
+    if (query.environment) params.set('environment', query.environment);
+    if (query.billingMode) params.set('billing_mode', query.billingMode);
+    appendV2Page(params, query);
+    return this.request<RollupsResponseV2>(`/api/v2/rollups?${params}`);
+  }
 }
 
 export interface TokenInfo {
@@ -375,5 +551,82 @@ function rangeParams(from?: string, to?: string): string {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
+  return params.toString();
+}
+
+/** The uniform v2 dimension and pseudo-filter surface (FR-QUERY-002/011).
+ *
+ * ``model`` and ``session`` map to the server's ``model``/``session`` query
+ * aliases; the ``unknown*`` flags select events whose provider/model is not in
+ * the registry. Camel-cased flags become snake_case query params. */
+export interface V2Filters {
+  provider?: string;
+  model?: string;
+  source?: string;
+  machine?: string;
+  project?: string;
+  session?: string;
+  environment?: string;
+  outcome?: string;
+  unknownProvider?: boolean;
+  unknownModel?: boolean;
+}
+
+/** A bounded time range plus the uniform filters (every v2 query needs a range). */
+export interface V2RangeQuery extends V2Filters {
+  from: string;
+  to: string;
+}
+
+/** A grouped aggregate query (/usage, /costs): range, filters, group_by, sort. */
+export interface V2GroupedQuery extends V2RangeQuery {
+  groupBy?: string;
+  sort?: string;
+}
+
+/** A keyset-paginated query: range, filters, and page controls. */
+export interface V2PageQuery extends V2RangeQuery {
+  limit?: number;
+  cursor?: string;
+}
+
+/** Append the uniform filter params to ``params``, omitting unset ones. */
+export function appendV2Filters(
+  params: URLSearchParams,
+  filters: V2Filters
+): void {
+  if (filters.provider) params.set('provider', filters.provider);
+  if (filters.model) params.set('model', filters.model);
+  if (filters.source) params.set('source', filters.source);
+  if (filters.machine) params.set('machine', filters.machine);
+  if (filters.project) params.set('project', filters.project);
+  if (filters.session) params.set('session', filters.session);
+  if (filters.environment) params.set('environment', filters.environment);
+  if (filters.outcome) params.set('outcome', filters.outcome);
+  if (filters.unknownProvider) params.set('unknown_provider', 'true');
+  if (filters.unknownModel) params.set('unknown_model', 'true');
+}
+
+/** Append keyset page controls (limit, cursor), omitting unset ones. */
+export function appendV2Page(
+  params: URLSearchParams,
+  page: { limit?: number; cursor?: string }
+): void {
+  if (page.limit !== undefined) params.set('limit', String(page.limit));
+  if (page.cursor) params.set('cursor', page.cursor);
+}
+
+/** Build the query string for a range + uniform-filter v2 request. */
+export function buildV2RangeParams(query: V2RangeQuery): URLSearchParams {
+  const params = new URLSearchParams({ from: query.from, to: query.to });
+  appendV2Filters(params, query);
+  return params;
+}
+
+/** Build the query string for a grouped aggregate v2 request (/usage, /costs). */
+export function buildV2GroupedParams(query: V2GroupedQuery): string {
+  const params = buildV2RangeParams(query);
+  if (query.groupBy) params.set('group_by', query.groupBy);
+  if (query.sort) params.set('sort', query.sort);
   return params.toString();
 }

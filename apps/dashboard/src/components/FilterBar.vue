@@ -1,21 +1,39 @@
 <script setup lang="ts">
 // A shared filter row: date-range presets (plus custom from/to) and optional
-// machine and project selectors. Emits the resolved UsageFilter whenever any
-// control changes, so parent views can pass it straight to the usage API.
+// provider, model, machine, and project selectors. Emits the resolved
+// UsageFilter whenever any control changes, so parent views can pass it
+// straight to the usage API. Provider and model are the cross-view global
+// filter (FR-UI-002): their state lives in useGlobalFilters, so a selection
+// made here carries to every other view.
 import { computed, ref, watch } from 'vue';
 import { PRESETS, presetRange } from '@/lib/filters';
 import type { RangePreset, UsageFilter } from '@/lib/filters';
+import { useGlobalFilters } from '@/composables/useGlobalFilters';
+
+/** A registry-labeled dropdown option (value is the id, label the display name). */
+export interface SelectOption {
+  value: string;
+  label: string;
+}
 
 withDefaults(
   defineProps<{
     machines?: string[];
     projects?: string[];
+    providers?: SelectOption[];
+    models?: SelectOption[];
   }>(),
-  { machines: () => [], projects: () => [] }
+  {
+    machines: () => [],
+    projects: () => [],
+    providers: () => [],
+    models: () => [],
+  }
 );
 
 const emit = defineEmits<{ change: [filter: UsageFilter] }>();
 
+const { provider, model, setProvider, setModel } = useGlobalFilters();
 const preset = ref<RangePreset>('30d');
 const customFrom = ref('');
 const customTo = ref('');
@@ -30,6 +48,8 @@ const filter = computed<UsageFilter>(() => {
   return {
     from: range.from,
     to: range.to,
+    provider: provider.value || undefined,
+    model: model.value || undefined,
     machine: machine.value || undefined,
     project: project.value || undefined,
   };
@@ -66,6 +86,29 @@ watch(filter, (value) => emit('change', value), { immediate: true });
       <span class="muted">to</span>
       <input v-model="customTo" type="date" aria-label="to date" />
     </div>
+
+    <select
+      v-if="providers.length"
+      :value="provider"
+      aria-label="provider"
+      @change="setProvider(($event.target as HTMLSelectElement).value)"
+    >
+      <option value="">all providers</option>
+      <option v-for="p in providers" :key="p.value" :value="p.value">
+        {{ p.label }}
+      </option>
+    </select>
+    <select
+      v-if="models.length"
+      :value="model"
+      aria-label="model"
+      @change="setModel(($event.target as HTMLSelectElement).value)"
+    >
+      <option value="">all models</option>
+      <option v-for="m in models" :key="m.value" :value="m.value">
+        {{ m.label }}
+      </option>
+    </select>
 
     <select v-if="machines.length" v-model="machine" aria-label="machine">
       <option value="">all machines</option>

@@ -36,6 +36,36 @@ export function seriesColor(index: number, dark: boolean): string {
   return ramp[index % ramp.length];
 }
 
+/**
+ * Assign a stable categorical color to each key (e.g. provider or model ids).
+ *
+ * Keys are deduplicated and sorted so a given key always maps to the same hue
+ * regardless of the order or subset in which it is passed -- a provider keeps
+ * its color across views (NFR-MAIN-006 wants provider colors to derive from
+ * registry data, not per-view chart order). The ramp wraps past its length,
+ * matching seriesColor.
+ */
+export function stableColorMap(
+  keys: Iterable<string>,
+  dark: boolean
+): Map<string, string> {
+  const ordered = [...new Set(keys)].sort();
+  const map = new Map<string, string>();
+  ordered.forEach((key, index) => {
+    map.set(key, seriesColor(index, dark));
+  });
+  return map;
+}
+
+/** The stable color for a single key within a registry key set. */
+export function keyColor(
+  key: string,
+  keys: Iterable<string>,
+  dark: boolean
+): string {
+  return stableColorMap(keys, dark).get(key) ?? seriesColor(0, dark);
+}
+
 /** True when the document is currently in dark mode. */
 export function isDark(): boolean {
   if (typeof document !== 'undefined') {

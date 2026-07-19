@@ -6,6 +6,8 @@ export type RangePreset = 'today' | '7d' | '30d' | '90d' | 'all' | 'custom';
 export interface UsageFilter {
   from?: string;
   to?: string;
+  provider?: string;
+  model?: string;
   machine?: string;
   project?: string;
 }
