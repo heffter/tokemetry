@@ -26,6 +26,7 @@ from tokemetry_core.usage_v2 import (
 
 from tokemetry_server.api.schemas import IngestResult, MachineInfo
 from tokemetry_server.db import models
+from tokemetry_server.db.backfill import COLLECTOR_SOURCE_NAME
 from tokemetry_server.db.upsert import (
     daily_rollups_upsert,
     machine_upsert,
@@ -37,6 +38,10 @@ from tokemetry_server.services.registries import (
 )
 from tokemetry_server.services.revisions import ConflictMode, RevisionEngine
 from tokemetry_server.services.rollups import refresh_rollups_for_days
+from tokemetry_server.services.sources import (
+    SourceHealthService,
+    SourceRegistryService,
+)
 from tokemetry_server.services.validation import ValidationError, validate_event, validate_limit
 
 #: Callable computing an event's USD cost, or None when no price is known.
@@ -62,13 +67,25 @@ def _dedupe_keep_max(events: list[UsageEvent]) -> list[UsageEvent]:
     return [best[key] for key in order]
 
 
-def _v1_to_v2(event: UsageEvent, machine: str) -> UsageEventV2:
+def _collector_source(machine: str, collector_version: str | None) -> SourceRef:
+    """The derived collector source for a v1 machine (task 63.6, FR-SOURCE-008)."""
+    return SourceRef(
+        type=SourceType.COLLECTOR,
+        name=COLLECTOR_SOURCE_NAME,
+        version=collector_version or "unknown",
+        instance_id=machine,
+    )
+
+
+def _v1_to_v2(event: UsageEvent, machine: str, collector_version: str | None) -> UsageEventV2:
     """Map a v1 core usage event onto a v2 wire event (FR-EVENT-023).
 
     Mirrors the backfill mapping (``db/backfill.py``): ``event_kind='attempt'``,
     ``finality='final'``, ``sequence=0``, no reasoning, and the v1-only fields
     preserved under ``extra['_v1']`` so the compatibility view reproduces them.
-    A minimal collector source is synthesized (source attribution is Task 63).
+    The source is the derived collector source (task 63.6); the v1 ``source``
+    column value under ``extra['_v1']`` stays ``"collector"`` to keep the view
+    byte-identical.
     """
     extra = dict(event.extra)
     extra["_v1"] = {
@@ -102,7 +119,7 @@ def _v1_to_v2(event: UsageEvent, machine: str) -> UsageEventV2:
         success=True,
         service_tier=event.service_tier,
         provenance=event.provenance,
-        source=SourceRef(type=SourceType.COLLECTOR, name="collector", version="v1"),
+        source=_collector_source(event.machine or machine, collector_version),
         extra=extra,
     )
 
@@ -148,6 +165,8 @@ class IngestService:
         self._models_registry = models_registry
         self._data_quality = data_quality
         self._unknown_provider_policy = unknown_provider_policy
+        self._sources = SourceRegistryService(session)
+        self._health = SourceHealthService(session, data_quality)
 
     async def ingest_events(
         self, machine: MachineInfo, events: list[UsageEvent]
@@ -164,7 +183,7 @@ class IngestService:
         # reads (including the rollup refresh below) go through the v1-shaped
         # ``usage_events`` compatibility view over ``usage_events_v2`` (subtask
         # 62.10). The keep-max resolution keeps v1 wire behavior identical.
-        await self._mirror_to_v2(deduped, machine.name)
+        await self._mirror_to_v2(deduped, machine)
 
         # Recompute the touched days' rollups from the now-current events.
         affected_days = {event.ts.date() for event in deduped}
@@ -177,15 +196,35 @@ class IngestService:
             duplicates_merged=len(events) - len(deduped),
         )
 
-    async def _mirror_to_v2(self, events: list[UsageEvent], machine: str) -> None:
-        """Project deduped v1 events into ``usage_events_v2`` (keep-max mode)."""
+    async def _mirror_to_v2(self, events: list[UsageEvent], machine: MachineInfo) -> None:
+        """Project deduped v1 events into ``usage_events_v2`` (keep-max mode).
+
+        Every v1 batch is attributed to the derived collector source for its
+        machine (task 63.6): the source is resolved once per batch and stamped on
+        each ledger row, and the source's health is refreshed so the new
+        stale-source view works alongside the machine-based collector alert.
+        """
         engine = RevisionEngine(self._session, self._data_quality)
+        source = _collector_source(machine.name, machine.collector_version)
+        latest = max((event.ts for event in events), default=None)
+        source_id = await self._sources.resolve_or_create(
+            source, latest or datetime.now(UTC), machine=machine.name
+        )
         for event in events:
             cost = self._cost_fn(event) if self._cost_fn is not None else None
             await engine.apply(
-                _v1_to_v2(event, machine),
+                _v1_to_v2(event, machine.name, machine.collector_version),
                 mode=ConflictMode.KEEP_MAX,
                 cost=cost,
+                source_id=source_id,
+            )
+        if latest is not None:
+            await self._health.record_ingest(
+                source_id,
+                datetime.now(UTC),
+                schema_version=1,
+                max_event_ts=latest,
+                error_count=0,
             )
 
     async def _apply_registry_policy(self, events: list[UsageEvent]) -> None:

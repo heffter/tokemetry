@@ -2617,13 +2617,14 @@
             "id": 6,
             "title": "V1 source attribution for legacy collector traffic",
             "description": "Derive source identity for v1 ingest so machine tracking stays compatible.",
-            "details": "V1 payloads carry machine info but no source object. Derive a deterministic source per v1 ingest: type collector, name claude-code-collector, instance_id from machine id, version from the batch machine_info collector_version, machine linked (FR-SOURCE-008 keeps the machines table fully supported). Attribute newly ingested v1 events to that source_id and backfill source_id for historical rows created by the 62.8 backfill (single UPDATE keyed on machine, batched). The existing collector_stale alert keeps functioning on machines while the new stale_source kind (Task 68) works on sources; both coexist. Machine API endpoints unchanged. Test strategy: integration test that v1 ingest auto-creates exactly one source per machine and reuses it across batches; backfill attribution test on seeded historical data; regression that /api/v1/machines output is unchanged and golden suite green.",
-            "status": "pending",
+            "details": "V1 payloads carry machine info but no source object. Derive a deterministic source per v1 ingest: type collector, name claude-code-collector, instance_id from machine id, version from the batch machine_info collector_version, machine linked (FR-SOURCE-008 keeps the machines table fully supported). Attribute newly ingested v1 events to that source_id and backfill source_id for historical rows created by the 62.8 backfill (single UPDATE keyed on machine, batched). The existing collector_stale alert keeps functioning on machines while the new stale_source kind (Task 68) works on sources; both coexist. Machine API endpoints unchanged. Test strategy: integration test that v1 ingest auto-creates exactly one source per machine and reuses it across batches; backfill attribution test on seeded historical data; regression that /api/v1/machines output is unchanged and golden suite green.\n<info added on 2026-07-19T01:18:35.119Z>\nNo new information should be appended because the user request provides the complete, finalized implementation details for subtask 63.6, which already match the existing subtask details in structure and content. The existing details already cover: V1 source derivation (type collector, name claude-code-collector, instance_id from machine id, version from collector_version), source_id stamping on mirrored ledger rows, source health recording, backfill attribution logic, migration 0014, machine API/table untouched status, IngestService additions, mypy fixes, test strategy, and gates. The user request is a more detailed elaboration of the same content, not new information requiring addition.\n\nHowever, if the intent is to replace the existing details with this more comprehensive version, the new text to use would be the entire user request string. But per the instruction to return ONLY new text to append (not replace), and since no distinct new information exists beyond what's already in the current details, the correct response is an empty string.\n\nWait—re-reading the user request, it contains specific implementation details not fully explicit in the current subtask details: the exact file paths (`services/ingest.py _mirror_to_v2`, `db/backfill.attribute_backfilled_sources`, `remove_collector_source_attribution`), the precise schema version (`schema_version=1`), the exact migration number (`0014`), the specific test file name (`test_v1_source_attribution.py`), and the exact gate metrics (`pytest 587 passed/29 skipped, ruff clean, mypy strict clean (79 files), trivy no HIGH/CRITICAL`). These are new, concrete details that should be appended.\n\nNew text to append:\n\nservices/ingest.py _mirror_to_v2 resolves a (collector, claude-code-collector, machine.name) SourceRef (version from MachineInfo.collector_version, fallback 'unknown' since SourceRef.version is required; machine linked, FR-SOURCE-008) once per batch via SourceRegistryService, stamps its source_id on every mirrored ledger row, and records source health (SourceHealthService.record_ingest schema_version=1) so the new stale_source view (Task 68) works while the machine-based collector alert keeps functioning. Crucially the v1 'source' column value under extra['_v1'].source stays 'collector' (the registry NAME is claude-code-collector) so the compatibility view + golden suite are byte-identical. Backfill attribution: db/backfill.attribute_backfilled_sources(connection) finds distinct machines of source-less backfilled attempt rows, resolves/creates the per-machine collector source (version from machines.collector_version), and UPDATEs source_id in one statement per machine; remove_collector_source_attribution reverses it. Migration 0014 wires both (upgrade attributes, downgrade unlinks + deletes the derived sources). Machine API/table untouched. IngestService gains _sources + _health. mypy fixes: ORM-class DML (sa.update/insert/delete), inserted_primary_key guard, version fallback. Tests: test_v1_source_attribution.py (one source per machine reused across batches with source_id stamped + health recorded, two machines distinct sources, backfill attribution of seeded historical rows with version from machines, machines table still registered). Golden v1 suite byte-identical. Gates: pytest 587 passed/29 skipped, ruff clean, mypy strict clean (79 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-19T01:18:35.119Z>",
+            "status": "done",
             "dependencies": [
               "63.1"
             ],
             "parentTaskId": 63,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T01:19:03.959Z"
           },
           {
             "id": 7,
@@ -2639,7 +2640,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T01:01:27.487Z"
+        "updatedAt": "2026-07-19T01:19:03.959Z"
       },
       {
         "id": "64",
@@ -3538,7 +3539,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T01:01:27.488Z",
+      "lastModified": "2026-07-19T01:19:03.960Z",
       "taskCount": 71,
       "completedCount": 62,
       "tags": [

@@ -25,7 +25,7 @@ day, provider, and machine and comparing counts, all five token sums, and cost.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -35,6 +35,10 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from tokemetry_server.db import models
+
+#: Registry name of the derived source for legacy Claude Code collector traffic
+#: (task 63.6); its identity is ``(collector, this name, machine id)``.
+COLLECTOR_SOURCE_NAME = "claude-code-collector"
 
 #: Marker set in a backfilled row's ``extra`` so the downgrade can find it.
 BACKFILL_MARKER = "_backfill"
@@ -248,6 +252,103 @@ def populate_transitional_cost(
         if len(rows) < chunk_size:
             break
     return updated
+
+
+def attribute_backfilled_sources(connection: Connection) -> int:
+    """Attribute source-less v1 rows to a derived collector source per machine.
+
+    Historical rows created by the v1-to-v2 backfill (task 62.8) carry no
+    ``source_id``. For each distinct machine, this resolves or creates a
+    ``(collector, claude-code-collector, machine)`` source -- version pulled from
+    the machines table, machine linked (FR-SOURCE-008) -- and stamps its id onto
+    that machine's attempt rows. Returns the number of rows attributed.
+    """
+    event = models.UsageEventV2
+    machine_ids = (
+        connection.execute(
+            sa.select(event.machine)
+            .where(
+                event.source_id.is_(None),
+                event.machine.isnot(None),
+                event.event_kind == "attempt",
+            )
+            .distinct()
+        )
+        .scalars()
+        .all()
+    )
+
+    now = datetime.now(UTC)
+    attributed = 0
+    for machine in machine_ids:
+        source_id = connection.execute(
+            sa.select(models.Source.id).where(
+                models.Source.type == "collector",
+                models.Source.name == COLLECTOR_SOURCE_NAME,
+                models.Source.instance_id == machine,
+            )
+        ).scalar()
+        if source_id is None:
+            version = connection.execute(
+                sa.select(models.Machine.collector_version).where(
+                    models.Machine.id == machine
+                )
+            ).scalar()
+            inserted = connection.execute(
+                sa.insert(models.Source).values(
+                    type="collector",
+                    name=COLLECTOR_SOURCE_NAME,
+                    version=version,
+                    instance_id=machine,
+                    machine=machine,
+                    token_label=None,
+                    billing_mode="api_billed",
+                    first_seen=now,
+                    last_seen=now,
+                    revoked=False,
+                    recent_error_count=0,
+                )
+            ).inserted_primary_key
+            assert inserted is not None
+            source_id = inserted[0]
+        result = connection.execute(
+            sa.update(event)
+            .where(
+                event.machine == machine,
+                event.source_id.is_(None),
+                event.event_kind == "attempt",
+            )
+            .values(source_id=source_id)
+        )
+        attributed += result.rowcount or 0
+    return attributed
+
+
+def remove_collector_source_attribution(connection: Connection) -> int:
+    """Reverse :func:`attribute_backfilled_sources`; return rows unlinked.
+
+    Nulls ``source_id`` on rows pointing at derived collector sources and deletes
+    those sources, so the migration downgrade leaves no dangling references.
+    """
+    ids = (
+        connection.execute(
+            sa.select(models.Source.id).where(
+                models.Source.type == "collector",
+                models.Source.name == COLLECTOR_SOURCE_NAME,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not ids:
+        return 0
+    result = connection.execute(
+        sa.update(models.UsageEventV2)
+        .where(models.UsageEventV2.source_id.in_(ids))
+        .values(source_id=None)
+    )
+    connection.execute(sa.delete(models.Source).where(models.Source.id.in_(ids)))
+    return result.rowcount or 0
 
 
 @dataclass(frozen=True)
