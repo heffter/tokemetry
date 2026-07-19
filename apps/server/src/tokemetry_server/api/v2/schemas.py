@@ -540,6 +540,42 @@ class LimitsResponse(BaseModel):
     next_cursor: str | None = None
 
 
+class LimitStreamOut(BaseModel):
+    """The stream a forecast was computed from (its source data, FR-LIMIT-008)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    window_kind: str
+    account: str | None
+    organization: str | None
+    source_id: int | None
+
+
+class LimitForecastOut(BaseModel):
+    """An exhaustion forecast for one limit stream with confidence (FR-LIMIT-008)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stream: LimitStreamOut
+    utilization_pct: float
+    slope_pct_per_min: float
+    predicted_exhaustion_at: UtcDatetime | None
+    resets_at: UtcDatetime | None
+    will_reset_first: bool
+    sample_count: int
+    #: ``high`` | ``medium`` | ``low`` | ``unavailable``.
+    confidence: str
+
+
+class LimitForecastResponse(BaseModel):
+    """Per-stream limit exhaustion forecasts over a range."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    forecasts: list[LimitForecastOut]
+
+
 class DataQualityEventOut(BaseModel):
     """One recorded data-quality anomaly."""
 

@@ -3342,15 +3342,16 @@
             "id": 6,
             "title": "Limit forecasting with source and confidence labeling",
             "description": "Exhaustion prediction across providers with explicit data provenance.",
-            "details": "Generalize the existing burn-rate and exhaustion prediction (services/analytics.py) to any provider window with period semantics from the registry: prediction identifies its source data (which limit stream and which usage series) and a confidence level derived from sample density and window age (FR-LIMIT-008); subscription windows without utilization history yield unavailable rather than a guess (FR-DIM-010 semantics); multi-account streams predict independently (FR-LIMIT-005). The /summary/now v1 response keeps its current Anthropic-shaped fields (golden suite) while the v2 limits endpoint (66.6) gains forecast objects per stream. Test strategy: unit tests for period-semantics math across rolling and calendar windows, confidence derivation, insufficient-data behavior, and per-account independence; regression test that Anthropic five-hour predictions match current outputs on identical fixtures; integration test with all three providers seeded.",
-            "status": "pending",
+            "details": "Generalize the existing burn-rate and exhaustion prediction (services/analytics.py) to any provider window with period semantics from the registry: prediction identifies its source data (which limit stream and which usage series) and a confidence level derived from sample density and window age (FR-LIMIT-008); subscription windows without utilization history yield unavailable rather than a guess (FR-DIM-010 semantics); multi-account streams predict independently (FR-LIMIT-005). The /summary/now v1 response keeps its current Anthropic-shaped fields (golden suite) while the v2 limits endpoint (66.6) gains forecast objects per stream. Test strategy: unit tests for period-semantics math across rolling and calendar windows, confidence derivation, insufficient-data behavior, and per-account independence; regression test that Anthropic five-hour predictions match current outputs on identical fixtures; integration test with all three providers seeded.\n<info added on 2026-07-19T15:37:12.803Z>\nImplementation now includes services/limit_forecast.py with LimitForecast dataclass and pure functions forecast_stream and forecast_streams operating on pre-grouped snapshots without database access. Each forecast carries SOURCE (the LimitStreamKey identifying provider, window_kind, account, organization, source_id), CONFIDENCE tier (high/medium/low/unavailable) computed from sample count and reading span, and PERIOD-AWARE logic setting will_reset_first when the window resets before extrapolated exhaustion. Streams with fewer than 2 samples or zero span return 'unavailable' confidence as a real value rather than a guess (FR-DIM-010). forecast_streams groups by (provider, window_kind, account, organization, source_id) ensuring per-account and per-gateway independence (FR-LIMIT-005). Slope calculation reproduces existing analytics.predict_exhaustion behavior on identical fixtures (regression-tested). resource_queries.forecast_limits loads snapshots within a bounded time range, groups them, and invokes forecast_streams. New endpoint GET /api/v2/limits/forecast with query parameters from, to, provider, window_kind (scope query:read) returns LimitForecastOut per stream containing stream identity, utilization, slope, predicted_exhaustion_at, resets_at, will_reset_first, sample_count, and confidence. v1 /summary/now endpoint and analytics.predict_exhaustion remain unchanged, preserving golden suite compatibility. Test coverage includes test_limit_forecast with 7 cases: slope-to-exhaustion calculation, flat/falling usage never predicting exhaustion, insufficient-data returning unavailable, confidence scaling with sample count and span, period reset-before-exhaustion flagging, per-account independence, and Anthropic five-hour regression against existing fixtures. Integration test seeds a rising limit stream and verifies forecast with confidence plus range-bound 400 validation. OpenAPI snapshot updated (additive changes only); ruff and mypy pass cleanly. Dashboard forecast display deferred as additive LimitsView enhancement; v2 endpoint delivery is the milestone.\n</info added on 2026-07-19T15:37:12.803Z>",
+            "status": "done",
             "dependencies": [
               "69.2",
               "69.3",
               "69.4"
             ],
             "parentTaskId": 69,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T15:37:37.626Z"
           },
           {
             "id": 7,
@@ -3366,7 +3367,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T15:08:35.292Z"
+        "updatedAt": "2026-07-19T15:37:37.626Z"
       },
       {
         "id": "70",
@@ -3656,7 +3657,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T15:08:35.293Z",
+      "lastModified": "2026-07-19T15:37:37.627Z",
       "taskCount": 76,
       "completedCount": 66,
       "tags": [

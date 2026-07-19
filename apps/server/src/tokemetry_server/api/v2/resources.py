@@ -22,8 +22,11 @@ from tokemetry_server.api.v2.query_deps import to_utc
 from tokemetry_server.api.v2.schemas import (
     DataQualityEventOut,
     DataQualityResponse,
+    LimitForecastOut,
+    LimitForecastResponse,
     LimitSnapshotOut,
     LimitsResponse,
+    LimitStreamOut,
     RollupOut,
     RollupsResponse,
 )
@@ -31,6 +34,7 @@ from tokemetry_server.config import Settings
 from tokemetry_server.scopes import QUERY_READ
 from tokemetry_server.services.query_framework import QueryParamError, enforce_range_bound
 from tokemetry_server.services.resource_queries import (
+    forecast_limits,
     list_data_quality,
     list_limits,
     list_rollups,
@@ -66,6 +70,47 @@ async def limits_endpoint(
     return LimitsResponse(
         limits=[LimitSnapshotOut.model_validate(row) for row in page.items],
         next_cursor=page.next_cursor,
+    )
+
+
+@router.get("/limits/forecast", response_model=LimitForecastResponse)
+async def limits_forecast_endpoint(
+    request: Request,
+    start: datetime = Query(alias="from"),
+    end: datetime = Query(alias="to"),
+    provider: str | None = Query(default=None),
+    window_kind: str | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
+) -> LimitForecastResponse:
+    """Per-stream exhaustion forecasts with confidence over a bounded range."""
+    settings: Settings = request.app.state.settings
+    start, end = to_utc(start), to_utc(end)
+    try:
+        enforce_range_bound(start, end, settings.query_max_range_days)
+        forecasts = await forecast_limits(session, start, end, provider, window_kind)
+    except QueryParamError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return LimitForecastResponse(
+        forecasts=[
+            LimitForecastOut(
+                stream=LimitStreamOut(
+                    provider=forecast.stream.provider,
+                    window_kind=forecast.stream.window_kind,
+                    account=forecast.stream.account,
+                    organization=forecast.stream.organization,
+                    source_id=forecast.stream.source_id,
+                ),
+                utilization_pct=forecast.utilization_pct,
+                slope_pct_per_min=forecast.slope_pct_per_min,
+                predicted_exhaustion_at=forecast.predicted_exhaustion_at,
+                resets_at=forecast.resets_at,
+                will_reset_first=forecast.will_reset_first,
+                sample_count=forecast.sample_count,
+                confidence=forecast.confidence,
+            )
+            for forecast in forecasts
+        ]
     )
 
 

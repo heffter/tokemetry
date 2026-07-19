@@ -16,6 +16,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
+from tokemetry_server.services.limit_forecast import LimitForecast, forecast_streams
 from tokemetry_server.services.query_framework import (
     Page,
     build_page,
@@ -23,6 +24,30 @@ from tokemetry_server.services.query_framework import (
     encode_cursor,
     keyset_condition,
 )
+
+
+async def forecast_limits(
+    session: AsyncSession,
+    start: datetime,
+    end: datetime,
+    provider: str | None,
+    window_kind: str | None,
+) -> list[LimitForecast]:
+    """Forecast each limit stream over a range (FR-LIMIT-008).
+
+    Loads the snapshots in range (bounded by the endpoint), then groups them
+    into streams and forecasts each independently. Unlike the paginated snapshot
+    listing this returns one forecast per stream, not one row per snapshot.
+    """
+    lim = models.LimitSnapshot
+    statement = select(lim).where(lim.ts >= start, lim.ts <= end)
+    if provider is not None:
+        statement = statement.where(lim.provider == provider)
+    if window_kind is not None:
+        statement = statement.where(lim.window_kind == window_kind)
+    statement = statement.order_by(lim.ts.asc())
+    rows = list((await session.execute(statement)).scalars())
+    return forecast_streams(rows)
 
 
 def _apply_ts_keyset(
