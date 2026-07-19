@@ -3268,7 +3268,7 @@
         "description": "Provider-neutral limit tracking: window registry with labels and period semantics, limit snapshot dimensions for account, organization, and source, new OpenAI/Codex and Z.ai coding-plan limit sources in the collector, gateway-observed rate-limit snapshots, and confidence-labeled forecasting. PRD-TOK-002 Section 12.9; Epic TOK-12; FR-LIMIT-001..013; decision D-008.",
         "details": "Objective: subscription and rate-limit visibility for Anthropic, OpenAI/Codex, and Z.ai on one neutral schema (new epic added by decision D-008).\n\nDesign: provider window registry describing window kinds, display labels, and period semantics per provider (FR-LIMIT-012), exposed through the providers API so dashboards and alerts stop hardcoding five_hour and seven_day labels; window kinds remain provider-defined opaque identifiers in storage (FR-LIMIT-001). limit_snapshots gains account, organization, and source dimensions plus limit_amount, remaining, and unit columns (FR-LIMIT-002/003); multiple account or subscription streams are never merged without an explicit grouping rule (FR-LIMIT-005); official versus estimated provenance remains distinguishable (FR-LIMIT-004). New collector limit sources following the AnthropicOAuthLimitsSource pattern (apps/collector, registered through the existing builder registry): an OpenAI/Codex subscription limits source and a Z.ai coding-plan limits source; both are undocumented endpoints, so every failure degrades gracefully to LimitsUnavailableError plus a data_quality_events record instead of failing collection (FR-LIMIT-013); credentials are read locally and never uploaded, matching the Anthropic source. Gateway-observed rate-limit headers ingestible as optional snapshots through POST /api/v2/ingest/limits (FR-LIMIT-010). Forecasting identifies its source data and confidence (FR-LIMIT-008); unknown windows never require schema migrations (FR-LIMIT-009).\n\nAcceptance criteria (PRD Epic TOK-12): window registry describes kinds, labels, and periods; snapshots support account, organization, and source dimensions; the existing Anthropic OAuth source keeps working unchanged; OpenAI/Codex and Z.ai sources report subscription windows; gateway rate-limit headers ingestible; dashboards and alerts read window metadata from the registry.\n\nTest strategy: unit tests for the registry and grouping rules; collector unit tests with recorded endpoint fixtures for both new sources including failure degradation; integration test for gateway snapshot ingest; migration tests for the new limit_snapshots columns; regression test that existing Anthropic window history and alerts remain intact.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "62",
           "63"
@@ -3357,17 +3357,18 @@
             "id": 7,
             "title": "Limits epic tests and documentation",
             "description": "Cross-provider verification and operator docs for the new sources.",
-            "details": "Epic verification: end-to-end test seeding limit streams for anthropic (collector official), openai (collector official), zai (collector official), and a gateway-estimated stream, asserting the v2 limits API returns all streams with correct registry labels, provenance, and forecasts, and that the dashboard limit pages (Task 67.9) render them; existing Anthropic limit history, blocks, and alerts unchanged (golden suite plus alert regression). Documentation: docs/collector/overview.md gains setup sections for openai_codex and zai_coding_plan sources (credential locations, config keys, poll intervals, failure behavior); docs/architecture/ gains a limits-v2 section covering the window registry, dimensions, grouping, and forecasting; deploy/collector.example.toml updated with the new source blocks disabled by default. Epic acceptance walkthrough of PRD Epic TOK-12 and AC-020 in the task log. Test strategy: the end-to-end suite green on both engines; docs review against FR-LIMIT-001..013; example TOML validated by the collector config parser in a test.",
-            "status": "pending",
+            "details": "Epic verification: end-to-end test seeding limit streams for anthropic (collector official), openai (collector official), zai (collector official), and a gateway-estimated stream, asserting the v2 limits API returns all streams with correct registry labels, provenance, and forecasts, and that the dashboard limit pages (Task 67.9) render them; existing Anthropic limit history, blocks, and alerts unchanged (golden suite plus alert regression). Documentation: docs/collector/overview.md gains setup sections for openai_codex and zai_coding_plan sources (credential locations, config keys, poll intervals, failure behavior); docs/architecture/ gains a limits-v2 section covering the window registry, dimensions, grouping, and forecasting; deploy/collector.example.toml updated with the new source blocks disabled by default. Epic acceptance walkthrough of PRD Epic TOK-12 and AC-020 in the task log. Test strategy: the end-to-end suite green on both engines; docs review against FR-LIMIT-001..013; example TOML validated by the collector config parser in a test.\n<info added on 2026-07-19T16:02:36.760Z>\nTests:\n- test_limits_epic (end-to-end): ingests collector-official streams for anthropic/openai/zai plus a gateway-estimated anthropic stream through /api/v2/ingest/limits, then asserts GET /api/v2/providers returns the right registry window labels (5-hour block / Requests per min / primary / prompt_5h), GET /api/v2/limits returns every stream with its provenance (anthropic carries both official + local_estimate), GET /api/v2/limits/forecast returns one forecast per stream with the gateway and collector anthropic streams distinct (2 source_ids, no-merge FR-LIMIT-005), and the rising streams forecast non-unavailable.\n- test_example_config: the shipped deploy/collector.example.toml parses via CollectorConfig and openai_codex/zai_coding_plan are present and disabled by default (only anthropic builds).\n\nDocs:\n- docs/architecture/limits-v2.md: window registry, snapshot dimensions, stream grouping, sources (collector and gateway), forecasting.\n- docs/collector/overview.md: setup sections and table rows for openai_codex and zai_coding_plan (credential locations, config keys, poll interval, failure behavior).\n- deploy/collector.example.toml: [limits.openai_codex] and [limits.zai_coding_plan] blocks, disabled.\n\nEPIC ACCEPTANCE (PRD Epic TOK-12), all validated by the epic test and full suite:\n- Window registry describes kinds/labels/periods (69.1). PASS.\n- Snapshots support account/organization/source dimensions (69.2). PASS.\n- Existing Anthropic OAuth source unchanged; collector and golden and alert suites green (69.3 kept limits_anthropic intact). PASS.\n- OpenAI/Codex and Z.ai report subscription windows (69.3/69.4). PASS.\n- Gateway rate-limit headers ingestible and flood control (69.5). PASS.\n- Dashboards/alerts read window metadata from the registry (69.1 LimitsView and providers API). PASS.\n- Forecasting identifies source and confidence (69.6). PASS.\n\nDeferred (out of TOK-12 scope, tracked): collector v2 limits upload for dimension end-to-end (Task 76); 65.7 conformance limits batch (blocked on Task 65).\n</info added on 2026-07-19T16:02:36.760Z>",
+            "status": "done",
             "dependencies": [
               "69.5",
               "69.6"
             ],
             "parentTaskId": 69,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T16:03:01.810Z"
           }
         ],
-        "updatedAt": "2026-07-19T15:37:37.626Z"
+        "updatedAt": "2026-07-19T16:03:01.810Z"
       },
       {
         "id": "70",
@@ -3657,9 +3658,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T15:37:37.627Z",
+      "lastModified": "2026-07-19T16:03:01.811Z",
       "taskCount": 76,
-      "completedCount": 66,
+      "completedCount": 67,
       "tags": [
         "master"
       ]

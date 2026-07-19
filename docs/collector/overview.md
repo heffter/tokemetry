@@ -59,6 +59,8 @@ in this file on the machine; never commit it.
 |---|---|---|
 | `[sources.claude_code]` | usage | `ClaudeCodeJsonlSource` -- tails `~/.claude` transcripts (optional `claude_home` override). |
 | `[limits.anthropic_oauth]` | limits | `AnthropicOAuthLimitsSource` -- polls the OAuth usage endpoint. |
+| `[limits.openai_codex]` | limits | `OpenAICodexLimitsSource` -- polls the Codex usage endpoint (off by default). |
+| `[limits.zai_coding_plan]` | limits | `ZaiCodingLimitsSource` -- polls the Z.ai coding-plan quota endpoint (off by default). |
 
 ### Anthropic OAuth limits
 
@@ -75,3 +77,28 @@ times are uploaded. The endpoint is unofficial and may change; every failure
 (missing token, network error, non-2xx, unparseable body) raises
 `LimitsUnavailableError`, and the collector degrades to local estimates
 rather than crashing.
+
+### OpenAI/Codex limits (`[limits.openai_codex]`, off by default)
+
+`OpenAICodexLimitsSource` reads the Codex access token and account id from
+`auth.json` under the Codex home (`$CODEX_HOME` or `~/.codex`; override with
+`codex_home`) and polls the undocumented Codex usage endpoint. It maps the
+`primary` and `secondary` subscription windows to `LimitSnapshot`s with
+`provider='openai'`, `provenance='official'`, and the account label. Poll
+cadence follows `limits_poll_interval_seconds`. The token never leaves the
+machine; every failure (missing credentials, expired auth, endpoint change,
+network, malformed body) raises `LimitsUnavailableError`, so a broken source is
+skipped and the others keep uploading.
+
+### Z.ai coding-plan limits (`[limits.zai_coding_plan]`, off by default)
+
+`ZaiCodingLimitsSource` reads the Z.ai `api_key` and account from `config.json`
+under the Z.ai home (`$ZAI_HOME` or `~/.zai`; override with `zai_home`) and polls
+the undocumented coding-plan quota endpoint. It maps the `prompt_5h` quota
+window to a `LimitSnapshot` with `provider='zai'`, `provenance='official'`. Same
+failure behavior: the key never leaves the machine and any error degrades
+gracefully to `LimitsUnavailableError`.
+
+Both sources' window kinds carry registry labels
+(see [architecture/limits-v2.md](../architecture/limits-v2.md)), so their
+windows appear on the dashboard without any dashboard code change.

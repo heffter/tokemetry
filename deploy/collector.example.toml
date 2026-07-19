@@ -31,3 +31,15 @@ enabled = true
 # Limit sources to poll.
 [limits.anthropic_oauth]
 enabled = true
+
+# OpenAI/Codex subscription limits (undocumented endpoint; off by default).
+# Reads the access token from auth.json under the Codex home.
+[limits.openai_codex]
+enabled = false
+# codex_home = "C:/Users/you/.codex"     # optional; defaults to $CODEX_HOME or ~/.codex
+
+# Z.ai GLM coding-plan quota (undocumented endpoint; off by default).
+# Reads the api_key from config.json under the Z.ai home.
+[limits.zai_coding_plan]
+enabled = false
+# zai_home = "C:/Users/you/.zai"         # optional; defaults to $ZAI_HOME or ~/.zai
