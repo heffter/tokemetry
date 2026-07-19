@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Core Models and Abstract Interfaces Setup",
         "description": "Define the core normalized UsageEvent Pydantic model and abstract interfaces (UsageSource, LimitsSource, PricingStrategy) for the shared core package (tokemetry_core). Implement the FakeProvider test double to validate interfaces without Claude-specific assumptions.",
         "status": "done",
@@ -25,7 +25,7 @@
         "updatedAt": "2026-07-09T08:52:28.172Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Anthropic Pricing Strategy and LiteLLM Sync",
         "description": "Implement the Anthropic pricing strategy with date-versioned per-MTok rates per provider/model, synced from LiteLLM's model_prices_and_context_window.json. Add manual override support and handle dated/undated model IDs.",
         "status": "done",
@@ -62,7 +62,7 @@
         "updatedAt": "2026-07-09T08:59:06.808Z"
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Claude Code JSONL Parser with Keep-Max Dedup",
         "description": "Implement the Claude Code JSONL parser (ClaudeCodeJsonlSource) to parse ~/.claude/projects/<encoded-cwd>/*.jsonl and subagent transcripts. Extract usage fields and implement keep-max deduplication by requestId.",
         "status": "done",
@@ -128,7 +128,7 @@
         "updatedAt": "2026-07-09T13:36:52.620Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Database Schema and Alembic Migrations",
         "description": "Define the Postgres database schema using SQLAlchemy 2 and Alembic migrations. Create tables: machines, usage_events, limit_snapshots, sessions, daily_rollups, pricing, alert_rules, alert_events, api_tokens.",
         "status": "done",
@@ -173,7 +173,7 @@
         "updatedAt": "2026-07-09T13:47:26.070Z"
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Idempotent Ingest Endpoints with Validation",
         "description": "Implement idempotent ingest endpoints (POST /api/v1/ingest/events, /ingest/limits, /ingest/bootstrap) with batch all-or-nothing logic, upsert keeping maximum-usage row per event_id, and sanity validation rejecting garbage.",
         "status": "done",
@@ -188,7 +188,7 @@
         "updatedAt": "2026-07-09T14:00:44.289Z"
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Cost Engine and Unknown Model Handling",
         "description": "Implement the cost engine to compute cost_usd at ingest using the provider's PricingStrategy and date-effective pricing row. Handle unknown models (null cost, trigger alert) and add recompute command for history repricing.",
         "status": "done",
@@ -224,7 +224,7 @@
         "updatedAt": "2026-07-09T14:11:17.269Z"
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Daily Rollups Refresh on Ingest",
         "description": "Implement daily rollups refresh on ingest for fast history queries. Create the daily_rollups table update logic triggered after ingest/events.",
         "status": "done",
@@ -290,7 +290,7 @@
         "updatedAt": "2026-07-09T14:16:29.789Z"
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Collector Daemon with Offset-Tracked Tailing",
         "description": "Implement the collector daemon (apps/collector) as a cross-platform Python daemon running as Windows Scheduled Task, systemd unit, or launchd agent. Add source-plugin host with watchdog file events and periodic rescan for incremental, byte-offset-tracked tailing.",
         "status": "done",
@@ -397,7 +397,7 @@
         "updatedAt": "2026-07-09T14:29:18.807Z"
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "ClaudeCodeJsonlSource Wiring and SQLite Upload Queue",
         "description": "Wire the ClaudeCodeJsonlSource in the collector, including subagent transcripts parsing and stats-cache bootstrap import. Implement local SQLite upload queue with retry and exponential backoff for offline-safe uploads.",
         "status": "done",
@@ -453,7 +453,7 @@
         "updatedAt": "2026-07-09T14:35:44.614Z"
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "AnthropicOAuthLimitsSource Poller with Graceful Degradation",
         "description": "Implement the AnthropicOAuthLimitsSource poller to poll the undocumented endpoint GET https://api.anthropic.com/api/oauth/usage with OAuth token from ~/.claude/.credentials.json. Add graceful degradation to local estimates on failure.",
         "status": "done",
@@ -467,7 +467,7 @@
         "updatedAt": "2026-07-09T14:42:14.816Z"
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "Analytics Engines and Query API Implementation",
         "description": "Implement analytics engines: Block engine (reconstruct 5-hour billing blocks anchored to official resets_at, inferred fallback), Burn-rate engine (tokens per minute over trailing window, predicted exhaustion time), and Query API endpoints with grouping/filtering.",
         "status": "done",
@@ -482,7 +482,7 @@
         "updatedAt": "2026-07-09T15:00:40.840Z"
       },
       {
-        "id": 12,
+        "id": "12",
         "title": "Vue 3 Web Dashboard with All Views",
         "description": "Implement the Vue 3 web dashboard (apps/dashboard) with Vite scaffold, theming, and API client. Build Now view (gauges, burn rate, live feed), then Trends, Blocks, Breakdowns, Sessions, Machines, Alerts/Settings views.",
         "status": "done",
@@ -496,7 +496,7 @@
         "updatedAt": "2026-07-09T15:27:35.250Z"
       },
       {
-        "id": 13,
+        "id": "13",
         "title": "Alerting Rule Engine and Notification Channels",
         "description": "Implement the alerting rule engine evaluated on ingest and timer. Add notification channels (ntfy, Telegram, SMTP) with per-rule routing, cooldown windows, and quiet hours. Create alert configuration API and UI wiring.",
         "status": "done",
@@ -612,7 +612,7 @@
         "updatedAt": "2026-07-09T15:42:33.720Z"
       },
       {
-        "id": 14,
+        "id": "14",
         "title": "Deployment Packaging and Operations Documentation",
         "description": "Implement deployment and packaging: Docker Compose for VPS (server + Postgres16 bound to WireGuard), nightly pg_dump backup with retention, collector service units (Windows/systemd/launchd), and operations documentation (server install, collector enrollment, API token provisioning, Grafana datasource guide).",
         "status": "done",
@@ -700,7 +700,7 @@
         "updatedAt": "2026-07-09T15:54:43.768Z"
       },
       {
-        "id": 15,
+        "id": "15",
         "title": "Backend Pricing Write + Recompute Endpoints",
         "description": "Implement backend pricing write and recompute endpoints to unblock the real cost story.",
         "status": "done",
@@ -735,7 +735,7 @@
         "updatedAt": "2026-07-09T17:49:40.231Z"
       },
       {
-        "id": 16,
+        "id": "16",
         "title": "Coverage-Gated Cost Display Helper",
         "description": "Implement coverage-gated cost display to prevent authoritative dollar figures from incomplete price tables.",
         "status": "done",
@@ -800,7 +800,7 @@
         "updatedAt": "2026-07-09T17:56:47.089Z"
       },
       {
-        "id": 17,
+        "id": "17",
         "title": "Stacked Token-Composition Chart Builder (roadmap #3: charts.ts, format.ts, NowView, BreakdownsView, TrendsView) - Implemented stackedTokenBarOption, TOKEN_COMPONENTS, formatTokens formatters, modelId/",
         "description": "Implement stacked token-composition charts to visualize cache-read dominance.",
         "status": "done",
@@ -815,7 +815,7 @@
         "updatedAt": "2026-07-09T18:05:15.451Z"
       },
       {
-        "id": 18,
+        "id": "18",
         "title": "Live Feed Throttle + Polling Fallback",
         "description": "Decouple live feed from fetch to eliminate WebSocket-driven refetch storm.",
         "status": "done",
@@ -892,7 +892,7 @@
         "updatedAt": "2026-07-09T18:35:12.546Z"
       },
       {
-        "id": 19,
+        "id": "19",
         "title": "Chart Hygiene: Formatting + Accessibility",
         "description": "Implement chart hygiene to fix formatting and accessibility issues.",
         "status": "done",
@@ -950,7 +950,7 @@
         "updatedAt": "2026-07-09T18:41:14.329Z"
       },
       {
-        "id": 20,
+        "id": "20",
         "title": "Shared AsyncState/StateCard Component",
         "description": "Build shared AsyncState/StateCard component for loading, empty, and error states.",
         "status": "done",
@@ -1019,7 +1019,7 @@
         "updatedAt": "2026-07-09T18:52:51.015Z"
       },
       {
-        "id": 21,
+        "id": "21",
         "title": "Limits Time-Series + Exhaustion Forecast",
         "description": "Implement Limits time-series with reset markers and projected exhaustion.",
         "status": "done",
@@ -1109,7 +1109,7 @@
         "updatedAt": "2026-07-09T18:59:32.349Z"
       },
       {
-        "id": 22,
+        "id": "22",
         "title": "Machines Page: Staleness Clock + Differentiators",
         "description": "Fix Machines page: unfreeze staleness clock and add differentiators.",
         "status": "done",
@@ -1220,7 +1220,7 @@
         "updatedAt": "2026-07-09T19:04:55.933Z"
       },
       {
-        "id": 23,
+        "id": "23",
         "title": "Navigable Tables: Sorting + Filtering + Drill-Down",
         "description": "Implement navigable tables: sorting, filtering, drill-down, totals.",
         "status": "done",
@@ -1312,7 +1312,7 @@
         "updatedAt": "2026-07-09T19:10:30.226Z"
       },
       {
-        "id": 24,
+        "id": "24",
         "title": "Blocks Page: Hero Card + Time Axis Chart",
         "description": "Implement current in-progress 5-hour block hero card and chart improvements.",
         "status": "done",
@@ -1395,7 +1395,7 @@
         "updatedAt": "2026-07-09T19:15:03.224Z"
       },
       {
-        "id": 25,
+        "id": "25",
         "title": "Heatmap Punch-Card + Calendar Grid",
         "description": "Render unused /heatmap punch-card and calendar.",
         "status": "done",
@@ -1459,7 +1459,7 @@
         "updatedAt": "2026-07-09T19:20:09.316Z"
       },
       {
-        "id": 26,
+        "id": "26",
         "title": "Alerts Page: Kind-Aware Thresholds + Live Sparkline",
         "description": "Fix Alerts page: kind-aware threshold control and live sparkline.",
         "status": "done",
@@ -1483,7 +1483,7 @@
         "updatedAt": "2026-07-09T19:25:34.554Z"
       },
       {
-        "id": 27,
+        "id": "27",
         "title": "Settings Pricing UI + LiteLLM Sync",
         "description": "Settings pricing management UI plus a LiteLLM price-sync endpoint",
         "status": "done",
@@ -1497,7 +1497,7 @@
         "updatedAt": "2026-07-09T18:28:58.092Z"
       },
       {
-        "id": 28,
+        "id": "28",
         "title": "Fix empty Trends and Breakdowns tabs",
         "description": "Remove the directive-less bare <template> wrapping AsyncState slot content in TrendsView.vue and BreakdownsView.vue so both tabs render; add eslint vue/no-lone-template to prevent regression.",
         "status": "done",
@@ -1509,7 +1509,7 @@
         "updatedAt": "2026-07-09T20:15:09.946Z"
       },
       {
-        "id": 29,
+        "id": "29",
         "title": "Fix naive datetime serialization across the API",
         "description": "Add a shared UtcDatetime Pydantic type with a field serializer stamping UTC on naive values; apply to every response schema so all datetime fields are offset-aware.",
         "status": "done",
@@ -1521,7 +1521,7 @@
         "updatedAt": "2026-07-09T20:21:33.444Z"
       },
       {
-        "id": 30,
+        "id": "30",
         "title": "Limits freshness, reset rollover, weekly absolute time",
         "description": "Attach snapshot age to limits payload; roll a past five_hour resets_at forward in 5h steps (mark derived); GaugeCard shows staleness badge and weekly absolute reset time.",
         "status": "done",
@@ -1533,7 +1533,7 @@
         "updatedAt": "2026-07-09T20:32:01.215Z"
       },
       {
-        "id": 31,
+        "id": "31",
         "title": "Timezone setting",
         "description": "Frontend: useSettings composable persists an IANA timezone ('' = auto/browser via Intl.resolvedOptions), Settings page adds a timezone <select> (Intl.supportedValuesOf) with a live 'now' preview; formatDateTime now renders in activeTimezone() so all absolute displays re-render on change; routed the bare toLocaleString() tooltips in Blocks/Sessions/Alerts through it. Backend: config.timezone (TOKEMETRY_TIMEZONE), AlertEngine(timezone) resolves a ZoneInfo (UTC fallback) and _in_quiet_hours evaluates in it; added tzdata dep for Windows. Tests: quiet-hours + resolve-zone units; 114 server + 51 dashboard pass; gates clean.",
         "status": "done",
@@ -1545,7 +1545,7 @@
         "updatedAt": "2026-07-09T20:42:12.464Z"
       },
       {
-        "id": 32,
+        "id": "32",
         "title": "Project grouping root-folder heuristic",
         "description": "New tokemetry_core/projects.py project_group(path, roots): strips .claude/worktrees/<name> tails, drops drive letters, folds case/subfolder variants by the segment after a root marker (TOKEMETRY_PROJECT_ROOTS default 'devel'); empty->'(unattributed)'. rollups._aggregate_day now re-groups raw cwd into project groups and sums colliding rows; new rebuild_all_rollups deletes derived rollups and rebuilds full span; POST /api/v1/admin/rebuild-rollups exposes it. list_sessions normalizes project at read; ingest/recompute thread settings.project_root_markers. usage_events.project stays raw. Settings gets a 'Rebuild project groups' button. Tests: 16 core unit cases across all messy forms + 2 integration (fold + rebuild). 195 server/core + 51 dashboard pass; gates clean.",
         "status": "done",
@@ -1557,7 +1557,7 @@
         "updatedAt": "2026-07-09T20:57:17.393Z"
       },
       {
-        "id": 33,
+        "id": "33",
         "title": "Global filters and all-time summary",
         "description": "GET /api/v1/summary/overview (queries.overview): all-time token components, known cost, distinct session + machine counts, first/last event ts; shared FilterBar.vue (range presets today/7d/30d/90d/all + custom from/to, machine + project selects) wired into Trends and Breakdowns; Trends gains an all-time stat strip (tokens, cache share, cost, sessions/machines); Trends and Breakdowns pass from/to/machine/project through UsageQuery.",
         "status": "done",
@@ -1642,7 +1642,7 @@
         "updatedAt": "2026-07-09T21:06:45.626Z"
       },
       {
-        "id": 34,
+        "id": "34",
         "title": "Alerts rework to community best practices",
         "description": "Migration 0002 adds warn_threshold/crit_threshold + state/last_fired_at; severity derived from which threshold a measure crosses (killed hardcoded >=95 and 'serious'->normalized info/warning/critical); engine as firing/normal state machine (notify on transition-in or post-cooldown repeat; firing->normal sends one 'Resolved' info notice ignoring cooldown); ntfy maps severity->Priority header (crit 5/warn 4) + optional Click (dashboard_url); seeded default rule set on first run (gated by seed_default_alerts, off in tests); POST /api/v1/alerts/test/{channel}; UI: dual warn/crit inputs, firing/ok state badge with last-fired tooltip, per-channel Test buttons; tests: warn/crit severity, resolved notice, seeding idempotency, test-channel + dual-threshold API; 207 server + 56 dashboard pass; gates clean.",
         "status": "done",
@@ -1654,7 +1654,7 @@
         "updatedAt": "2026-07-09T21:24:46.694Z"
       },
       {
-        "id": 35,
+        "id": "35",
         "title": "Per-session drill-down and efficiency stats",
         "description": "GET /api/v1/sessions/{id}: ordered per-event series (ts, model, 5 token components, cost) + efficiency stats via new pure services/session_stats.py compute_session_stats: tokens/turn, cache hit rate (read/(read+input)), context growth (late-half vs early-half mean turn size), inflection index (first turn > 2x session median, needs >=4 turns). queries.session_detail assembles it (project normalized, no message text). Sessions rows now expand to a cumulative-tokens Sparkline (extended with a markerIndex vertical guide at the inflection turn) plus stat chips including 'consider /clear at turn N'. Metadata only.",
         "status": "done",
@@ -1666,7 +1666,7 @@
         "updatedAt": "2026-07-09T21:34:51.391Z"
       },
       {
-        "id": 36,
+        "id": "36",
         "title": "Anomaly insights",
         "description": "services/insights.py: classify_anomalies flags sessions vs the account's own baseline (mean+/-2sigma, 50k-token floor, needs >=20 sessions else enough_data=False): high tokens, high cost, low cache reuse, cost-inefficient composite; severity=cost*(1-cache_hit_rate), sorted desc. detect_anomalies aggregates per-session from usage_events (project normalized). GET /api/v1/insights/anomalies. SessionsView: Insights card listing top-6 anomalies (reason chips, click to expand detail), 'flagged' markers on anomalous rows, and a 'needs 20 sessions' note when the baseline is too small. Skipped unusual-model-mix (noisy). Tests: 4 classify units + endpoint integration. 219 server/core + 56 dashboard pass; gates clean.",
         "status": "done",
@@ -1678,7 +1678,7 @@
         "updatedAt": "2026-07-09T21:43:20.128Z"
       },
       {
-        "id": 37,
+        "id": "37",
         "title": "Cache framing and plan-value polish",
         "description": "Frontend-only polish. Added pure cacheSavingsUsd(buckets, prices) to lib/coverage.ts summing cache_read x (input_rate - cache_read_rate)/1e6 over priced models (latest rate per model); unit-tested. Breakdowns cache card now shows 'Caching saved ~$X' (from pricing() + byModel) plus reassurance copy that a ~95% cache-read share is normal (Claude Code re-reads cached context each turn, billed at a fraction of input). Now-page Plan value tile labels its window ('last 30d'). 59 dashboard tests pass; build+lint clean.",
         "status": "done",
@@ -1690,7 +1690,7 @@
         "updatedAt": "2026-07-09T21:48:24.445Z"
       },
       {
-        "id": 38,
+        "id": "38",
         "title": "Token reconciliation and unattributed components",
         "description": "Components dont sum to total_tokens (uncaptured reasoning tokens?) and bootstrap rows have zero components; capture/reconcile so stacks and table match total, and price models that show null cost despite price rows.",
         "status": "done",
@@ -1702,7 +1702,7 @@
         "updatedAt": "2026-07-10T09:13:54.237Z"
       },
       {
-        "id": 39,
+        "id": "39",
         "title": "Shared formatters: formatCost, modelLabel, timeUntil",
         "description": "formatCost thousands separators + consistent decimals; modelLabel handles Claude 3.x family and disambiguates collapsed ids; timeUntil returns 'ended Xh ago' for past times. Unit tests.",
         "details": "",
@@ -1714,7 +1714,7 @@
         "updatedAt": "2026-07-10T09:23:31.634Z"
       },
       {
-        "id": 40,
+        "id": "40",
         "title": "Theme tokens and status contrast",
         "description": "Define --series-* tokens (or use seriesColor) so dark mode stops using hardcoded light blue (Machines/Sessions/Alerts); fix light-mode --status-warning contrast (~1.8:1); status-word/badge helper.",
         "status": "done",
@@ -1726,7 +1726,7 @@
         "updatedAt": "2026-07-10T09:30:56.212Z"
       },
       {
-        "id": 41,
+        "id": "41",
         "title": "Chart builders for skewed and dominant-series data",
         "description": "100%-normalized stacked option (or cache-read split) for 96%-cache composition; stacked-segment borders; long-category label rotation/truncation; piecewise/log visualMap for power-law heatmaps; log/percentile magnitude option.",
         "status": "done",
@@ -1738,7 +1738,7 @@
         "updatedAt": "2026-07-10T09:38:17.620Z"
       },
       {
-        "id": 42,
+        "id": "42",
         "title": "Now page representation fixes",
         "description": "Banner checks snapshot age and degrades stale headlines + status words; empty state on today-by-model; single-point sparkline fallback; guard 0.0% cache tile on no usage; adopt normalized composition.",
         "status": "done",
@@ -1750,7 +1750,7 @@
         "updatedAt": "2026-07-10T09:45:19.633Z"
       },
       {
-        "id": 43,
+        "id": "43",
         "title": "Trends page representation fixes",
         "description": "Daily chart time-axis with gap-filled missing days + label rotation; fix project filter sending label '(unattributed)' as value; refetch error must not remove FilterBar; lower area opacity; normalized composition.",
         "status": "done",
@@ -1762,7 +1762,7 @@
         "updatedAt": "2026-07-10T09:52:43.581Z"
       },
       {
-        "id": 44,
+        "id": "44",
         "title": "Breakdowns page representation fixes",
         "description": "Wire machine/project into heatmap (or scope visibly); cache stats as tiles + show cache-read share; normalized stacks + segment borders + long labels; piecewise heatmap visualMap; wire AsyncState empty.",
         "status": "done",
@@ -1785,7 +1785,7 @@
         "updatedAt": "2026-07-10T10:03:13.244Z"
       },
       {
-        "id": 45,
+        "id": "45",
         "title": "Sessions page representation fixes",
         "description": "Top-N label by session id + click-through; Insights show driving metric per reason + explicable ranking; log/threshold magnitude bar; visible inflection marker + sparkline tooltip; anomaly error state; fix hardcoded series color.",
         "status": "done",
@@ -1797,7 +1797,7 @@
         "updatedAt": "2026-07-10T10:09:54.538Z"
       },
       {
-        "id": 46,
+        "id": "46",
         "title": "Machines page representation fixes",
         "description": "Real re-poll timer (not just ticking clock); handle N=1 fleet share + de-dup footer; status as a word not color-alone; fix hardcoded series color.",
         "status": "done",
@@ -1809,7 +1809,7 @@
         "updatedAt": "2026-07-10T10:15:08.175Z"
       },
       {
-        "id": 47,
+        "id": "47",
         "title": "Blocks page representation fixes",
         "description": "Distinguish idle/no-active-block from live (stop labeling stale block 'Current'); extend chart to now so trailing gap shows; encode true block duration as bar width; footer total cost; drop/relocate all-null End-util column; latest block first.",
         "details": "",
@@ -1821,7 +1821,7 @@
         "updatedAt": "2026-07-10T10:21:46.340Z"
       },
       {
-        "id": 48,
+        "id": "48",
         "title": "Alerts page representation fixes",
         "description": "Show warn AND crit in live current-vs-threshold; add collector_stale live value; validate create form (numeric, warn<=crit, non-empty channels); surface migrated rule legacy threshold; filled state/severity badges + info severity; fix sparkline color.",
         "status": "done",
@@ -1833,7 +1833,7 @@
         "updatedAt": "2026-07-10T10:32:51.505Z"
       },
       {
-        "id": 49,
+        "id": "49",
         "title": "Settings page representation fixes",
         "description": "Pricing table collapses to one active-price row per model (latest effective date <= today) with a 'current' badge and a '• N versions' note, sorted by model, dropping the redundant all-anthropic Provider column and the wall of superseded rows; model id shown as a title tooltip to disambiguate collapsed labels. Timezone picker groups its ~400 options into <optgroup> by region. Revoke and Disconnect now confirm before acting. Unpriced-banner chips are real <button>s (keyboard/SR accessible). client.request() reads the server's error detail into ApiError; mint/revoke wrapped with a token-error surface. 'now' preview ticks every 30s instead of freezing at load. 68 dashboard tests; build+lint clean.",
         "status": "done",
@@ -1916,7 +1916,7 @@
         "updatedAt": "2026-07-10T10:42:51.784Z"
       },
       {
-        "id": 50,
+        "id": "50",
         "title": "Gauge trend readability (fix slider-lookalike)",
         "description": "GaugeCard: render sparkline only with >=4 points (else show 'collecting 24h trend…'), add '24h trend' caption, thin stroke (2→1.75px), and pass filled area wash + no end dot via new Sparkline props (endDot default true, area default false; other usages unchanged) so it reads as a chart not a slider.",
         "status": "done",
@@ -1928,7 +1928,7 @@
         "updatedAt": "2026-07-10T19:48:12.563Z"
       },
       {
-        "id": 51,
+        "id": "51",
         "title": "Cache-read off by default, selection-aware percent, sticky selection",
         "description": "EChart emits legendselectchanged (chart.on 'legendselectchanged') because notMerge wipes selection each render. stackedTokenBarOption/stackedAreaOption accept a selected map → set legend.selected AND compute the normalized denominator from only visible components, so hiding cache-read re-normalizes the rest to 100%. Views hold a selection ref (default {'cache read': false}), feed it to builders (auto-refresh preserves it), update from the legend event, and persist per-view via loadSelection/saveSelection in useSettings (localStorage). Cache-read is OFF by default on every composition chart (Now model, Trends daily+dimension, Breakdowns 3 stacks). Unit test covers the re-normalize math. 70 dashboard tests pass; build+lint clean.",
         "status": "done",
@@ -2005,7 +2005,7 @@
         "updatedAt": "2026-07-10T19:58:40.817Z"
       },
       {
-        "id": 52,
+        "id": "52",
         "title": "Brand assets on the dashboard",
         "description": "Brand assets wired: copied favicon.svg + horizontal/vertical logo SVGs (light+dark bg variants) into apps/dashboard/public/; index.html wired with <link rel=icon type=image/svg+xml href=/favicon.svg>; App.vue header displays horizontal logo (RouterLink to home) and token gate displays vertical logo; light/dark variants switch via global .brand-logo rules in theme.css matching prefers-color-scheme + data-theme mechanism. 70 dashboard tests; build+lint clean.",
         "status": "done",
@@ -2017,7 +2017,7 @@
         "updatedAt": "2026-07-10T20:05:07.886Z"
       },
       {
-        "id": 53,
+        "id": "53",
         "title": "Alert channel settings backend (DB-stored, env fallback), ",
         "description": "Alert channel settings now DB-editable with env fallback. Migration 0003 adds an app_settings KV table and AppSetting model. services/channel_config.py: resolve_channel_settings merges non-empty channel.* DB values over env Settings (model_copy), coercing port->int/tls->bool. channel_views returns per-channel configured state + masked secrets (last-4). save_channel_config upserts (absent field = unchanged, '' = clear to env). AlertEngine.reconfigure hot-swaps notifiers. app.py resolves channel settings at startup; PUT rebuilds+reconfigutes without restart. API: GET /api/v1/alerts/channels + PUT /channels/{name} beside the test endpoint. Updated secrets-in-env docstrings. Tests (7): precedence, clear-to-env, masking, port coercion, API get/put+hot-swap, unknown-channel 404. 145 server tests; ruff/mypy/trivy clean.",
         "status": "done",
@@ -2029,7 +2029,7 @@
         "updatedAt": "2026-07-10T20:16:18.983Z"
       },
       {
-        "id": 54,
+        "id": "54",
         "title": "Alert channel settings UI",
         "description": "Alerts page gains a Notification channels card: per-channel (ntfy/telegram/smtp) field forms with humanized labels, secrets shown as password inputs with a 'saved (...last4)' placeholder (blank = leave unchanged), non-secrets pre-filled, a configured/not-set badge, Save + Test buttons, and per-channel status. saveChannel omits blank secrets (unchanged) and sends the rest (empty non-secret clears to env), then reloads. client.ts getChannels/putChannel + Channel/ChannelField types. 70 dashboard tests; build+lint clean.",
         "status": "done",
@@ -2124,7 +2124,7 @@
         "updatedAt": "2026-07-10T20:22:25.439Z"
       },
       {
-        "id": 55,
+        "id": "55",
         "title": "Optimization report backend",
         "description": "report service: global Scorecard (total, cache-hit-rate, verbosity ratio, median tokens/turn, sidechain share, unattributed share, session/machine counts, top model mix) + per-project and per-machine DimensionRows (grouped from a single per-session SQL aggregate, project normalized via project_group); rule engine (threshold->ranked Recommendations with estimated reclaimable tokens: low cache-hit-rate, high verbosity [impact = output - 0.3*input], no-subagent-isolation, high unattributed, opus concentration, per-machine config drift [cache-hit below fleet median]); GET /api/v1/report?from&to (ReportOut via from_attributes). Tests: 6 rule-engine units + endpoint integration. 152 server tests; ruff/mypy/trivy clean.",
         "status": "done",
@@ -2136,7 +2136,7 @@
         "updatedAt": "2026-07-10T20:32:14.149Z"
       },
       {
-        "id": 56,
+        "id": "56",
         "title": "Optimization report dashboard page",
         "description": "Report view + nav: range filter, exec summary tiles, scorecard with r/y/g badges, ranked recommendations table, per-project + per-machine tables with drift callouts.",
         "details": "",
@@ -2148,7 +2148,7 @@
         "updatedAt": "2026-07-10T20:40:12.709Z"
       },
       {
-        "id": 57,
+        "id": "57",
         "title": "LLM-ready optimization export",
         "description": "GET /api/v1/report/export: self-contained markdown with embedded analysis prompt (Max framing + requested output structure), data dictionary, compact aggregated tables; compact/full sizes; export buttons on Report page. Size-budget test.",
         "details": "",
@@ -2160,7 +2160,7 @@
         "updatedAt": "2026-07-10T20:53:31.648Z"
       },
       {
-        "id": 58,
+        "id": "58",
         "title": "Service packaging and per-platform docs",
         "description": "Native systemd unit for the server; polish collector units (Win Scheduled Task + NSSM note, launchd, systemd); per-platform collector docs (Windows/Linux/macOS) + native server doc; README links; shellcheck new scripts.",
         "details": "",
@@ -2172,7 +2172,7 @@
         "updatedAt": "2026-07-10T20:58:28.946Z"
       },
       {
-        "id": 59,
+        "id": "59",
         "title": "Data retention documentation",
         "description": "Document that every usage event is retained indefinitely (no pruning) and only backup dumps are pruned, so the report relies on full history. docs/architecture/retention.md; no code change.",
         "details": "",
@@ -2184,7 +2184,7 @@
         "updatedAt": "2026-07-10T21:00:20.667Z"
       },
       {
-        "id": 60,
+        "id": "60",
         "title": "TOK-1: Provider-Neutral Baseline Audit and V1 Compatibility Contract",
         "description": "Audit current schemas, APIs, storage, dedupe, pricing, collector behavior, and dashboard assumptions; commit docs/architecture/provider-neutral-baseline.md; capture golden v1 wire fixtures that lock current behavior for the entire program. PRD-TOK-002 v1.1 Section 10 and Epic TOK-1.",
         "details": "Objective: produce the authoritative baseline for the provider-neutral evolution before any schema change (PRD Section 10, Epic TOK-1). No production behavior changes in this epic (Migration Phase 0).\n\nScope of audit: UsageEvent, DailyAggregate, LimitSnapshot, PriceRow core models in packages/core/src/tokemetry_core/models.py; usage_events composite PK (provider, event_id) and keep-max-output dedupe in apps/server/src/tokemetry_server/db/upsert.py; ingest endpoints /api/v1/ingest/events|limits|bootstrap with batch limits 5000/1000/20000 and validation caps in services/validation.py; rollup grain (day, provider, machine, model, project) in services/rollups.py; collector byte-offset tailing and SQLite upload queue in apps/collector; ProviderRegistry, pricing strategies, and LiteLLM import in packages/core; all Anthropic-specific dashboard code paths (WINDOW_LABELS in format.ts, modelLabel parsing, AlertsView hardcoded window kinds, report recommendations in services/report.py).\n\nDeliverables: docs/architecture/provider-neutral-baseline.md committed; explicit V1 compatibility requirements; database migration constraints (SQLite plus Postgres, Alembic policy, backup strategy, maintenance-window upgrade posture); golden v1 wire fixtures and snapshot tests running in CI for the whole program; mapping of the existing test suite to epics TOK-2 through TOK-12.\n\nAcceptance criteria (PRD Epic TOK-1): baseline document committed; V1 compatibility requirements explicit; migration constraints documented; existing tests mapped to future epics.\n\nTest strategy: golden fixture snapshot tests must pass against the current server unchanged; the baseline document is reviewed against the live code, not from memory. All migration tasks in Tasks 61 through 71 must reference this baseline.",
@@ -2259,7 +2259,7 @@
         "updatedAt": "2026-07-18T11:18:25.310Z"
       },
       {
-        "id": 61,
+        "id": "61",
         "title": "TOK-2: Provider and Model Registries",
         "description": "Introduce canonical provider registry with alias normalization, native model registry with lifecycle states and alias rules, unknown provider and model handling with data quality records, and the /api/v2/providers and /api/v2/models endpoints. PRD-TOK-002 Sections 12.1, 12.2; Epic TOK-2; FR-PROVIDER-001..010, FR-MODEL-001..010.",
         "details": "Objective: canonical registries so every later epic resolves providers and models centrally (Migration Phase 1; no v1 behavior change).\n\nDesign: providers table (id lowercase stable, display_name, aliases JSON, pricing_strategy, limit_semantics, supported_dimensions, registered flag); models table with PK (provider, native_model_id), lifecycle active/deprecated/retired/unknown, capabilities JSON, first_seen/last_seen; model_aliases table (provider, alias) unique mapping to native_model_id with rule_version. Alias normalization is centralized in packages/core (z.ai and zai and legacy names normalize to zai; existing Claude Code provider id anthropic remains valid unchanged per FR-PROVIDER-009). Native model IDs are always retained exactly as reported (FR-MODEL-001); pricing lookups use provider plus native model plus effective date (FR-MODEL-003). Unknown providers may be ingested when policy permits but are marked unregistered and produce data_quality_events records (FR-PROVIDER-005, FR-MODEL-006). Provider registration must not require dashboard code changes (FR-PROVIDER-007). Seed anthropic, openai, zai (FR-PROVIDER-008) plus the fake test provider.\n\nAcceptance criteria (PRD Epic TOK-2): Anthropic, OpenAI, and Z.ai registered; aliases normalize centrally; model IDs remain native and provider-scoped; unknown provider and model data quality records generated; existing Claude data remains queryable.\n\nTest strategy: unit tests for alias normalization and model lookup; migration upgrade and downgrade tests on SQLite and Postgres; regression test proving existing Claude usage remains queryable through v1 endpoints; fixtures for all three providers (NFR-MAIN-007). Reference docs/architecture/provider-neutral-baseline.md.",
@@ -2365,7 +2365,7 @@
         "updatedAt": "2026-07-18T16:18:53.046Z"
       },
       {
-        "id": 62,
+        "id": "62",
         "title": "TOK-3: Usage Event v2 Ledger and Ingest API v2",
         "description": "Add the v2 attempt-event lifecycle (finality, sequence, revisions, corrections), the new usage_events_v2 ledger with v1 backfill and compatibility view, logical_requests, privacy validation, and the /api/v2/ingest endpoints while keeping v1 endpoints wire-identical. PRD-TOK-002 Sections 11, 12.3, 12.4, 12.5; Epic TOK-3; decision D-001.",
         "details": "Objective: provider-neutral event lifecycle and ingest (Migration Phase 2, v2 behind the api surface only; existing collectors stay on v1).\n\nDesign decisions: new usage_events_v2 table rather than in-place evolution (D-001); usage_event_revisions for superseded and conflicting states and corrections; logical_requests dedicated table (D-003); event identity (provider, event_id) with event_kind attempt|logical_request|import|adjustment, finality snapshot|final, increasing sequence; final supersedes snapshot; final-to-final requires admin correction (D-002); same-sequence conflicts rejected to data_quality_events (FR-IDEMP-008); replay is a no-op (FR-IDEMP-007); batches transactional (FR-IDEMP-009). V1 ingest maps into v2 rows with event_kind attempt and finality final, applying legacy keep-max-output as documented compatibility conflict mode (FR-IDEMP-012, FR-EVENT-023). After verified backfill the physical usage_events table is replaced by a read-only v1-shaped compatibility view. Privacy: content fields rejected (FR-EVENT-021/022, FR-PRIV-001/002), dimensions allowlist with bounds 16 keys, 64-char keys, 256-char values (D-004), tool-name histogram accepted only behind server-side opt-in and default off (D-005), maximum event size and JSON depth enforced (FR-EVENT-028, NFR-SEC-004).\n\nEndpoints: POST /api/v2/ingest/events, /api/v2/ingest/limits, /api/v2/ingest/aggregates, /api/v2/ingest/validate (schema plus semantic checks without persistence, FR-INGEST-007), GET /api/v2/schemas/usage-event. Structured validation errors with event index, field path, code, message (FR-INGEST-006); server batch IDs and ingest_batches table (FR-INGEST-008); request IDs on every response (FR-INGEST-016); gzip support (FR-INGEST-010); OpenAPI for all v2 schemas (FR-INGEST-012).\n\nAcceptance criteria (PRD Epic TOK-3): v2 schema and OpenAPI published; attempts, logical request IDs, finality, sequence, outcomes, source, routing, and reasoning supported; v1 events map into internal v2 representation; v1 endpoints retain behavior; validation endpoint exists; batch tests cover duplicates, snapshots, finality, and conflicts.\n\nTest strategy: unit tests for v1-to-v2 conversion, validation, snapshot and finality resolution, conflict and correction behavior; integration tests for duplicate batches, snapshot followed by final, conflicting same-sequence events; golden v1 fixtures from Task 60 must pass unchanged; migration tests on SQLite and Postgres including the backfill count and sum verification; performance tests for 100-event batch p95 under 200 ms and a 5000-event compatibility batch.",
@@ -2540,7 +2540,7 @@
         "updatedAt": "2026-07-18T23:43:11.635Z"
       },
       {
-        "id": 63,
+        "id": "63",
         "title": "TOK-4: Source Registry and Scoped API Tokens",
         "description": "Represent gateways, collectors, SDKs, and importers as first-class reporting sources with health tracking; add token scopes and optional per-token source allowlists; enforce scopes across v1, v2, and WebSocket. PRD-TOK-002 Sections 12.6, 12.16; Epic TOK-4; FR-SOURCE-001..012, FR-SEC-001..011; decision D-011.",
         "details": "Objective: separate exporter identity from machine identity and introduce least-privilege ingest tokens (Migration Phase 2).\n\nDesign: sources table (type collector|gateway|sdk|importer|manual, name, version, instance_id, optional machine link, token label, first_seen, last_seen, billing_mode per D-007); auto-registration from v2 payload source identity (D-011); source health (last successful ingest, recent error count, schema version, clock skew per R-009); v1 collector traffic attributed to a derived source so the existing machines table remains supported (FR-SOURCE-008, FR-SOURCE-003); source labels mutable without changing event identity (FR-SOURCE-010); revoked sources never delete history (FR-SOURCE-012). Token scopes: ingest:events, ingest:limits, ingest:aggregates, query:read, admin:tokens, admin:corrections (FR-INGEST-003 plus D-002); ingest-only tokens cannot access query endpoints (FR-INGEST-004); optional per-token source allowlist (FR-INGEST-020, FR-SEC-004); tokens remain hashed at rest with plaintext shown once (FR-SEC-001/002); bootstrap token stays full-admin for first-run (FR-SEC-008); auth failures reveal nothing about label existence (FR-SEC-010); last-used retained (FR-SEC-006); WebSocket authorization matches REST (NFR-SEC-008).\n\nAcceptance criteria (PRD Epic TOK-4): source type and version stored; ingest tokens have scopes; sources have freshness and health status; existing machine tracking remains compatible; aiProviderProxy can receive an ingest-only token.\n\nTest strategy: unit tests for scope authorization; integration tests for token scope enforcement (ingest-only denied on query, admin required for token and correction endpoints), revoked token rejection, WebSocket auth; migration tests for api_tokens scope columns; source auto-registration and health tests including clock-skew warning.",
@@ -2644,7 +2644,7 @@
         "updatedAt": "2026-07-19T01:31:35.469Z"
       },
       {
-        "id": 64,
+        "id": "64",
         "title": "TOK-5: Pricing Rate Cards and Cost Engine v2",
         "description": "Replace fixed token price rows with a generic rate-card system plus billable units; separate computed costs from immutable usage; add billing modes for dual cost metrics; async cost computation with auditable repricing; LiteLLM import with dry-run diff. PRD-TOK-002 Sections 12.7, 12.8; Epic TOK-5; FR-PRICE-001..022, FR-COST-001..013; decisions D-006, D-007, D-015, D-016.",
         "details": "Objective: provider-neutral pricing that preserves historical costs exactly (Migration Phase 2 and 3).\n\nDesign: rate_cards table with provider, native_model, unit_type, effective_from, optional effective_to, currency, region, service_tier, mode realtime|batch, context_bracket, decimal unit_price, source, verified_at, priority, override flag (D-006); overlap rejection (FR-PRICE-005); unit-type vocabulary from PRD 12.7.2 (input_token, output_token, cache_read_token, cache_write_short_token, cache_write_long_token, reasoning_token, request, web_search_request, tool_call, image_input, image_output, audio_input_second, audio_output_second, video_second, storage_byte_hour, batch_input_token, batch_output_token); billable_units table for non-token counts per event (FR-DIM-007/008). computed_costs separate from usage rows: cost_status priced|unpriced|partial|estimated|error, pricing_version, currency, calculated_at, observed_cost for exporter reconciliation (FR-COST-001..006, D-016); missing pricing yields unpriced, never a silent default (FR-PRICE-002); partial names missing units (FR-COST-007). Cost computation asynchronous so ingest is never rejected by pricing failures (FR-COST-008/009, NFR-REL-007); repricing is an explicit, audited, reversible admin operation (FR-PRICE-019/020). Billing modes: every source or account carries billing_mode api_billed|subscription (FR-COST-011); rollups and APIs expose actual API spend and subscription-equivalent value separately, never merged (FR-COST-012/013, D-007). Existing pricing rows migrate losslessly into rate_cards without changing historical results (FR-PRICE-009); Anthropic cache short and long writes, OpenAI cached input and reasoning, and Z.ai cached input remain supported (FR-PRICE-010..012). Imports: curated official sources preferred, LiteLLM labeled fallback; every import produces a dry-run diff requiring explicit audited apply (FR-PRICE-014/015/021, D-015). Decimal arithmetic only (FR-PRICE-017).\n\nAcceptance criteria (PRD Epic TOK-5): existing pricing migrates without historical change; Anthropic, OpenAI, and Z.ai rate cards supported; missing prices produce unpriced status; cost records retain pricing version and source; search and tool request charges and cached input representable; dry-run price import and diff exist.\n\nTest strategy: unit tests for pricing selection (tier, mode, context bracket, priority, override) and decimal cost computation and billable unit aggregation; regression test that historical costs are bit-identical after adding new rates (AC-007); migration-equality test that recomputing v1 events under rate_cards equals stored v1 costs; integration tests for missing pricing, unpriced reports, import dry-run and apply auditing.",
@@ -2803,7 +2803,7 @@
         "updatedAt": "2026-07-19T05:52:38.131Z"
       },
       {
-        "id": 65,
+        "id": "65",
         "title": "TOK-6: aiProviderProxy Integration and Client Libraries",
         "description": "Ship the production integration contract for the aiProviderProxy (RelayPlane) exporter: mapping documentation, OpenAPI-generated Python and TypeScript clients with batching and retry wrappers, end-to-end ingest verification for Anthropic, OpenAI, and Z.ai attempt events without double counting. PRD-TOK-002 Epic TOK-6; companion PRD FR-TOK-001..030, CanonicalUsageEvent; decisions D-012, D-016.",
         "details": "Objective: the first direct gateway exporter works end to end; this completes the usable vertical slice (Migration Phase 3, dual write with cost reconciliation).\n\nDesign: Tokemetry owns the wire contract; the proxy transforms its CanonicalUsageEvent into the v2 usage event (companion PRD FR-TOK-003). Integration documentation at docs/integrations/ai-provider-proxy.md covers field-by-field mapping (camelCase canonical to snake_case wire), event identity and deterministic fallback IDs, finality and sequence semantics for streaming snapshots, outcome vocabulary, privacy rules (no prompt, response, file path, tool argument, or code content; FR-TOK-029), version negotiation, and batching guidance (default 100 events, 256 KiB; FR-TOK-008..010). Client libraries generated from OpenAPI with thin hand-written wrappers for auth, batching, retry with exponential backoff and jitter on 429 and 5xx, pause on 401, poison-event isolation on 400 and 422 (D-012; companion FR-TOK-011..016) published under packages/clients/python and packages/clients/typescript. Exporter-observed cost is stored as reconciliation metadata and never replaces authoritative cost (FR-COST-003/004, D-016).\n\nAcceptance criteria (PRD Epic TOK-6): integration documentation complete; TypeScript client or examples available; proxy attempt events ingest successfully; retries and fallback attempts do not double count; requested and routed model visible; content-free payload tests pass; source freshness visible.\n\nTest strategy: compose-based integration harness with a test server and mock proxy exporter fixtures for all three providers including retries, fallbacks, and snapshot-then-final sequences; end-to-end assertions that logical request views never double count attempt usage (AC-005/006); contract conformance suite with golden payloads shared with the proxy repository; poison-event behavior verification; ingest-only token provisioning runbook validated.",
@@ -2903,12 +2903,12 @@
         ]
       },
       {
-        "id": 66,
+        "id": "66",
         "title": "TOK-7: Query API v2 and Rollups v2",
         "description": "Provider-neutral query endpoints for usage, costs, requests, attempts, sessions, limits, data quality, pricing, and rollups; new rollup grain with source, environment, billing mode, reasoning and cache dimensions; stable pagination; CSV export; Grafana views; v1 query parity. PRD-TOK-002 Sections 12.12, 12.13; Epic TOK-7; FR-QUERY-001..014, FR-ROLLUP-001..012.",
         "details": "Objective: provider-neutral analytics without double counting (Migration Phase 4).\n\nDesign: daily_rollups evolves to grain (day, provider, native_model, machine, project, source, environment, billing_mode, provenance) adding reasoning and cache dimensions and cost split by cost_status (FR-ROLLUP-004..007); rollups derive exclusively from final attempt events, never snapshots after a final exists and never logical summaries (FR-ROLLUP-001..003); refresh is incremental and idempotent with correction-triggered affected-period recomputation (FR-ROLLUP-008/009). Query framework: keyset pagination (FR-QUERY-003), explicit sort (FR-QUERY-004), selectable aggregation grain where safe (FR-QUERY-005), bounded time ranges for raw high-cardinality queries (NFR-PERF-004), data-quality warnings in responses (FR-QUERY-010), unknown provider and model filters (FR-QUERY-011). Endpoints: GET /api/v2/usage, /api/v2/costs (dual metrics, cost status, pricing version per FR-QUERY-006), /api/v2/requests, /api/v2/attempts, /api/v2/sessions (scoped identity per FR-TRACE-011, winning attempt, fallback filters), /api/v2/limits, /api/v2/data-quality, /api/v2/pricing, /api/v2/rollups. CSV export (FR-QUERY-009) and Grafana-compatible database views (FR-QUERY-014). Existing v1 query endpoints continue to work against the v2 ledger through the service layer (FR-QUERY-012).\n\nAcceptance criteria (PRD Epic TOK-7): v2 query endpoints exist; attempt and logical request semantics prevent double counting; cache and reasoning usage queryable; cost status visible; rollups include provider-neutral dimensions; v1 query endpoints remain functional.\n\nTest strategy: unit tests for the query framework and rollup aggregation; integration tests for rollup refresh, correction recomputation, and double-counting prevention with multi-attempt fixtures; v1 parity regression suite comparing pre-migration and post-migration v1 responses; performance benchmarks for 30-day aggregated views p95 under 500 ms and high-cardinality project and session dimensions (NFR-PERF-003, FR-ROLLUP-012).",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "62",
           "64"
@@ -2919,11 +2919,12 @@
             "id": 1,
             "title": "daily_rollups v2 grain migration",
             "description": "Extend the rollup table to the provider-neutral grain with cost statuses.",
-            "details": "Alembic migration evolving daily_rollups: extend the grain unique constraint to (day, provider, native_model, machine, project, source, environment, billing_mode, provenance) with empty-string sentinels for absent dimensions matching the existing convention (FR-ROLLUP-004/005); add reasoning_tokens column alongside the existing five token counters (FR-ROLLUP-006 cache dimensions already present as separate counters); replace the single cost_usd with cost columns by status: cost_priced_usd, cost_partial_usd, cost_estimated_usd, unpriced_event_count, plus subscription_value_usd for the dual metric (FR-ROLLUP-007, FR-COST-012); data migration maps existing rows onto the new grain with source and environment sentinels, billing_mode from the deployment default, and cost_usd into cost_priced_usd. Grafana view compatibility: create or update a stable rollup view so existing external dashboards keep a stable column set (FR-ROLLUP-011); document the migration plan for view consumers. Test strategy: migration upgrade and downgrade tests both engines; grain uniqueness tests; data-migration equality checks (sum of new cost columns equals old cost_usd per day); view stability query fixture.",
-            "status": "pending",
+            "details": "Alembic migration evolving daily_rollups: extend the grain unique constraint to (day, provider, native_model, machine, project, source, environment, billing_mode, provenance) with empty-string sentinels for absent dimensions matching the existing convention (FR-ROLLUP-004/005); add reasoning_tokens column alongside the existing five token counters (FR-ROLLUP-006 cache dimensions already present as separate counters); replace the single cost_usd with cost columns by status: cost_priced_usd, cost_partial_usd, cost_estimated_usd, unpriced_event_count, plus subscription_value_usd for the dual metric (FR-ROLLUP-007, FR-COST-012); data migration maps existing rows onto the new grain with source and environment sentinels, billing_mode from the deployment default, and cost_usd into cost_priced_usd. Grafana view compatibility: create or update a stable rollup view so existing external dashboards keep a stable column set (FR-ROLLUP-011); document the migration plan for view consumers. Test strategy: migration upgrade and downgrade tests both engines; grain uniqueness tests; data-migration equality checks (sum of new cost columns equals old cost_usd per day); view stability query fixture.\n<info added on 2026-07-19T06:35:18.425Z>\nMigration 0019 implemented as additive safer-split: batch_alter_table adds source/environment/billing_mode grain dimensions (sentinels ''/'api_billed'), reasoning_tokens counter, and cost split (cost_priced_usd/cost_partial_usd/cost_estimated_usd/unpriced_event_count/subscription_value_usd) while keeping transitional cost_usd column for backward compatibility; extends daily_rollups_grain unique constraint to (day,provider,model,machine,project,source,environment,billing_mode,provenance); data migration seeds cost_priced_usd from existing cost_usd; creates daily_rollups_grafana view that SUMs back to original (day,provider,model,machine,project) grain for external dashboard stability (FR-ROLLUP-011). DailyRollup ORM model updated to match new schema. upsert.py index_elements and _ROLLUP_UPDATE_COLUMNS updated to new grain. rollups.py _aggregate_day writes grain sentinels and mirrors cost into cost_priced_usd (transitional behavior; full v2 rewrite reading usage_events_v2/computed_costs deferred to 66.2). Test suite test_rollups_v2_grain.py validates billing_mode split allowed, duplicate full-grain rejected, data migration correctness (priced seeded from cost_usd), and grafana view aggregation to stable grain. Existing test_migrations drift check, test_rollups, and test_queries remain green. Full suite 670 passed/40 skipped; ruff+mypy+trivy clean. grafana.md updated documenting grain change and stable view contract for consumers.\n</info added on 2026-07-19T06:35:18.425Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 66,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:35:46.522Z"
           },
           {
             "id": 2,
@@ -3033,7 +3034,8 @@
             "dependencies": [],
             "details": "Update the daily_rollups table schema to include columns: source, environment, billing_mode, reasoning_used, cache_used, and cost_status. Ensure cost is split by cost_status. Validate schema changes against FR-ROLLUP-004..007 and ensure compatibility with existing rollup refresh logic.",
             "status": "pending",
-            "testStrategy": "Unit tests verifying schema migration, column presence, and cost split by cost_status. Integration test with sample events to confirm rollup grain includes all new dimensions."
+            "testStrategy": "Unit tests verifying schema migration, column presence, and cost split by cost_status. Integration test with sample events to confirm rollup grain includes all new dimensions.",
+            "parentId": "undefined"
           },
           {
             "id": 11,
@@ -3044,7 +3046,8 @@
             ],
             "details": "Refactor rollups.py to compute rollups only from final attempt events, excluding snapshots after a final exists and logical summaries. Implement incremental refresh with idempotency and trigger recomputation for affected periods when corrections occur. Ensure compliance with FR-ROLLUP-001..003 and FR-ROLLUP-008/009.",
             "status": "pending",
-            "testStrategy": "Integration tests for rollup refresh, correction recomputation, and double-counting prevention using multi-attempt fixtures. Verify idempotency and incremental behavior."
+            "testStrategy": "Integration tests for rollup refresh, correction recomputation, and double-counting prevention using multi-attempt fixtures. Verify idempotency and incremental behavior.",
+            "parentId": "undefined"
           },
           {
             "id": 12,
@@ -3055,7 +3058,8 @@
             ],
             "details": "Create the query framework module implementing keyset pagination (FR-QUERY-003), explicit sort (FR-QUERY-004), selectable aggregation grain (FR-QUERY-005), bounded time ranges for high-cardinality queries (NFR-PERF-004), data-quality warnings in responses (FR-QUERY-010), and filters for unknown provider/model (FR-QUERY-011). Ensure framework is provider-neutral.",
             "status": "pending",
-            "testStrategy": "Unit tests for pagination, sorting, aggregation, time range bounds, data-quality warnings, and filter logic. Performance benchmarks for 30-day aggregated views p95 under 500ms."
+            "testStrategy": "Unit tests for pagination, sorting, aggregation, time range bounds, data-quality warnings, and filter logic. Performance benchmarks for 30-day aggregated views p95 under 500ms.",
+            "parentId": "undefined"
           },
           {
             "id": 13,
@@ -3066,7 +3070,8 @@
             ],
             "details": "Create endpoint handlers for each v2 route, integrating the query framework and rollups v2. Implement dual metrics and cost status in /api/v2/costs (FR-QUERY-006), scoped identity and winning attempt filters in /api/v2/sessions (FR-TRACE-011), and CSV export (FR-QUERY-009). Ensure Grafana-compatible views (FR-QUERY-014).",
             "status": "pending",
-            "testStrategy": "Integration tests for each endpoint validating response structure, pagination, filters, and data accuracy. CSV export validation and Grafana view compatibility checks."
+            "testStrategy": "Integration tests for each endpoint validating response structure, pagination, filters, and data accuracy. CSV export validation and Grafana view compatibility checks.",
+            "parentId": "undefined"
           },
           {
             "id": 14,
@@ -3077,7 +3082,8 @@
             ],
             "details": "Update the service layer to route v1 requests to the v2 ledger without breaking existing functionality. Create a regression test suite that compares v1 responses before and after migration to ensure parity. Validate that attempt and logical request semantics prevent double counting and that cache/reasoning usage is queryable.",
             "status": "pending",
-            "testStrategy": "v1 parity regression suite comparing pre-migration and post-migration v1 responses. Unit tests for service layer routing. Verify double-counting prevention and cache/reasoning queryability."
+            "testStrategy": "v1 parity regression suite comparing pre-migration and post-migration v1 responses. Unit tests for service layer routing. Verify double-counting prevention and cache/reasoning queryability.",
+            "parentId": "undefined"
           },
           {
             "id": 15,
@@ -3089,7 +3095,8 @@
             ],
             "details": "Create migration script to evolve daily_rollups table schema to grain (day, provider, native_model, machine, project, source, environment, billing_mode, provenance) with additional columns for reasoning tokens, cache tokens (prompt_cache_read, prompt_cache_write per FR-ROLLUP-005/006), and cost split by cost_status (FR-ROLLUP-007). Add indexes for common query patterns. Ensure rollups derive exclusively from final attempt events, never from snapshots after a final exists and never from logical summaries (FR-ROLLUP-001..003). Implement incremental and idempotent refresh logic with correction-triggered affected-period recomputation (FR-ROLLUP-008/009). Update rollups.py service to handle new dimensions.",
             "status": "pending",
-            "testStrategy": "Unit tests for schema migration with rollback verification. Integration tests for rollup aggregation with multi-dimensional fixtures including reasoning and cache tokens. Verify idempotency by running refresh twice on same data. Test correction-triggered recomputation with modified attempt events."
+            "testStrategy": "Unit tests for schema migration with rollback verification. Integration tests for rollup aggregation with multi-dimensional fixtures including reasoning and cache tokens. Verify idempotency by running refresh twice on same data. Test correction-triggered recomputation with modified attempt events.",
+            "parentId": "undefined"
           },
           {
             "id": 16,
@@ -3100,7 +3107,8 @@
             ],
             "details": "Create apps/server/tokemetry_server/services/query_framework.py implementing keyset pagination (FR-QUERY-003), explicit sort parameters (FR-QUERY-004), selectable aggregation grain where safe (FR-QUERY-005), bounded time range validation for raw high-cardinality queries (NFR-PERF-004), data-quality warnings in responses (FR-QUERY-010), and unknown provider/model filters (FR-QUERY-011). Build reusable query builder with SQLAlchemy supporting multi-dimensional filters (provider, model, project, source, environment, billing_mode, cost_status). Implement response envelope with pagination metadata and data quality indicators.",
             "status": "pending",
-            "testStrategy": "Unit tests for pagination logic with edge cases (first page, last page, empty results). Test sort parameter validation and SQL generation. Verify time range bounds enforcement. Test filter combinations with fixtures. Benchmark pagination performance with 100k+ row datasets."
+            "testStrategy": "Unit tests for pagination logic with edge cases (first page, last page, empty results). Test sort parameter validation and SQL generation. Verify time range bounds enforcement. Test filter combinations with fixtures. Benchmark pagination performance with 100k+ row datasets.",
+            "parentId": "undefined"
           },
           {
             "id": 17,
@@ -3111,7 +3119,8 @@
             ],
             "details": "Implement GET /api/v2/usage (aggregated token metrics with reasoning and cache breakdown), /api/v2/costs (dual metrics with cost_status and pricing_version per FR-QUERY-006), /api/v2/requests (logical request semantics preventing double counting), /api/v2/attempts (raw attempt-level data with final/non-final distinction), and /api/v2/sessions (scoped identity per FR-TRACE-011, winning attempt, fallback filters). Wire endpoints into FastAPI router with OpenAPI documentation. Ensure attempt and logical request semantics prevent double counting across retries and fallbacks. Support all query framework features (pagination, filtering, sorting, aggregation grain).",
             "status": "pending",
-            "testStrategy": "Integration tests for each endpoint with multi-attempt fixtures verifying double-counting prevention. Test cache and reasoning token queryability. Verify cost_status visibility in responses. Test session scoping with identity filters. Run v1 parity regression suite comparing v1 and v2 responses for equivalent queries. Performance benchmarks for 30-day aggregated views with p95 under 500ms (NFR-PERF-003)."
+            "testStrategy": "Integration tests for each endpoint with multi-attempt fixtures verifying double-counting prevention. Test cache and reasoning token queryability. Verify cost_status visibility in responses. Test session scoping with identity filters. Run v1 parity regression suite comparing v1 and v2 responses for equivalent queries. Performance benchmarks for 30-day aggregated views with p95 under 500ms (NFR-PERF-003).",
+            "parentId": "undefined"
           },
           {
             "id": 18,
@@ -3122,7 +3131,8 @@
             ],
             "details": "Implement GET /api/v2/limits (current and historical limit snapshots with provenance), /api/v2/data-quality (validation warnings, missing data indicators, correction history), /api/v2/pricing (active pricing table with version history), and /api/v2/rollups (rollup metadata, refresh status, affected periods). Add CSV export support (FR-QUERY-009) to all query endpoints via Accept: text/csv header or ?format=csv query parameter with streaming response for large datasets. Implement proper CSV escaping and UTF-8 BOM for Excel compatibility. Wire all endpoints into FastAPI router.",
             "status": "pending",
-            "testStrategy": "Unit tests for CSV serialization with special characters and large datasets. Integration tests for each endpoint with realistic fixtures. Test streaming CSV export with 10k+ rows. Verify data-quality warnings appear correctly. Test pricing version resolution. Validate rollup metadata accuracy after refresh operations."
+            "testStrategy": "Unit tests for CSV serialization with special characters and large datasets. Integration tests for each endpoint with realistic fixtures. Test streaming CSV export with 10k+ rows. Verify data-quality warnings appear correctly. Test pricing version resolution. Validate rollup metadata accuracy after refresh operations.",
+            "parentId": "undefined"
           },
           {
             "id": 19,
@@ -3135,12 +3145,14 @@
             ],
             "details": "Create Grafana-compatible database views (FR-QUERY-014) exposing v2 rollups with time-series optimized schema for common dashboards (usage over time, cost by provider, top projects, cache hit rates). Implement v1 query endpoint compatibility layer (FR-QUERY-012) by mapping v1 requests to v2 service layer, translating v1 filter/grouping semantics to v2 equivalents, and reformatting v2 responses to v1 schema. Ensure existing v1 clients continue to work without modification. Document view schemas for Grafana configuration. Add migration guide for v1 to v2 API consumers.",
             "status": "pending",
-            "testStrategy": "Create Grafana dashboard using views to verify query performance and correctness. Run v1 parity regression suite (FR-QUERY-012) comparing pre-migration v1 responses with post-migration v1 responses against v2 ledger. Test all v1 endpoints with existing client fixtures. Performance benchmarks for high-cardinality project and session dimensions (FR-ROLLUP-012). Verify p95 latency for 30-day aggregated views under 500ms (NFR-PERF-003)."
+            "testStrategy": "Create Grafana dashboard using views to verify query performance and correctness. Run v1 parity regression suite (FR-QUERY-012) comparing pre-migration v1 responses with post-migration v1 responses against v2 ledger. Test all v1 endpoints with existing client fixtures. Performance benchmarks for high-cardinality project and session dimensions (FR-ROLLUP-012). Verify p95 latency for 30-day aggregated views under 500ms (NFR-PERF-003).",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-07-19T06:35:46.522Z"
       },
       {
-        "id": 67,
+        "id": "67",
         "title": "TOK-8: Dashboard Generalization",
         "description": "Replace Claude-only dashboard assumptions with provider-neutral views: global provider and model filters, dual cost metrics, request and fallback-chain visualization, source health, data quality, and pricing administration pages, while preserving the limit-centric Claude views. PRD-TOK-002 Section 12.14; Epic TOK-8; FR-UI-001..015; decisions D-007, D-017.",
         "details": "Objective: provider-neutral UI on top of the v2 query APIs (Migration Phase 5). Dashboard work never combines with core ingest changes (PRD Section 23 rule 11).\n\nDesign: global provider and model filter store applied across views (FR-UI-002); v2 typed API client layer generated from OpenAPI; overview covers all providers (FR-UI-001); token and cost charts distinguish cache, reasoning, input, and output (FR-UI-003); cost views expose actual API spend and subscription-equivalent value separately (D-007, FR-COST-012) plus cost status and reconciliation drift (FR-UI-008/013); request detail shows the logical request with its attempts and visualizes fallback chains (FR-UI-004/005); latency and time-to-first-token chartable (FR-UI-006); failure rate by provider and model chartable (FR-UI-007); sources page shows freshness and schema-version drift (FR-UI-009); data quality page shows unknown models and unpriced events; pricing administration page manages rate cards with dry-run diff review and apply; labels distinguish zero, unavailable, and unsupported values (FR-DIM-010) and official versus estimated (FR-UI-012); limits pages read window labels from the provider window registry instead of hardcoded WINDOW_LABELS while preserving the existing Claude block and prediction views (FR-UI-010/014); no routes removed (D-017); components must not hardcode provider sets (NFR-MAIN-006).\n\nAcceptance criteria (PRD Epic TOK-8): global provider and model filters exist; requests and fallback chains visible; source health and data quality visible; unknown and unpriced usage visible; cache, reasoning, input, and output distinguishable; existing Claude limit views remain useful.\n\nTest strategy: vitest unit tests for the filter store, client layer, formatting, and label logic; component tests for the fallback-chain visualization and dual-metric cost views; manual end-to-end verification against a server seeded with three-provider fixtures; regression check that all pre-existing routes still render.",
@@ -3265,7 +3277,7 @@
         ]
       },
       {
-        "id": 68,
+        "id": "68",
         "title": "TOK-9: Alerts and Data Quality",
         "description": "Operational alerts for reporting and accounting failures: stale sources, unpriced events, unknown models, exporter schema drift, failure rate, latency, and fallback rate, all filterable by provider, model, source, project, and environment, all content-free. PRD-TOK-002 Section 12.15; Epic TOK-9; FR-ALERT-001..010.",
         "details": "Objective: data quality and exporter health become alertable operational signals (PP-012).\n\nDesign: extend the existing rule engine (services/alerting/) with new rule kinds: stale_source (built on source health last-ingest timestamps, replacing machine-only collector_stale semantics while keeping that rule working), unpriced_events (computed_costs cost_status unpriced over a window), unknown_model (v2 data quality events), schema_drift (exporter schema version vs supported versions), failure_rate, latency_p95, and fallback_rate (from attempt outcomes, latency, and routing metadata). All rules gain optional provider, model, source, project, and environment filters (FR-ALERT-002). Existing spend and limit alerts continue to work unchanged (FR-ALERT-001); cooldown and quiet-hours behavior preserved (FR-ALERT-009); alert context stays content-free (FR-ALERT-010); delivery channels ntfy, Telegram, and SMTP unchanged.\n\nAcceptance criteria (PRD Epic TOK-9): stale source alerts work; unknown model and unpriced usage alerts work; failure, latency, and fallback-rate alerts work; alert context content-free; existing delivery channels supported.\n\nTest strategy: unit tests per evaluator with synthetic v2 fixtures covering warning and critical thresholds, filters, cooldown, and quiet hours; integration test firing each new kind end to end into alert_events; regression tests that the four seeded default rules and existing channels behave identically; content-free context assertion tests.",
@@ -3354,7 +3366,7 @@
         ]
       },
       {
-        "id": 69,
+        "id": "69",
         "title": "TOK-12: Multi-Provider Limit Sources",
         "description": "Provider-neutral limit tracking: window registry with labels and period semantics, limit snapshot dimensions for account, organization, and source, new OpenAI/Codex and Z.ai coding-plan limit sources in the collector, gateway-observed rate-limit snapshots, and confidence-labeled forecasting. PRD-TOK-002 Section 12.9; Epic TOK-12; FR-LIMIT-001..013; decision D-008.",
         "details": "Objective: subscription and rate-limit visibility for Anthropic, OpenAI/Codex, and Z.ai on one neutral schema (new epic added by decision D-008).\n\nDesign: provider window registry describing window kinds, display labels, and period semantics per provider (FR-LIMIT-012), exposed through the providers API so dashboards and alerts stop hardcoding five_hour and seven_day labels; window kinds remain provider-defined opaque identifiers in storage (FR-LIMIT-001). limit_snapshots gains account, organization, and source dimensions plus limit_amount, remaining, and unit columns (FR-LIMIT-002/003); multiple account or subscription streams are never merged without an explicit grouping rule (FR-LIMIT-005); official versus estimated provenance remains distinguishable (FR-LIMIT-004). New collector limit sources following the AnthropicOAuthLimitsSource pattern (apps/collector, registered through the existing builder registry): an OpenAI/Codex subscription limits source and a Z.ai coding-plan limits source; both are undocumented endpoints, so every failure degrades gracefully to LimitsUnavailableError plus a data_quality_events record instead of failing collection (FR-LIMIT-013); credentials are read locally and never uploaded, matching the Anthropic source. Gateway-observed rate-limit headers ingestible as optional snapshots through POST /api/v2/ingest/limits (FR-LIMIT-010). Forecasting identifies its source data and confidence (FR-LIMIT-008); unknown windows never require schema migrations (FR-LIMIT-009).\n\nAcceptance criteria (PRD Epic TOK-12): window registry describes kinds, labels, and periods; snapshots support account, organization, and source dimensions; the existing Anthropic OAuth source keeps working unchanged; OpenAI/Codex and Z.ai sources report subscription windows; gateway rate-limit headers ingestible; dashboards and alerts read window metadata from the registry.\n\nTest strategy: unit tests for the registry and grouping rules; collector unit tests with recorded endpoint fixtures for both new sources including failure degradation; integration test for gateway snapshot ingest; migration tests for the new limit_snapshots columns; regression test that existing Anthropic window history and alerts remain intact.",
@@ -3454,7 +3466,7 @@
         ]
       },
       {
-        "id": 70,
+        "id": "70",
         "title": "TOK-10: Retention, Security, and Operations",
         "description": "Production hardening: configurable incremental retention with rollup verification, snapshot compaction, administrative deletion APIs, audit log, rate limiting and request bounds, backup and restore automation, runbooks, security and privacy test suite, and release gates. PRD-TOK-002 Sections 12.17, 12.18; Epic TOK-10; FR-PRIV-001..012, FR-RET-001..007, NFR-SEC-001..008; decisions D-010, D-014.",
         "details": "Objective: safe long-term operation of the v2 platform (Migration Phase 6).\n\nDesign: retention configuration per record category with PRD defaults (raw final attempts 180 days, superseded snapshots 7 days per D-010, daily rollups indefinite, limit snapshots 400 days, ingest batch metadata 30 days, audit records 400 days, corrections indefinite); retention jobs incremental and resumable (FR-RET-002) with rollup verification before raw deletion (FR-RET-004, FR-ROLLUP-010) and legal hold support (FR-RET-006); consistent behavior on SQLite and Postgres (FR-RET-007); operational retention status visible (FR-RET-005). Administrative deletion by source, machine, project, or time range (FR-PRIV-007) recorded in audit_log alongside repricing, token operations, and price applies (FR-PRIV-009, NFR-SEC-005). Rate limiting split between ingest and query (FR-INGEST-015, NFR-SEC-003); request size and JSON depth limits (NFR-SEC-004); restrictive CORS defaults and TLS deployment guidance (NFR-SEC-006/007). Backup and restore automation with restore tests (NFR-REL-004); runbooks for migration and rollback, token rotation, and upgrade (FR-SEC-009, AC-018). Security and privacy test suite: prohibited-key fuzzing (FR-PRIV-012), oversized metadata, deeply nested JSON, token scope bypass, revoked tokens, WebSocket authorization, secret redaction, pseudonymized identifiers, SQL and filter injection (PRD 18.6). Stored-field documentation for privacy review (FR-PRIV-005). Tenancy is out of scope but schema review confirms nothing precludes it (D-014).\n\nAcceptance criteria (PRD Epic TOK-10): configurable retention exists; backup and restore tests pass; scoped token rotation documented; rate limits and request bounds enforced; audit log covers administrative actions; migration and rollback runbooks exist; performance and security gates pass.\n\nTest strategy: unit tests for retention eligibility; integration tests for retention jobs on production-scale fixtures with resume-after-interrupt; restore verification on SQLite and Postgres; the full security and privacy suite; sustained-load performance test at the documented 1000 events per second reference target (NFR-PERF-002); trivy clean; final walkthrough of release acceptance criteria AC-001 through AC-022.",
@@ -3576,7 +3588,7 @@
         ]
       },
       {
-        "id": 71,
+        "id": "71",
         "title": "TOK-11: OpenTelemetry Interoperability and OTLP Bridge",
         "description": "Align v2 events with OpenTelemetry generative AI semantic conventions: trace and span linkage, a pinned-version mapping document, and a feature-flagged OTLP receiver that converts GenAI spans into v2 attempt events with content attributes stripped. PRD-TOK-002 Section 12.19; Epic TOK-11; FR-OTEL-001..007; decisions D-009, D-013.",
         "details": "Objective: OpenTelemetry interoperability including the receiver bridge, feature-flagged off by default (D-009).\n\nDesign: trace_id, span_id, and parent_span_id on the v2 schema (FR-OTEL-001) including agent parent-child relationships (FR-TRACE-009); a mapping document pinning a specific generative AI semantic-convention version (D-013) covering provider, model, token usage, latency, and outcome mappings (FR-OTEL-002); the pinned semconv version recorded on every mapped event (FR-OTEL-006). OTLP receiver: HTTP protobuf endpoint, disabled by default behind a feature flag, authenticated consistently with ingest tokens, converting GenAI spans into v2 attempt events with provenance imported and source type sdk; content attributes stripped unconditionally (FR-OTEL-007); unknown attributes retained in namespaced extra metadata within bounds. Core v2 ingest never depends on OTLP (FR-OTEL-004); export to external OpenTelemetry backends stays deferred (FR-OTEL-005).\n\nAcceptance criteria (PRD Epic TOK-11): trace and span IDs supported; mapping document exists with pinned semconv version; content attributes remain disabled by default; the feature-flagged OTLP receiver converts generative AI spans into v2 attempt events (AC-021).\n\nTest strategy: unit tests for the span-to-event converter including content stripping and attribute bounding; integration test posting recorded OTLP payloads from an instrumented sample app and asserting correct v2 events and dashboard visibility; feature-flag-off test proving the endpoint is absent by default; privacy fuzz tests on span attributes.",
@@ -3663,14 +3675,12 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T05:52:38.132Z",
+      "lastModified": "2026-07-19T06:35:46.524Z",
       "taskCount": 71,
       "completedCount": 64,
       "tags": [
         "master"
-      ],
-      "created": "2026-07-19T05:55:46.476Z",
-      "description": "Tasks for master context"
+      ]
     }
   }
 }

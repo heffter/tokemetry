@@ -55,9 +55,14 @@ _ROLLUP_UPDATE_COLUMNS = (
     "cache_read_tokens",
     "cache_write_short_tokens",
     "cache_write_long_tokens",
+    "reasoning_tokens",
     "total_tokens",
     "cost_usd",
-    "provenance",
+    "cost_priced_usd",
+    "cost_partial_usd",
+    "cost_estimated_usd",
+    "unpriced_event_count",
+    "subscription_value_usd",
 )
 
 
@@ -93,14 +98,18 @@ def daily_rollups_upsert(
 ) -> DialectInsert:
     """Build an idempotent replace-upsert for daily rollups.
 
-    Used for both bootstrap imports and event-derived refreshes: the grain
-    ``(day, provider, machine, model, project)`` is overwritten (not
-    accumulated), so recomputing a day converges to the same totals.
+    Used for both bootstrap imports and event-derived refreshes: the v2 grain
+    ``(day, provider, model, machine, project, source, environment,
+    billing_mode, provenance)`` is overwritten (not accumulated), so recomputing
+    a day converges to the same totals.
     """
     stmt = _insert(dialect_name, table).values(rows)
     excluded = stmt.excluded
     return stmt.on_conflict_do_update(
-        index_elements=["day", "provider", "machine", "model", "project"],
+        index_elements=[
+            "day", "provider", "model", "machine", "project",
+            "source", "environment", "billing_mode", "provenance",
+        ],
         set_={name: excluded[name] for name in _ROLLUP_UPDATE_COLUMNS},
     )
 

@@ -170,14 +170,26 @@ async def _aggregate_day(
 
     rows: list[dict[str, object]] = []
     for (prov, mach, mdl, grp), agg in merged.items():
+        # v2 grain sentinels: the v1-derived rollup carries no source,
+        # environment, or per-source billing mode yet -- Task 66.2 reads
+        # usage_events_v2/computed_costs to populate them and the cost split.
         row: dict[str, object] = {
             "day": day,
             "provider": prov,
-            "machine": mach,
             "model": mdl,
+            "machine": mach,
             "project": grp,
-            "cost_usd": agg.cost,
+            "source": "",
+            "environment": "",
+            "billing_mode": "api_billed",
             "provenance": DERIVED,
+            "reasoning_tokens": 0,
+            "cost_usd": agg.cost,
+            "cost_priced_usd": agg.cost,
+            "cost_partial_usd": None,
+            "cost_estimated_usd": None,
+            "unpriced_event_count": 0,
+            "subscription_value_usd": None,
         }
         row.update(dict(zip(_TOKEN_KEYS, agg.tokens, strict=True)))
         rows.append(row)

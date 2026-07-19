@@ -51,6 +51,15 @@ GROUP BY day
 ORDER BY day;
 ```
 
+> **Grain change (Task 66).** `daily_rollups` now carries a finer
+> provider-neutral grain (`source`, `environment`, `billing_mode`, plus a cost
+> split: `cost_priced_usd`, `cost_partial_usd`, `cost_estimated_usd`,
+> `subscription_value_usd`). To keep existing dashboards stable, query the
+> **`daily_rollups_grafana`** view instead of the table -- it sums back to the
+> original `(day, provider, model, machine, project)` grain and exposes the same
+> classic columns (`cost_usd`, token counters) plus the new cost columns. The
+> transitional `cost_usd` still equals the priced cost during the migration.
+
 Latest limit utilization:
 
 ```sql

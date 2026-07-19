@@ -377,31 +377,56 @@ class Session(Base):
 class DailyRollup(Base):
     """Per-day, per-grain token and cost totals for fast history queries.
 
-    Absent dimensions (``machine``, ``project``) use ``''`` sentinels so the
-    unique grain constraint holds identically on SQLite and Postgres.
+    The provider-neutral v2 grain (FR-ROLLUP-004/005) is ``(day, provider,
+    model, machine, project, source, environment, billing_mode, provenance)``;
+    absent dimensions use ``''`` sentinels (``api_billed`` for ``billing_mode``)
+    so the unique grain holds identically on SQLite and Postgres. Cost is split
+    by status -- ``cost_priced_usd``/``cost_partial_usd``/``cost_estimated_usd``
+    plus ``unpriced_event_count`` and ``subscription_value_usd`` for the dual
+    metric (FR-ROLLUP-007, FR-COST-012). ``cost_usd`` is retained transitionally
+    (v1 keep-max cost) until the rollup service reads ``computed_costs`` (Task
+    66.2); it currently mirrors ``cost_priced_usd``.
     """
 
     __tablename__ = "daily_rollups"
     __table_args__ = (
         UniqueConstraint(
-            "day", "provider", "machine", "model", "project", name="daily_rollups_grain"
+            "day",
+            "provider",
+            "model",
+            "machine",
+            "project",
+            "source",
+            "environment",
+            "billing_mode",
+            "provenance",
+            name="daily_rollups_grain",
         ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     day: Mapped[date] = mapped_column(Date, index=True)
     provider: Mapped[str] = mapped_column(String(50))
-    machine: Mapped[str] = mapped_column(String(200), default="")
     model: Mapped[str] = mapped_column(String(200), default="")
+    machine: Mapped[str] = mapped_column(String(200), default="")
     project: Mapped[str] = mapped_column(String(500), default="")
+    source: Mapped[str] = mapped_column(String(200), default="")
+    environment: Mapped[str] = mapped_column(String(50), default="")
+    billing_mode: Mapped[str] = mapped_column(String(20), default="api_billed")
+    provenance: Mapped[str] = mapped_column(String(30), default="derived")
     input_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     cache_read_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     cache_write_short_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     cache_write_long_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    reasoning_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     cost_usd: Mapped[Decimal | None] = mapped_column(_MONEY)
-    provenance: Mapped[str] = mapped_column(String(30), default="derived")
+    cost_priced_usd: Mapped[Decimal | None] = mapped_column(_MONEY)
+    cost_partial_usd: Mapped[Decimal | None] = mapped_column(_MONEY)
+    cost_estimated_usd: Mapped[Decimal | None] = mapped_column(_MONEY)
+    unpriced_event_count: Mapped[int] = mapped_column(Integer, default=0)
+    subscription_value_usd: Mapped[Decimal | None] = mapped_column(_MONEY)
 
 
 class Pricing(Base):
