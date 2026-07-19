@@ -86,6 +86,23 @@ stale sources).
 - `GET /api/v2/costs/reconciliation?from&to` -- observed-versus-computed cost
   drift by provider (populated once exporters supply observed costs).
 
+## Trace: attempts, requests, sessions (v2)
+
+The trace surface under `/api/v2` (scope `query:read`); all take a bounded
+`from`/`to` range and keyset pagination via an opaque `cursor` + `next_cursor`.
+
+- `GET /api/v2/attempts?from&to` -- the raw, keyset-paginated, newest-first
+  listing of final attempt events with their lifecycle and usage fields;
+  filterable by the uniform filters plus `logical_request_id`.
+- `GET /api/v2/requests?from&to` -- logical requests with their attempt-chain
+  aggregates (attempt/fallback counts, winning attempt, token and cost totals
+  computed from attempts); filterable by `routing_policy` and `fallback_only`.
+- `GET /api/v2/requests/{provider}/{logical_request_id}` -- the drilldown: the
+  request plus its attempts ordered by sequence for the fallback-chain UI.
+- `GET /api/v2/sessions?from&to` and `GET /api/v2/sessions/{scoped_id}` --
+  session rollups keyed by the scoped identity `(provider, source, session_id)`;
+  the v1 sessions endpoints keep serving the old shape during the migration.
+
 ## Pricing administration (v2)
 
 The provider-neutral pricing surface is under `/api/v2/pricing`. Reads need

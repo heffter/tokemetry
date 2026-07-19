@@ -2968,13 +2968,14 @@
             "id": 5,
             "title": "Request, attempt, and session query endpoints",
             "description": "GET /api/v2/requests, /api/v2/attempts, /api/v2/sessions.",
-            "details": "Add api/v2/requests.py and api/v2/sessions.py. GET /api/v2/attempts: event-level listing with all lifecycle fields, bounded range, filterable by outcome, provider, model, source, logical_request_id (FR-QUERY-002); the raw high-cardinality surface requiring bounded ranges. GET /api/v2/requests: logical_requests joined with attempt aggregates (attempt_count, fallback_count, winning attempt, latency span, token and cost totals computed from attempts only, FR-TRACE-007/012), filterable by routing policy and fallback trigger (FR-TRACE-006). GET /api/v2/requests/{provider}/{logical_request_id}: full drilldown with ordered attempts for the fallback-chain UI. GET /api/v2/sessions and /api/v2/sessions/{scoped_id}: session rollups from scoped identity (provider, source, session_id per FR-TRACE-011) with attempt count, fallback count, latency, tokens, cost, preserving current Claude Code session aggregation semantics (FR-TRACE-010; existing v1 sessions endpoints keep serving the old shape). Test strategy: integration tests for drilldown ordering, winning-attempt marking, per-filter coverage, scoped-identity collision test (same session_id from two sources stays separate), and v1 session endpoint parity via golden suite.",
-            "status": "pending",
+            "details": "Add api/v2/requests.py and api/v2/sessions.py. GET /api/v2/attempts: event-level listing with all lifecycle fields, bounded range, filterable by outcome, provider, model, source, logical_request_id (FR-QUERY-002); the raw high-cardinality surface requiring bounded ranges. GET /api/v2/requests: logical_requests joined with attempt aggregates (attempt_count, fallback_count, winning attempt, latency span, token and cost totals computed from attempts only, FR-TRACE-007/012), filterable by routing policy and fallback trigger (FR-TRACE-006). GET /api/v2/requests/{provider}/{logical_request_id}: full drilldown with ordered attempts for the fallback-chain UI. GET /api/v2/sessions and /api/v2/sessions/{scoped_id}: session rollups from scoped identity (provider, source, session_id per FR-TRACE-011) with attempt count, fallback count, latency, tokens, cost, preserving current Claude Code session aggregation semantics (FR-TRACE-010; existing v1 sessions endpoints keep serving the old shape). Test strategy: integration tests for drilldown ordering, winning-attempt marking, per-filter coverage, scoped-identity collision test (same session_id from two sources stays separate), and v1 session endpoint parity via golden suite.\n<info added on 2026-07-19T08:07:27.801Z>\nImplemented. services/trace_queries.py provides list_attempts (keyset-paginated by (ts_started, event_id) newest-first, filters outcome/provider/model/source/logical_request_id, bounded range required), list_requests (keyset by (ts_last, logical_request_id), joins logical_requests with attempt aggregates including attempt_count, token/cost totals summed from attempts, filters routing_policy/fallback_only), request_detail (returns request + attempts ordered by sequence with winning attempt marked), list_sessions (groups attempts by scoped identity (provider, source, session_id) with offset pagination), session_detail (by decoded scoped_id). Scoped session identity encoded/decoded via base64-json helpers. query_framework relaxed to accept string id tiebreaker for tables without int PK. api/v2/requests.py and api/v2/sessions.py endpoints added with scope query:read, bounded range enforcement, 400 on bad cursor/range/scoped_id, 404 for unknown request/session. Schemas AttemptOut/RequestOut/SessionOut with extra=forbid, cursor-based responses. Tests: test_trace_queries.py (7 tests: attempt keyset pagination, logical_request filter, drilldown ordering+totals, unknown returns None, fallback filter, scoped-session rollup+detail), test_trace_api_v2.py (5 tests: attempt listing+pagination, bad cursor/range 400, requests list + unknown drilldown 404, sessions list+detail+bad scoped_id 400, query:read scope 403). Full suite 712 passed/40 skipped, ruff+mypy(104)+trivy clean. docs/api/query.md updated. Deferred per-session fallback_count and agent filter.\n</info added on 2026-07-19T08:07:27.801Z>",
+            "status": "done",
             "dependencies": [
               "66.3"
             ],
             "parentTaskId": 66,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:07:46.460Z"
           },
           {
             "id": 6,
@@ -3152,7 +3153,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T07:44:32.960Z"
+        "updatedAt": "2026-07-19T08:07:46.460Z"
       },
       {
         "id": "67",
@@ -3678,7 +3679,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T07:44:32.962Z",
+      "lastModified": "2026-07-19T08:07:46.461Z",
       "taskCount": 71,
       "completedCount": 64,
       "tags": [

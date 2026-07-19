@@ -393,3 +393,101 @@ class ReconciliationResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     rows: list[ReconciliationRowOut]
+
+
+class AttemptOut(BaseModel):
+    """One final attempt event with lifecycle and usage fields (FR-QUERY-002)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str
+    provider: str
+    native_model: str
+    requested_model: str | None
+    routed_model: str | None
+    ts_started: UtcDatetime
+    ts_completed: UtcDatetime | None
+    latency_ms: int | None
+    success: bool
+    logical_request_id: str | None
+    session_id: str | None
+    source: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
+    reasoning_tokens: int
+    cost_usd: Decimal | None
+
+
+class AttemptsResponse(BaseModel):
+    """A keyset-paginated page of attempt events."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    attempts: list[AttemptOut]
+    next_cursor: str | None = None
+
+
+class RequestOut(BaseModel):
+    """A logical request with its attempt-chain aggregates (FR-TRACE-007/012)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    logical_request_id: str
+    requested_model: str | None
+    session_id: str | None
+    routing_policy: str | None
+    routing_reason: str | None
+    attempt_count: int
+    fallback_count: int
+    winning_attempt_id: str | None
+    ts_first: UtcDatetime | None
+    ts_last: UtcDatetime | None
+    total_tokens: int
+    cost_usd: Decimal | None
+
+
+class RequestsResponse(BaseModel):
+    """A keyset-paginated page of logical requests."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    requests: list[RequestOut]
+    next_cursor: str | None = None
+
+
+class RequestDetailResponse(BaseModel):
+    """A logical request with its ordered attempts (fallback-chain drilldown)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request: RequestOut
+    attempts: list[AttemptOut]
+
+
+class SessionOut(BaseModel):
+    """A session rollup keyed by scoped identity (FR-TRACE-010/011)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scoped_id: str
+    provider: str
+    source: str
+    session_id: str
+    attempt_count: int
+    total_tokens: int
+    cost_usd: Decimal | None
+    ts_first: UtcDatetime | None
+    ts_last: UtcDatetime | None
+
+
+class SessionsResponse(BaseModel):
+    """A paginated page of session rollups."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sessions: list[SessionOut]
+    next_cursor: str | None = None

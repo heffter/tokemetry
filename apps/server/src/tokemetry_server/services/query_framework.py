@@ -125,11 +125,12 @@ class Page:
     next_cursor: str | None
 
 
-def encode_cursor(sort_value: Any, row_id: int) -> str:
-    """Encode an opaque cursor from the last row's sort value and id.
+def encode_cursor(sort_value: Any, row_id: int | str) -> str:
+    """Encode an opaque cursor from the last row's sort value and id tiebreaker.
 
     ``date``/``datetime`` sort values are stored as ISO strings so the cursor is
-    JSON-portable; the endpoint coerces them back when comparing.
+    JSON-portable; the endpoint coerces them back when comparing. The id
+    tiebreaker may be an integer surrogate key or a string business key.
     """
     if isinstance(sort_value, datetime | date):
         encoded: Any = sort_value.isoformat()
@@ -139,7 +140,7 @@ def encode_cursor(sort_value: Any, row_id: int) -> str:
     return base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii")
 
 
-def decode_cursor(cursor: str) -> tuple[Any, int]:
+def decode_cursor(cursor: str) -> tuple[Any, int | str]:
     """Decode a cursor into its ``(sort_value, row_id)``.
 
     Raises:
@@ -150,16 +151,16 @@ def decode_cursor(cursor: str) -> tuple[Any, int]:
         value, row_id = json.loads(payload)
     except (binascii.Error, ValueError, UnicodeDecodeError) as exc:
         raise QueryParamError("invalid pagination cursor") from exc
-    if not isinstance(row_id, int):
+    if not isinstance(row_id, int | str):
         raise QueryParamError("invalid pagination cursor")
     return value, row_id
 
 
 def keyset_condition(
-    sort_column: ColumnElement[Any],
-    id_column: ColumnElement[Any],
+    sort_column: Any,
+    id_column: Any,
     sort_value: Any,
-    row_id: int,
+    row_id: int | str,
     descending: bool,
 ) -> ColumnElement[bool]:
     """Build the ``WHERE`` for the row strictly after ``(sort_value, row_id)``.
