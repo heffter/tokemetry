@@ -19,6 +19,7 @@ _EXPECTED_TABLES = {
     "sessions",
     "daily_rollups",
     "pricing",
+    "rate_cards",
     "providers",
     "models",
     "model_aliases",

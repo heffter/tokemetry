@@ -14,7 +14,8 @@ directly; the only dialect-specific element is the JSON column type
 | `limit_snapshots` | surrogate `id` | Normalized `(provider, window_kind, utilization_pct, resets_at)` plus `raw` JSON. |
 | `sessions` | `session_id` | Per-session rollup: message count, token totals, cost. |
 | `daily_rollups` | unique `(day, provider, machine, model, project)` | `''` sentinels for absent dimensions keep upserts deterministic across dialects. |
-| `pricing` | unique `(provider, model, effective_date)` | Date-versioned per-MTok rates plus `source`. |
+| `pricing` | unique `(provider, model, effective_date)` | Date-versioned per-MTok rates plus `source` (v1; kept until Task 64.11). |
+| `rate_cards` | unique grain + `ix_rate_cards_lookup` | v2 generic pricing (D-006): per-unit `unit_price` for a `(provider, native_model, unit_type)` over `effective_from`/`effective_to`, with tier/mode/context-bracket/priority/override. |
 | `alert_rules` | `id`, unique `name` | Condition kind, threshold, channels, cooldown, quiet hours. |
 | `alert_events` | `id`, FK `rule_id` | Fired instances with delivery outcome. |
 | `api_tokens` | `id`, unique `label`/`token_hash` | Hashed bearer tokens. |
@@ -162,8 +163,8 @@ Alembic migrations live in `db/migrations/`; `db/migrate.py` exposes
 `upgrade_to_head(sync_url)` / `downgrade_to_base(sync_url)` for server
 startup and tests. Alembic runs with a synchronous driver
 (`postgresql+psycopg` or `sqlite`) derived from the async application URL by
-`Settings.sync_database_url`. Migrations are hand-authored (through `0014`,
-v1-to-source attribution) and kept in sync with the ORM
+`Settings.sync_database_url`. Migrations are hand-authored (through `0015`,
+the rate_cards table and pricing expansion) and kept in sync with the ORM
 by a drift test
 (`test_migration_matches_orm_metadata`) that reflects the migrated schema
 and compares columns against `Base.metadata`.

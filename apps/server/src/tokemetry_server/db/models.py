@@ -353,6 +353,59 @@ class Pricing(Base):
     source: Mapped[str] = mapped_column(String(50), default="litellm")
 
 
+class RateCard(Base):
+    """One generic per-unit price for a model, effective over a date range.
+
+    The provider-neutral v2 pricing grain (D-006): a price is stored per single
+    billable ``unit_type`` (``input_token``, ``output_token``, cache and future
+    non-token units) rather than per MTok, so any provider's billing model fits
+    one table. Resolution keys on provider, native model, unit type, timestamp,
+    and the optional ``service_tier``/``mode``/``context_bracket`` dimensions
+    with ``priority``/``override`` (task 64.3); overlapping conflicting rows are
+    rejected in the service layer. ``unit_price`` uses exact ``Numeric(20,10)``.
+    """
+
+    __tablename__ = "rate_cards"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "native_model",
+            "unit_type",
+            "effective_from",
+            "service_tier",
+            "mode",
+            "context_bracket",
+            "priority",
+            name="rate_cards_grain",
+        ),
+        Index(
+            "ix_rate_cards_lookup",
+            "provider",
+            "native_model",
+            "unit_type",
+            "effective_from",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(50))
+    native_model: Mapped[str] = mapped_column(String(200))
+    unit_type: Mapped[str] = mapped_column(String(50))
+    effective_from: Mapped[date] = mapped_column(Date)
+    effective_to: Mapped[date | None] = mapped_column(Date)
+    currency: Mapped[str] = mapped_column(String(10), default="USD")
+    region: Mapped[str | None] = mapped_column(String(50))
+    service_tier: Mapped[str | None] = mapped_column(String(50))
+    mode: Mapped[str] = mapped_column(String(20), default="realtime")
+    context_bracket: Mapped[str | None] = mapped_column(String(50))
+    unit_price: Mapped[Decimal] = mapped_column(_MONEY)
+    source: Mapped[str] = mapped_column(String(50), default="litellm")
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    priority: Mapped[int] = mapped_column(Integer, default=0)
+    override: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class Provider(Base):
     """Registry descriptor for one provider (lookup data, FR-PROVIDER-004).
 
