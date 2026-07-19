@@ -2671,11 +2671,12 @@
             "id": 2,
             "title": "billable_units table and unit-type vocabulary",
             "description": "Non-token billable unit storage per attempt event.",
-            "details": "Define the unit-type vocabulary as a core constant module in packages/core (tokemetry_core/units.py) with the PRD 12.7.2 list: input_token, output_token, cache_read_token, cache_write_short_token, cache_write_long_token, reasoning_token, request, web_search_request, tool_call, image_input, image_output, audio_input_second, audio_output_second, video_second, storage_byte_hour, batch_input_token, batch_output_token; token unit types map one to one onto the typed counters of usage_events_v2 and are never stored in billable_units (PP-007, FR-DIM-007). Alembic migration creating billable_units (provider, event_id, unit_type, quantity Numeric(20,6)) with composite unique (provider, event_id, unit_type) and FK-style reference to usage_events_v2. Ingest wiring: v2 events may carry a billable_units map (added to the wire model as an optional bounded dict validated against the vocabulary); hosted-tool charges like web_search_request land here (FR-DIM-008); unknown counters remain in provider extension metadata (FR-EVENT-016) until promoted to vocabulary. Test strategy: unit tests for vocabulary validation and rejection of token types in the map; migration tests; ingest round-trip test storing and re-reading unit rows; revision-engine test that superseding an event replaces its unit rows atomically.",
-            "status": "pending",
+            "details": "Define the unit-type vocabulary as a core constant module in packages/core (tokemetry_core/units.py) with the PRD 12.7.2 list: input_token, output_token, cache_read_token, cache_write_short_token, cache_write_long_token, reasoning_token, request, web_search_request, tool_call, image_input, image_output, audio_input_second, audio_output_second, video_second, storage_byte_hour, batch_input_token, batch_output_token; token unit types map one to one onto the typed counters of usage_events_v2 and are never stored in billable_units (PP-007, FR-DIM-007). Alembic migration creating billable_units (provider, event_id, unit_type, quantity Numeric(20,6)) with composite unique (provider, event_id, unit_type) and FK-style reference to usage_events_v2. Ingest wiring: v2 events may carry a billable_units map (added to the wire model as an optional bounded dict validated against the vocabulary); hosted-tool charges like web_search_request land here (FR-DIM-008); unknown counters remain in provider extension metadata (FR-EVENT-016) until promoted to vocabulary. Test strategy: unit tests for vocabulary validation and rejection of token types in the map; migration tests; ingest round-trip test storing and re-reading unit rows; revision-engine test that superseding an event replaces its unit rows atomically.\n<info added on 2026-07-19T02:02:58.672Z>\nAdded billable-units vocabulary + table + wire field + atomic replacement. packages/core/tokemetry_core/units.py: TOKEN_UNIT_TYPES (input_token, output_token, cache_read_token, cache_write_short_token, cache_write_long_token, reasoning_token, batch_input_token, batch_output_token) which map 1:1 onto usage_events_v2 counters and are NEVER stored in billable_units (PP-007/FR-DIM-007); BILLABLE_UNIT_TYPES (request, web_search_request, tool_call, image_input, image_output, audio_input_second, audio_output_second, video_second, storage_byte_hour); ALL_UNIT_TYPES = union; validate_billable_units() rejects token types, unknown types, negative quantities, and >32 entries (UnitTypeError). UsageEventV2 gains optional bounded billable_units dict[str,float] with a field_validator delegating to validate_billable_units (token/unknown keys -> ValidationError); updated the schema-stability EXPECTED_PROPERTIES. billable_units table (migration 0016 + BillableUnit ORM): id PK, provider, event_id, unit_type, quantity Numeric(20,6), unique (provider,event_id,unit_type), composite FK to usage_events_v2 (provider,event_id) (enforced on Postgres; SQLite doesn't enforce FKs by default so the test asserts the unique grain which is enforced on both). RevisionEngine.apply now replaces an event's billable units atomically on write (delete existing + insert current), skipping the delete for a fresh event with no units (perf); superseding replaces, and a supersede with no units clears them. Tests: core test_units.py (disjoint sets, accept non-token, reject token/unknown/negative/too-many) + wire billable_units tests in test_usage_v2.py; server test_billable_units.py (unique grain rejection, ingest stores units, supersede replaces atomically not accumulates, supersede with no units clears). Gates: pytest 607 passed/35 skipped, ruff clean, mypy strict clean (107 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-19T02:02:58.672Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T02:03:30.053Z"
           },
           {
             "id": 3,
@@ -2790,7 +2791,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T01:47:42.466Z"
+        "updatedAt": "2026-07-19T02:03:30.053Z"
       },
       {
         "id": "65",
@@ -3542,7 +3543,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T01:47:42.468Z",
+      "lastModified": "2026-07-19T02:03:30.054Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [

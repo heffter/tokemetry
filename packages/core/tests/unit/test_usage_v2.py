@@ -64,6 +64,7 @@ _EXPECTED_PROPERTIES = frozenset(
         "source",
         "routing",
         "dimensions",
+        "billable_units",
         "extra",
         "trace_id",
         "span_id",
@@ -277,6 +278,21 @@ class TestStrictShape:
         )
         restored = UsageEventV2.model_validate_json(event.model_dump_json())
         assert restored == event
+
+
+class TestBillableUnits:
+    """The optional non-token billable-units map on the wire model."""
+
+    def test_accepts_non_token_units(self) -> None:
+        event = _event(billable_units={"web_search_request": 2.0})
+        assert event.billable_units == {"web_search_request": 2.0}
+
+    def test_rejects_token_unit_type(self) -> None:
+        with pytest.raises(ValidationError):
+            _event(billable_units={"input_token": 100.0})
+
+    def test_defaults_none(self) -> None:
+        assert _event().billable_units is None
 
 
 class TestJsonSchema:

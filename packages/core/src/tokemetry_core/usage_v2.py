@@ -26,6 +26,7 @@ from typing import Any, Literal
 from pydantic import Field, ValidationInfo, field_validator
 
 from tokemetry_core.models import Provenance, _FrozenModel, _require_tz
+from tokemetry_core.units import validate_billable_units
 
 #: The wire schema version every v2 event must declare (FR-EVENT-001).
 SCHEMA_VERSION = 2
@@ -163,11 +164,22 @@ class UsageEventV2(_FrozenModel):
 
     routing: Routing | None = None
     dimensions: dict[str, str] = Field(default_factory=dict)
+    billable_units: dict[str, float] | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 
     trace_id: str | None = None
     span_id: str | None = None
     parent_span_id: str | None = None
+
+    @field_validator("billable_units")
+    @classmethod
+    def _validate_billable_units(
+        cls, value: dict[str, float] | None
+    ) -> dict[str, float] | None:
+        """Non-token billable units only; token counters live on the event."""
+        if value is None:
+            return None
+        return validate_billable_units(value)
 
     @field_validator("ts_started")
     @classmethod

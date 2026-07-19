@@ -28,6 +28,7 @@ _EXPECTED_TABLES = {
     "usage_event_revisions",
     "logical_requests",
     "ingest_batches",
+    "billable_units",
     "sources",
     "alert_rules",
     "alert_events",

@@ -39,6 +39,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.usage_v2 import UsageEventV2
 
@@ -342,6 +343,10 @@ class RevisionEngine:
             else:
                 for key, value in row.items():
                     setattr(existing_obj, key, value)
+            # Replace the event's non-token billable units atomically. Skip the
+            # delete for a fresh event with no units (the common case).
+            if event.billable_units is not None or existing_obj is not None:
+                await self._replace_billable_units(event)
 
         if decision.conflict and self._dq is not None:
             await self._dq.record_safe(
@@ -357,6 +362,25 @@ class RevisionEngine:
             )
 
         return decision.outcome
+
+    async def _replace_billable_units(self, event: UsageEventV2) -> None:
+        """Delete an event's stored billable units and insert its current ones."""
+        await self._session.execute(
+            delete(models.BillableUnit).where(
+                models.BillableUnit.provider == event.provider,
+                models.BillableUnit.event_id == event.event_id,
+            )
+        )
+        if event.billable_units:
+            self._session.add_all(
+                models.BillableUnit(
+                    provider=event.provider,
+                    event_id=event.event_id,
+                    unit_type=unit_type,
+                    quantity=Decimal(str(quantity)),
+                )
+                for unit_type, quantity in event.billable_units.items()
+            )
 
     def _archive(
         self,

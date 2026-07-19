@@ -29,6 +29,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Numeric,
@@ -176,6 +177,35 @@ class UsageEventRevision(Base):
     reason: Mapped[str] = mapped_column(String(20))
     actor: Mapped[str | None] = mapped_column(String(200))
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class BillableUnit(Base):
+    """A non-token billable quantity for one event (FR-DIM-008, D-006).
+
+    Hosted-tool charges and media/storage units that have no dedicated counter
+    column (``web_search_request``, ``image_input``, ``audio_output_second``,
+    ...). Token units are never stored here -- they are priced from the event
+    counters (PP-007). One row per ``(provider, event_id, unit_type)``; the
+    revision engine replaces an event's units atomically when it is superseded.
+    """
+
+    __tablename__ = "billable_units"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "event_id", "unit_type", name="billable_units_grain"
+        ),
+        ForeignKeyConstraint(
+            ["provider", "event_id"],
+            ["usage_events_v2.provider", "usage_events_v2.event_id"],
+            name="fk_billable_units_event",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(50))
+    event_id: Mapped[str] = mapped_column(String(200))
+    unit_type: Mapped[str] = mapped_column(String(50))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6))
 
 
 class LogicalRequest(Base):
