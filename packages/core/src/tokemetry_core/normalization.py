@@ -72,6 +72,14 @@ OPENAI_DESCRIPTOR = ProviderDescriptor(
     windows=_OPENAI_WINDOWS,
 )
 
+#: Z.ai's GLM coding plan reports a prompt-count quota per five-hour window.
+_ZAI_WINDOWS: tuple[WindowDescriptor, ...] = (
+    WindowDescriptor(
+        kind="prompt_5h", label="Prompts / 5h",
+        period_kind="rolling", period_seconds=_FIVE_HOURS, sort_order=0,
+    ),
+)
+
 ZAI_DESCRIPTOR = ProviderDescriptor(
     id="zai",
     display_name="Z.ai",
@@ -79,6 +87,7 @@ ZAI_DESCRIPTOR = ProviderDescriptor(
     pricing_strategy="zai",
     limit_semantics="zai_coding_plan",
     supported_dimensions=("machine", "model", "project", "session"),
+    windows=_ZAI_WINDOWS,
 )
 
 #: Providers registered by default (FR-PROVIDER-008). The ``fake`` test

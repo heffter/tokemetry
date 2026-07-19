@@ -19,6 +19,7 @@ from tokemetry_collector.limits_openai import (
     OpenAICodexLimitsSource,
     default_codex_home,
 )
+from tokemetry_collector.limits_zai import ZaiCodingLimitsSource, default_zai_home
 
 #: Registry of usage-source builders keyed by config source name.
 UsageSourceBuilder = Callable[[CollectorConfig, SourceConfig], UsageSource]
@@ -64,6 +65,18 @@ def _build_openai_codex(config: CollectorConfig, source_cfg: SourceConfig) -> Li
     return OpenAICodexLimitsSource(codex_home=codex_home, machine=config.machine_name)
 
 
+def _build_zai_coding(config: CollectorConfig, source_cfg: SourceConfig) -> LimitsSource:
+    """Build the Z.ai coding-plan limits source from config.
+
+    Honors an optional ``zai_home`` override (where ``config.json`` lives);
+    otherwise resolves ``$ZAI_HOME`` or ``~/.zai``. Off by default: it only runs
+    when explicitly enabled in the collector config.
+    """
+    raw_home = (source_cfg.model_extra or {}).get("zai_home")
+    zai_home = Path(str(raw_home)) if raw_home else default_zai_home()
+    return ZaiCodingLimitsSource(zai_home=zai_home, machine=config.machine_name)
+
+
 def register_usage_builder(name: str, builder: UsageSourceBuilder) -> None:
     """Register a usage-source builder under a config source name."""
     _USAGE_BUILDERS[name] = builder
@@ -101,7 +114,11 @@ ANTHROPIC_OAUTH_LIMITS = "anthropic_oauth"
 #: The config key under which the OpenAI/Codex limits source is enabled
 #: (registered but off by default; enable it explicitly in the config).
 OPENAI_CODEX_LIMITS = "openai_codex"
+#: The config key under which the Z.ai coding-plan limits source is enabled
+#: (registered but off by default).
+ZAI_CODING_LIMITS = "zai_coding_plan"
 
 register_usage_builder(CLAUDE_CODE_SOURCE, _build_claude_code)
 register_limits_builder(ANTHROPIC_OAUTH_LIMITS, _build_anthropic_oauth)
 register_limits_builder(OPENAI_CODEX_LIMITS, _build_openai_codex)
+register_limits_builder(ZAI_CODING_LIMITS, _build_zai_coding)

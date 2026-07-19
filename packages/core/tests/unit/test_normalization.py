@@ -120,9 +120,13 @@ class TestProviderDescriptor:
         assert kinds == {"primary", "secondary"}
         assert all(w.period_kind == "rolling" for w in OPENAI_DESCRIPTOR.windows)
 
-    def test_zai_has_no_windows_until_its_source_lands(self) -> None:
-        # Z.ai's windows arrive with its collector source (Task 69.4).
-        assert ZAI_DESCRIPTOR.windows == ()
+    def test_zai_seeds_its_coding_plan_window(self) -> None:
+        # Z.ai's GLM coding plan reports a prompt-count 5h window (Task 69.4).
+        kinds = {w.kind for w in ZAI_DESCRIPTOR.windows}
+        assert kinds == {"prompt_5h"}
+        (window,) = ZAI_DESCRIPTOR.windows
+        assert window.period_kind == "rolling"
+        assert window.period_seconds == 5 * 3600
 
 
 class TestRegistryDescriptors:

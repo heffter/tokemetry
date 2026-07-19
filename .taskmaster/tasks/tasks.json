@@ -3316,13 +3316,14 @@
             "id": 4,
             "title": "Z.ai coding-plan limits source in the collector",
             "description": "GLM coding-plan window polling with graceful degradation.",
-            "details": "Add apps/collector limits_zai.py implementing a LimitsSource for Z.ai GLM coding-plan quotas, same pattern as 69.3: read the locally configured Z.ai API key or coding-plan credential (from the standard Z.ai client config location, configurable path), call the quota or usage endpoint the Z.ai coding plan exposes, map to LimitSnapshot rows with provider zai, provider-defined window kinds (the plan quota windows as reported, for example prompt-count per five hours), utilization, resets_at, provenance official; all failures raise LimitsUnavailableError with server-side limit_source_failure data quality recording (FR-LIMIT-011/013); credentials never leave the machine. Register under sources key zai_coding_plan, enabled default false, endpoint specifics isolated in one module with recorded fixtures. Registry window entries with labels (69.1). Test strategy: unit tests on recorded fixtures for healthy, malformed, quota-exhausted, and missing-credential responses; degradation and no-leak tests mirroring 69.3; collector config round-trip test enabling both new sources together with anthropic_oauth.",
-            "status": "pending",
+            "details": "Add apps/collector limits_zai.py implementing a LimitsSource for Z.ai GLM coding-plan quotas, same pattern as 69.3: read the locally configured Z.ai API key or coding-plan credential (from the standard Z.ai client config location, configurable path), call the quota or usage endpoint the Z.ai coding plan exposes, map to LimitSnapshot rows with provider zai, provider-defined window kinds (the plan quota windows as reported, for example prompt-count per five hours), utilization, resets_at, provenance official; all failures raise LimitsUnavailableError with server-side limit_source_failure data quality recording (FR-LIMIT-011/013); credentials never leave the machine. Register under sources key zai_coding_plan, enabled default false, endpoint specifics isolated in one module with recorded fixtures. Registry window entries with labels (69.1). Test strategy: unit tests on recorded fixtures for healthy, malformed, quota-exhausted, and missing-credential responses; degradation and no-leak tests mirroring 69.3; collector config round-trip test enabling both new sources together with anthropic_oauth.\n<info added on 2026-07-19T14:56:05.311Z>\nImplemented and tested. apps/collector/limits_zai.py introduces ZaiCodingLimitsSource reading Z.ai API key and account from config.json (searched at $ZAI_HOME or ~/.zai, never uploaded, defensive recursive search). Source GETs the undocumented coding-plan quota endpoint (specifics isolated in one module), maps quota.prompt_5h to LimitSnapshot(provider=zai, window_kind=prompt_5h, utilization, resets_at, provenance=official). All failures (missing credential, 401/403, non-2xx, network, unparseable, malformed) raise LimitsUnavailableError for graceful degradation per FR-LIMIT-013. Registered as zai_coding_plan, disabled by default. Core registry updated: ZAI_DESCRIPTOR gains prompt_5h rolling window (5 hours) with label 'Prompts / 5h'. test_limits_zai covers 13 scenarios: read-auth including missing/no-key, healthy mapping, quota-exhausted at 100% utilization (not an error), auth-rejected, malformed response, network failure, no-key-leak, builder registered and off-by-default, config round-trip enabling anthropic_oauth + openai_codex + zai_coding_plan together yielding {anthropic, openai, zai} sources. Full collector suite 66 tests passed, registry API green with updated zai windows assertion, ruff and mypy clean. Same deferral as 69.3 per Task 76: account and quota amounts ride in raw field until collector adopts v2 limits upload schema.\n</info added on 2026-07-19T14:56:05.311Z>",
+            "status": "done",
             "dependencies": [
               "69.2"
             ],
             "parentTaskId": 69,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T14:56:27.522Z"
           },
           {
             "id": 5,
@@ -3364,7 +3365,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T14:49:54.234Z"
+        "updatedAt": "2026-07-19T14:56:27.522Z"
       },
       {
         "id": "70",
@@ -3654,7 +3655,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T14:49:54.235Z",
+      "lastModified": "2026-07-19T14:56:27.524Z",
       "taskCount": 76,
       "completedCount": 66,
       "tags": [

@@ -64,12 +64,12 @@ class TestProvidersEndpoint:
         assert windows["five_hour"]["label"] == "5-hour block"
         assert windows["seven_day"]["label"] == "Weekly"
         assert windows["five_hour"]["period_kind"] == "rolling"
-        # OpenAI declares its Codex windows; Z.ai has none yet (both are lists).
+        # Every seed provider now declares its limit windows.
         assert {w["kind"] for w in by_id["openai"]["windows"]} == {
             "primary",
             "secondary",
         }
-        assert by_id["zai"]["windows"] == []
+        assert {w["kind"] for w in by_id["zai"]["windows"]} == {"prompt_5h"}
 
     def test_unknown_provider_visible_as_unregistered(
         self, client: TestClient, auth: dict[str, str]
