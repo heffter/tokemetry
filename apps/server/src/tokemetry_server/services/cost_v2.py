@@ -18,6 +18,7 @@ fees (FR-PRICE-013). Cost never rejects or blocks ingest.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from loguru import logger
@@ -31,7 +32,7 @@ from tokemetry_server.services.pricing_v2 import current_pricing_version, resolv
 #: Quantum for summed cost amounts: one micro-unit of currency.
 _QUANTUM = Decimal("0.000001")
 
-#: Event token counter -> its unit type.
+#: Event token counter attribute -> its unit type.
 _TOKEN_UNITS: dict[str, str] = {
     "input_tokens": "input_token",
     "output_tokens": "output_token",
@@ -50,6 +51,19 @@ class CostResult:
     missing_units: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class PriceInputs:
+    """The fields needed to price one event, from a wire event or a ledger row."""
+
+    provider: str
+    native_model: str
+    at: datetime
+    service_tier: str | None
+    token_counts: dict[str, int]
+    reasoning_tokens: int
+    billable_units: dict[str, float]
+
+
 class CostEngineV2:
     """Prices final attempt events against the rate cards."""
 
@@ -60,37 +74,79 @@ class CostEngineV2:
     async def compute_and_record(
         self, event: UsageEventV2, pricing_version: str | None = None
     ) -> models.ComputedCost | None:
-        """Price ``event`` and record a computed_costs row; return it or None.
-
-        Returns ``None`` for events that are not final attempts (they are never
-        priced). Never raises for a pricing failure -- the status carries it.
-        """
+        """Price a v2 wire ``event`` and record its cost; None if not final."""
         if str(event.event_kind) != "attempt" or str(event.finality) != "final":
             return None
+        inputs = PriceInputs(
+            provider=event.provider,
+            native_model=event.native_model,
+            at=event.ts_started,
+            service_tier=event.service_tier,
+            token_counts={
+                unit_type: getattr(event, counter)
+                for counter, unit_type in _TOKEN_UNITS.items()
+            },
+            reasoning_tokens=event.reasoning_tokens,
+            billable_units=dict(event.billable_units or {}),
+        )
+        return await self._record(event.provider, event.event_id, inputs, pricing_version)
 
+    async def compute_and_record_row(
+        self,
+        row: models.UsageEventV2,
+        billable_units: dict[str, float],
+        pricing_version: str | None = None,
+    ) -> models.ComputedCost | None:
+        """Price a ledger row (the async worker path); None if not final."""
+        if row.event_kind != "attempt" or row.finality != "final":
+            return None
+        started = row.ts_started
+        at = started if started.tzinfo is not None else started.replace(tzinfo=UTC)
+        inputs = PriceInputs(
+            provider=row.provider,
+            native_model=row.native_model,
+            at=at,
+            service_tier=row.service_tier,
+            token_counts={
+                unit_type: getattr(row, counter)
+                for counter, unit_type in _TOKEN_UNITS.items()
+            },
+            reasoning_tokens=row.reasoning_tokens,
+            billable_units=billable_units,
+        )
+        return await self._record(row.provider, row.event_id, inputs, pricing_version)
+
+    async def _record(
+        self,
+        provider: str,
+        event_id: str,
+        inputs: PriceInputs,
+        pricing_version: str | None,
+    ) -> models.ComputedCost:
+        """Compute and record the cost for one event."""
         version = (
             pricing_version
             if pricing_version is not None
             else await current_pricing_version(self._session)
         )
-        result = await self._compute(event)
+        result = await self._compute(inputs)
         return await record_cost(
             self._session,
-            event.provider,
-            event.event_id,
+            provider,
+            event_id,
             amount=result.amount,
             cost_status=result.cost_status,
             pricing_version=version,
             missing_units={"units": result.missing_units} if result.missing_units else None,
         )
 
-    async def _compute(self, event: UsageEventV2) -> CostResult:
-        """Compute the cost of a final attempt event (status + amount)."""
-        quantities = await self._quantities(event)
+    async def _compute(self, inputs: PriceInputs) -> CostResult:
+        """Compute the cost of a final attempt (status + amount)."""
+        quantities = await self._quantities(inputs)
         consumed = {unit: qty for unit, qty in quantities.items() if qty > 0}
 
         if not consumed:
-            return await self._zero_consumption_result(event)
+            return await self._zero_consumption_result(inputs)
 
         total = Decimal(0)
         missing: list[str] = []
@@ -98,13 +154,13 @@ class CostEngineV2:
         for unit_type, quantity in consumed.items():
             try:
                 rate = await resolve_rate(
-                    self._session, event.provider, event.native_model, unit_type,
-                    event.ts_started, tier=event.service_tier,
+                    self._session, inputs.provider, inputs.native_model, unit_type,
+                    inputs.at, tier=inputs.service_tier,
                 )
             except Exception as exc:  # resolver failure -> error status, never reject
                 logger.warning(
-                    "cost resolution error for {}/{} {}: {}",
-                    event.provider, event.event_id, unit_type, exc,
+                    "cost resolution error for {} {}: {}",
+                    inputs.native_model, unit_type, exc,
                 )
                 return CostResult(amount=None, cost_status="error")
             if rate is None:
@@ -121,37 +177,37 @@ class CostEngineV2:
             )
         return CostResult(amount=total.quantize(_QUANTUM), cost_status="priced")
 
-    async def _quantities(self, event: UsageEventV2) -> dict[str, Decimal]:
+    async def _quantities(self, inputs: PriceInputs) -> dict[str, Decimal]:
         """Gather unit quantities, folding reasoning and adding billable units."""
         quantities: dict[str, Decimal] = {
-            unit_type: Decimal(getattr(event, counter))
-            for counter, unit_type in _TOKEN_UNITS.items()
+            unit_type: Decimal(count) for unit_type, count in inputs.token_counts.items()
         }
-        if event.reasoning_tokens > 0:
+        if inputs.reasoning_tokens > 0:
             reasoning_rate = await resolve_rate(
-                self._session, event.provider, event.native_model, "reasoning_token",
-                event.ts_started, tier=event.service_tier,
+                self._session, inputs.provider, inputs.native_model, "reasoning_token",
+                inputs.at, tier=inputs.service_tier,
             )
             if reasoning_rate is not None:
-                quantities["reasoning_token"] = Decimal(event.reasoning_tokens)
+                quantities["reasoning_token"] = Decimal(inputs.reasoning_tokens)
             else:  # fold reasoning into output when no separate rate exists
-                quantities["output_token"] += Decimal(event.reasoning_tokens)
-        if event.billable_units:
-            for unit_type, quantity in event.billable_units.items():
-                quantities[unit_type] = quantities.get(unit_type, Decimal(0)) + Decimal(
-                    str(quantity)
-                )
+                quantities["output_token"] = quantities.get(
+                    "output_token", Decimal(0)
+                ) + Decimal(inputs.reasoning_tokens)
+        for unit_type, quantity in inputs.billable_units.items():
+            quantities[unit_type] = quantities.get(unit_type, Decimal(0)) + Decimal(
+                str(quantity)
+            )
         return quantities
 
-    async def _zero_consumption_result(self, event: UsageEventV2) -> CostResult:
+    async def _zero_consumption_result(self, inputs: PriceInputs) -> CostResult:
         """Price a zero-usage attempt: priced=0 if the model is known, else unpriced."""
         try:
             rate = await resolve_rate(
-                self._session, event.provider, event.native_model, "input_token",
-                event.ts_started, tier=event.service_tier,
+                self._session, inputs.provider, inputs.native_model, "input_token",
+                inputs.at, tier=inputs.service_tier,
             )
         except Exception as exc:
-            logger.warning("cost resolution error for {}: {}", event.event_id, exc)
+            logger.warning("cost resolution error for {}: {}", inputs.native_model, exc)
             return CostResult(amount=None, cost_status="error")
         if rate is None:
             return CostResult(amount=None, cost_status="unpriced")

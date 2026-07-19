@@ -34,6 +34,7 @@ from tokemetry_server.services.alerting.seed import seed_default_alert_rules
 from tokemetry_server.services.broadcast import Broadcaster
 from tokemetry_server.services.channel_config import resolve_channel_settings
 from tokemetry_server.services.cost import CostEngine
+from tokemetry_server.services.cost_worker import sweep_uncosted_costs
 from tokemetry_server.services.pricing_repo import load_pricing_table, seed_default_pricing
 from tokemetry_server.services.rate_limit import RateLimiter
 from tokemetry_server.services.registries import seed_default_providers
@@ -72,6 +73,26 @@ async def _alert_loop(
             from loguru import logger
 
             logger.warning("alert evaluation failed: {}", exc)
+
+
+async def _cost_loop(
+    session_factory: async_sessionmaker[AsyncSession],
+    interval: float,
+    batch_size: int,
+) -> None:
+    """Periodically price uncosted events out of the ingest path (FR-COST-009)."""
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            async with session_factory() as session:
+                await sweep_uncosted_costs(session, batch_size)
+                await session.commit()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            from loguru import logger
+
+            logger.warning("cost worker sweep failed: {}", exc)
 
 
 def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) -> FastAPI:
@@ -132,9 +153,22 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
             alert_task = asyncio.create_task(
                 _alert_loop(alert_engine, session_factory, resolved.alerts_interval_seconds)
             )
+        cost_task: asyncio.Task[None] | None = None
+        if resolved.cost_worker_enabled:
+            cost_task = asyncio.create_task(
+                _cost_loop(
+                    session_factory,
+                    resolved.cost_worker_interval_seconds,
+                    resolved.cost_worker_batch_size,
+                )
+            )
         try:
             yield
         finally:
+            if cost_task is not None:
+                cost_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await cost_task
             if alert_task is not None:
                 alert_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):

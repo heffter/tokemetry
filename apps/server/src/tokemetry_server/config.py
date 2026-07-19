@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     #: (equivalent API cost vs what the subscription costs). None hides it.
     subscription_monthly_usd: float | None = Field(default=None)
 
+    #: Run the background cost worker that prices uncosted events (task 64.6),
+    #: keeping ingest latency independent of pricing (FR-COST-009).
+    cost_worker_enabled: bool = Field(default=True)
+    #: Seconds between cost-worker sweeps.
+    cost_worker_interval_seconds: float = Field(default=30.0, gt=0)
+    #: Maximum events priced per cost-worker sweep.
+    cost_worker_batch_size: int = Field(default=500, ge=1)
+
     #: Run the periodic alert evaluation loop in the background.
     alerts_enabled: bool = Field(default=True)
     #: Seconds between background alert evaluations.

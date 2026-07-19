@@ -141,3 +141,35 @@ class SourceUpdateRequest(BaseModel):
 
     token_label: str | None = None
     billing_mode: str | None = None
+
+
+class RepriceRequest(BaseModel):
+    """Reprice a time range's costs under a new pricing version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start: UtcDatetime
+    end: UtcDatetime
+    provider: str | None = None
+    native_model: str | None = None
+
+
+class RevertRequest(BaseModel):
+    """Re-activate a named prior pricing version for a time range."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pricing_version: str
+    start: UtcDatetime
+    end: UtcDatetime
+    provider: str | None = None
+    native_model: str | None = None
+
+
+class RepriceResponse(BaseModel):
+    """The outcome of a reprice or revert operation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pricing_version: str
+    affected: int

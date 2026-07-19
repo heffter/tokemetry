@@ -2723,13 +2723,14 @@
             "id": 6,
             "title": "Asynchronous cost worker and auditable repricing job",
             "description": "Cost computation off the ingest path; explicit reversible repricing.",
-            "details": "Add a background cost worker (asyncio task started in app.py like the alert engine loop): consumes newly finalized events (queue fed by the ingest service plus a sweep for events lacking an active cost record) and writes computed_costs; ingest latency is therefore independent of pricing (FR-COST-009, NFR-PERF-005) and cost failure never rejects usage (NFR-REL-007). Repricing: an explicit administrative operation (POST /api/v2/pricing/reprice with time range and optional provider/model filters) that computes costs under the current pricing state as new computed_costs rows with the new pricing_version, flips active atomically per event, retains prior rows for reversibility (FR-PRICE-019/020), records an audit entry with actor, filters, affected counts, and pricing versions, and triggers rollup recomputation for affected days (FR-ROLLUP-009 dependency noted for Task 66). A revert endpoint re-activates a named prior pricing_version for the same range. Test strategy: worker tests for eventual cost coverage after bursts and after worker restart (sweep catch-up); repricing integration test proving old rows retained, active flips, revert restores exact prior amounts, and audit entries written; ingest-latency isolation test with a deliberately failing resolver.",
-            "status": "pending",
+            "details": "Add a background cost worker (asyncio task started in app.py like the alert engine loop): consumes newly finalized events (queue fed by the ingest service plus a sweep for events lacking an active cost record) and writes computed_costs; ingest latency is therefore independent of pricing (FR-COST-009, NFR-PERF-005) and cost failure never rejects usage (NFR-REL-007). Repricing: an explicit administrative operation (POST /api/v2/pricing/reprice with time range and optional provider/model filters) that computes costs under the current pricing state as new computed_costs rows with the new pricing_version, flips active atomically per event, retains prior rows for reversibility (FR-PRICE-019/020), records an audit entry with actor, filters, affected counts, and pricing versions, and triggers rollup recomputation for affected days (FR-ROLLUP-009 dependency noted for Task 66). A revert endpoint re-activates a named prior pricing_version for the same range. Test strategy: worker tests for eventual cost coverage after bursts and after worker restart (sweep catch-up); repricing integration test proving old rows retained, active flips, revert restores exact prior amounts, and audit entries written; ingest-latency isolation test with a deliberately failing resolver.\n<info added on 2026-07-19T03:23:12.667Z>\nImplemented the async cost worker and auditable repricing. services/cost_worker.py: sweep_uncosted_costs finds final attempt events lacking an ACTIVE computed_costs row (correlated ~exists on provider+event_id+active) and prices up to batch_size via CostEngineV2.compute_and_record_row; billable_units_for loads non-token units. Gives eventual coverage after ingest bursts and backlog catch-up after a worker restart without re-pricing covered events. app.py: _cost_loop background task mirroring _alert_loop, gated by config cost_worker_enabled/interval/batch_size; started+cancelled in lifespan. services/repricing.py: reprice(actor,start,end,provider?,native_model?) bumps pricing version, recomputes matching final attempts as new computed_costs rows under the new version, flips active, retains prior rows; revert(actor,pricing_version,...) re-activates a named prior version restoring exact prior amounts; both write audit_log. db/models.py AuditLog + migration 0018_audit_log. api/v2/pricing.py POST reprice/revert require admin:pricing scope. Refactored cost_v2.py earlier to add compute_and_record_row (ledger-row path) sharing _compute via PriceInputs. Tests: test_cost_worker.py (7), test_repricing.py (7 incl provider+native_model filters, revert-noop, unpriceable-does-not-raise), test_pricing_admin_api.py (3 incl scope enforcement). New modules 100% covered (repricing after branch tests). conftest sets cost_worker_enabled=False so the loop never runs mid-test; test_migrations expects audit_log. Rollup recompute for affected days deferred to Task 66. Gates: 429 passed/36 skipped, ruff+mypy+trivy clean.\n</info added on 2026-07-19T03:23:12.667Z>",
+            "status": "done",
             "dependencies": [
               "64.5"
             ],
             "parentTaskId": 64,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T03:26:00.173Z"
           },
           {
             "id": 7,
@@ -2794,7 +2795,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T02:49:38.743Z"
+        "updatedAt": "2026-07-19T03:26:00.173Z"
       },
       {
         "id": "65",
@@ -3546,7 +3547,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T02:49:38.744Z",
+      "lastModified": "2026-07-19T03:26:00.174Z",
       "taskCount": 71,
       "completedCount": 63,
       "tags": [

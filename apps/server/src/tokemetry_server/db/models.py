@@ -623,6 +623,24 @@ class ApiToken(Base):
     source_allowlist: Mapped[list[str] | None] = mapped_column(JSONType)
 
 
+class AuditLog(Base):
+    """An administrative action record (repricing, deletions, ...).
+
+    Content-free operational history: who did what to which subject, with a JSON
+    ``detail`` (filters, affected counts, versions). Repricing writes here now
+    (task 64.6); Task 70 wires every administrative action to it.
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    actor: Mapped[str | None] = mapped_column(String(200))
+    action: Mapped[str] = mapped_column(String(100), index=True)
+    subject: Mapped[str | None] = mapped_column(String(500))
+    detail: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class AppSetting(Base):
     """A runtime key/value setting (e.g. UI-editable alert channel config).
 

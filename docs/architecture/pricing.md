@@ -56,3 +56,31 @@ cost function, so every event is priced as it is stored.
   (`fetch_litellm_prices`, mockable) and upserts Anthropic rows with
   `source='litellm'`; the in-memory table is rebuilt on the next startup or
   an explicit reload.
+
+## Provider-neutral v2 cost path
+
+The v2 pricing engine (`services/cost_v2.py`, `CostEngineV2`) prices a final
+attempt from the generic `rate_cards` grain and records a `computed_costs`
+row per `(provider, event_id, pricing_version)`, kept off the usage row. Cost
+never runs in the ingest path.
+
+- **Async cost worker** (`services/cost_worker.py`): `sweep_uncosted_costs`
+  finds final attempt events in `usage_events_v2` that lack an *active*
+  `computed_costs` row and prices up to `batch_size` of them per call. The
+  application runs it on a background loop (`app._cost_loop`, gated by
+  `cost_worker_enabled` / `cost_worker_interval_seconds` /
+  `cost_worker_batch_size`), mirroring the alert engine. Because the sweep is
+  keyed on missing coverage, it gives eventual cost after an ingest burst and
+  catches up the backlog after a worker restart without re-pricing covered
+  events. A resolver failure records an `error`-status row and never rejects
+  usage (FR-COST-008); tests disable the loop so it never runs mid-test.
+- **Auditable repricing** (`services/repricing.py`): `reprice(actor, start,
+  end, provider?, native_model?)` bumps the pricing-state version, recomputes
+  the matching final attempts under the new version as fresh `computed_costs`
+  rows, flips the active row per event, and retains the prior rows so the
+  operation is reversible. `revert(actor, pricing_version, ...)` re-activates
+  a named prior version for the same range, restoring the exact prior amounts.
+  Both write an `audit_log` entry (actor, filters, affected count, versions).
+  Rollup recomputation for the affected days is a Task 66 dependency.
+- **Admin API** (`api/v2/pricing.py`): `POST /api/v2/pricing/reprice` and
+  `POST /api/v2/pricing/revert`, both requiring the `admin:pricing` scope.

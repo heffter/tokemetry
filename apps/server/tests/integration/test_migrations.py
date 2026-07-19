@@ -30,6 +30,7 @@ _EXPECTED_TABLES = {
     "ingest_batches",
     "billable_units",
     "computed_costs",
+    "audit_log",
     "sources",
     "alert_rules",
     "alert_events",
