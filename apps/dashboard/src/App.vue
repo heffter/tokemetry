@@ -12,6 +12,7 @@ const links = [
   { to: '/trends', label: 'Trends' },
   { to: '/blocks', label: 'Blocks' },
   { to: '/breakdowns', label: 'Breakdowns' },
+  { to: '/costs', label: 'Costs' },
   { to: '/sessions', label: 'Sessions' },
   { to: '/machines', label: 'Machines' },
   { to: '/report', label: 'Report' },

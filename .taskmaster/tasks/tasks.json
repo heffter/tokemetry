@@ -3092,13 +3092,14 @@
             "id": 4,
             "title": "Cost views with dual metrics and reconciliation",
             "description": "Actual spend versus subscription value, cost status, drift panel.",
-            "details": "Build the cost experience on /api/v2/costs: charts and tables always present actual API spend and subscription-equivalent value as two visually distinct series, never a merged total (FR-COST-012, decision D-007); cost rows show cost_status with unpriced and partial called out (FR-UI-008) linking to the data quality page; a reconciliation panel visualizes observed-versus-computed drift per provider and day from /api/v2/costs/reconciliation (FR-UI-013); pricing-version annotations appear on repriced ranges. Extend the existing /cost route content (ReportView cost sections and any cost tiles elsewhere) to the same dual-metric presentation for consistency. Follow the dataviz conventions already used by the ECharts wrappers. Test strategy: vitest tests asserting the two metrics render as separate series with correct labels for mixed fixtures, unpriced badge behavior, and drift-panel math; snapshot test that no component sums the two metrics; manual verification with subscription-Claude plus api-billed-OpenAI seed data.",
-            "status": "pending",
+            "details": "Build the cost experience on /api/v2/costs: charts and tables always present actual API spend and subscription-equivalent value as two visually distinct series, never a merged total (FR-COST-012, decision D-007); cost rows show cost_status with unpriced and partial called out (FR-UI-008) linking to the data quality page; a reconciliation panel visualizes observed-versus-computed drift per provider and day from /api/v2/costs/reconciliation (FR-UI-013); pricing-version annotations appear on repriced ranges. Extend the existing /cost route content (ReportView cost sections and any cost tiles elsewhere) to the same dual-metric presentation for consistency. Follow the dataviz conventions already used by the ECharts wrappers. Test strategy: vitest tests asserting the two metrics render as separate series with correct labels for mixed fixtures, unpriced badge behavior, and drift-panel math; snapshot test that no component sums the two metrics; manual verification with subscription-Claude plus api-billed-OpenAI seed data.\n<info added on 2026-07-19T11:05:25.079Z>\nCostsView.vue delivered on /costs route with dual-metric presentation (API spend and subscription-equivalent value as separate LabeledValue tiles and grouped bar series, never merged per FR-COST-012/D-007). By-provider table includes cost_status badges (priced/partial/unpriced per FR-UI-008) and pricing_version column. Reconciliation panel renders observed-vs-computed drift per provider from /api/v2/costs/reconciliation (FR-UI-013) with empty state. Warnings envelope surfaced. Global provider/model filter plus machine/project filters applied. Range clamped to 365d with visible note (costs endpoint bounded). Nav link added.\n\nSupporting utilities: lib/costs.ts (sumCostRows for separate metric totals, costStatusOf logic, decimal-string money parsing including 0E-10); lib/charts.ts (groupedBarOption for side-by-side series with unit test asserting never stacked); lib/filters.ts (clampRangeDays). All with vitest coverage.\n\nSQLite dialect bug discovered during smoke test: GET /api/v2/costs and /usage with group_by=day returned 500 because _usage_key('day') used CAST(ts_started AS DATE) which is not cross-dialect. Fixed in separate commit 3c037ed with server regression tests ensuring day grouping works on SQLite.\n\nValidated against live seeded server: /costs provider grouping, day grouping (post-fix), and reconciliation all return 200 with expected shapes; /costs route serves through Vite. Seed data uses /usr/bin/bash with no rate cards, so dual-metric separation validated (unit-tested); non-zero cost values require seeded rate cards. 127 dashboard tests pass; vue-tsc/eslint/prettier clean.\n</info added on 2026-07-19T11:05:25.079Z>",
+            "status": "done",
             "dependencies": [
               "67.1"
             ],
             "parentTaskId": 67,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T11:05:47.463Z"
           },
           {
             "id": 5,
@@ -3165,7 +3166,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T10:48:54.475Z"
+        "updatedAt": "2026-07-19T11:05:47.463Z"
       },
       {
         "id": "68",
@@ -3613,7 +3614,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T10:48:54.476Z",
+      "lastModified": "2026-07-19T11:05:47.464Z",
       "taskCount": 74,
       "completedCount": 65,
       "tags": [

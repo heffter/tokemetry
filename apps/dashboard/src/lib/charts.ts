@@ -363,6 +363,46 @@ export function barOption(
   };
 }
 
+/** A grouped (side-by-side) bar chart of several named series over categories.
+ *
+ * Unlike stackedComponentBarOption the series are NOT stacked and never summed,
+ * so two intrinsically different measures -- e.g. actual API spend vs
+ * subscription-equivalent value (FR-COST-012) -- read as distinct bars that
+ * must not be added together. Pass a money/number valueFormatter for the axis
+ * and tooltip. */
+export function groupedBarOption(
+  categories: string[],
+  series: { name: string; values: number[] }[],
+  opts: { valueFormatter?: (value: unknown) => string } = {}
+): EChartsCoreOption {
+  const theme = ink();
+  const dark = isDark();
+  const { axis, bottom } = categoryAxis(categories, theme);
+  const fmt = opts.valueFormatter ?? tokenValue;
+  return {
+    grid: { top: 28, right: 16, bottom, left: 72 },
+    tooltip: { trigger: 'axis', valueFormatter: fmt },
+    legend: { top: 0, textStyle: { color: theme.text } },
+    xAxis: axis,
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: theme.muted, formatter: fmt },
+      splitLine: { lineStyle: { color: theme.grid } },
+    },
+    // No `stack` key: bars render grouped, never summed into one column.
+    series: series.map((entry, index) => ({
+      name: entry.name,
+      type: 'bar',
+      data: entry.values,
+      barMaxWidth: 40,
+      itemStyle: {
+        color: seriesColor(index, dark),
+        borderRadius: [4, 4, 0, 0],
+      },
+    })),
+  };
+}
+
 /** A bar chart on a real time axis, so idle gaps render as gaps. */
 export function timeBarOption(
   points: [number, number][],

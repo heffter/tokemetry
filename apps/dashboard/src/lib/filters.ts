@@ -72,3 +72,27 @@ export function presetRange(
   from.setDate(from.getDate() - (DAYS_BACK[preset] ?? 0));
   return { from: isoDay(from), to };
 }
+
+/** Clamp a day range to at most ``maxDays``, moving ``from`` forward.
+ *
+ * The range-bounded v2 endpoints (usage, costs) reject a span wider than the
+ * server limit, so a view backed by one clamps a long selection (e.g. the
+ * "all" preset) to the most recent ``maxDays`` and flags it, rather than
+ * failing the request. ``from``/``to`` are YYYY-MM-DD.
+ */
+export function clampRangeDays(
+  from: string,
+  to: string,
+  maxDays: number
+): { from: string; to: string; clamped: boolean } {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return { from, to, clamped: false };
+  }
+  const spanDays = Math.round((end.getTime() - start.getTime()) / 86_400_000);
+  if (spanDays <= maxDays) return { from, to, clamped: false };
+  const clampedStart = new Date(end);
+  clampedStart.setUTCDate(clampedStart.getUTCDate() - maxDays);
+  return { from: isoDay(clampedStart), to, clamped: true };
+}

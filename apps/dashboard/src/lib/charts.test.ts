@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   componentTableRows,
+  groupedBarOption,
   logVisualPieces,
   stackedComponentBarOption,
   stackedTokenBarOption,
@@ -101,6 +102,26 @@ describe('v2 token composition', () => {
     expect(rows[0]).toHaveLength(9);
     expect(rows[0][0]).toBe('m');
     expect(rows[0][rows[0].length - 1]).toBe('1.0K');
+  });
+});
+
+describe('groupedBarOption', () => {
+  it('renders each measure as its own bar series with no stacking', () => {
+    const opt = groupedBarOption(
+      ['anthropic', 'openai'],
+      [
+        { name: 'API spend', values: [1, 2] },
+        { name: 'Subscription value', values: [10, 20] },
+      ]
+    );
+    const series = opt.series as { name: string; stack?: string }[];
+    expect(series).toHaveLength(2);
+    expect(series.map((s) => s.name)).toEqual([
+      'API spend',
+      'Subscription value',
+    ]);
+    // FR-COST-012: the two metrics must never be summed into one column.
+    for (const s of series) expect(s.stack).toBeUndefined();
   });
 });
 
