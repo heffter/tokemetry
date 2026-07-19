@@ -32,6 +32,7 @@ import type {
   RequestDetailV2,
   RequestsResponseV2,
   RollupsResponseV2,
+  RollupV2,
   SessionsResponseV2,
   SessionV2,
   SourceV2,
@@ -451,6 +452,30 @@ export class ApiClient {
     if (query.billingMode) params.set('billing_mode', query.billingMode);
     appendV2Page(params, query);
     return this.request<RollupsResponseV2>(`/api/v2/rollups?${params}`);
+  }
+
+  /** Fetch every rollup page for a range, following next_cursor.
+   *
+   * The rollups endpoint is keyset-paginated; views that aggregate a whole
+   * range client-side (the trend/breakdown charts) need every page. maxPages is
+   * a runaway guard well above any realistic row count for a bounded span. */
+  async v2AllRollups(
+    query: V2PageQuery & { environment?: string; billingMode?: string },
+    maxPages = 100
+  ): Promise<RollupV2[]> {
+    const rows: RollupV2[] = [];
+    let cursor = query.cursor;
+    for (let page = 0; page < maxPages; page += 1) {
+      const res = await this.v2Rollups({
+        ...query,
+        limit: query.limit ?? 200,
+        cursor,
+      });
+      rows.push(...res.rollups);
+      if (!res.next_cursor) break;
+      cursor = res.next_cursor;
+    }
+    return rows;
   }
 }
 

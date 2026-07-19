@@ -168,33 +168,16 @@ const span = computed(() => {
   return `${days} days of history`;
 });
 
-// Page through the (keyset-paginated) rollups for the range; the cap is a
-// runaway guard well above any realistic row count for a bounded date span.
-async function fetchAllRollups(): Promise<RollupV2[]> {
-  const client = useClient();
-  const fallback = presetRange('30d');
-  const rows: RollupV2[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < 100; page += 1) {
-    const res = await client.v2Rollups({
+async function loadAll(): Promise<void> {
+  await run(async () => {
+    const fallback = presetRange('30d');
+    rollupRows.value = await useClient().v2AllRollups({
       from: filter.value.from ?? fallback.from,
       to: filter.value.to ?? fallback.to,
       provider: filter.value.provider,
       model: filter.value.model,
       machine: filter.value.machine,
-      limit: 200,
-      cursor,
     });
-    rows.push(...res.rollups);
-    if (!res.next_cursor) break;
-    cursor = res.next_cursor;
-  }
-  return rows;
-}
-
-async function loadAll(): Promise<void> {
-  await run(async () => {
-    rollupRows.value = await fetchAllRollups();
   });
 }
 
