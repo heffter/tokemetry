@@ -100,3 +100,44 @@ class MetaIngestResponse(BaseModel):
     batch_id: str
     request_id: str | None
     accepted: int
+
+
+class SourceHealthOut(BaseModel):
+    """Query-time health of a reporting source (FR-SOURCE-005)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stale: bool
+    last_successful_ingest: UtcDatetime | None
+    recent_error_count: int
+    reported_schema_version: int | None
+    clock_skew_seconds: float | None
+    staleness_threshold_seconds: float
+
+
+class SourceOut(BaseModel):
+    """A reporting source with its health (FR-SOURCE-001..006). No secrets."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    type: str
+    name: str
+    version: str | None
+    instance_id: str | None
+    machine: str | None
+    token_label: str | None
+    billing_mode: str
+    first_seen: UtcDatetime
+    last_seen: UtcDatetime
+    revoked: bool
+    health: SourceHealthOut
+
+
+class SourceUpdateRequest(BaseModel):
+    """Mutable source fields (label and billing mode); event identity is fixed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token_label: str | None = None
+    billing_mode: str | None = None

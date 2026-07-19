@@ -14,6 +14,9 @@ _EXPECTED_V2_PATHS = {
     "/api/v2/ready",
     "/api/v2/providers",
     "/api/v2/models",
+    "/api/v2/sources",
+    "/api/v2/sources/{source_id}",
+    "/api/v2/sources/{source_id}/revoke",
 }
 
 

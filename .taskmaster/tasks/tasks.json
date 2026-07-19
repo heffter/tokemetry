@@ -2603,14 +2603,15 @@
             "id": 5,
             "title": "Sources API and token administration v2",
             "description": "GET /api/v2/sources with health; scoped token lifecycle endpoints.",
-            "details": "Add api/v2/sources.py: GET /api/v2/sources returning registry rows with health (freshness state, last successful ingest, error count, schema version, clock skew) filterable by type and staleness (FR-SOURCE-001..006); PATCH for label and billing_mode mutation; revoke action. Extend token endpoints (api/tokens.py or api/v2/tokens.py): create with scopes and optional source allowlist, list showing scopes and last_used, revoke, plus a rotation flow (create replacement, revoke old) documented for FR-SEC-009. Administrative endpoints require admin scopes (FR-SEC-007); responses never expose token hashes (FR-PRIV-011). Provisioning an ingest-only token for aiProviderProxy becomes a one-call operation (Epic TOK-4 acceptance). Test strategy: integration tests for source listing with health fields and filters, label mutation preserving event identity, scoped token creation and the 403 behavior of a fresh ingest-only token on query endpoints, and hash non-exposure; OpenAPI snapshot updated.",
-            "status": "pending",
+            "details": "Add api/v2/sources.py: GET /api/v2/sources returning registry rows with health (freshness state, last successful ingest, error count, schema version, clock skew) filterable by type and staleness (FR-SOURCE-001..006); PATCH for label and billing_mode mutation; revoke action. Extend token endpoints (api/tokens.py or api/v2/tokens.py): create with scopes and optional source allowlist, list showing scopes and last_used, revoke, plus a rotation flow (create replacement, revoke old) documented for FR-SEC-009. Administrative endpoints require admin scopes (FR-SEC-007); responses never expose token hashes (FR-PRIV-011). Provisioning an ingest-only token for aiProviderProxy becomes a one-call operation (Epic TOK-4 acceptance). Test strategy: integration tests for source listing with health fields and filters, label mutation preserving event identity, scoped token creation and the 403 behavior of a fresh ingest-only token on query endpoints, and hash non-exposure; OpenAPI snapshot updated.\n<info added on 2026-07-19T01:00:57.650Z>\nAdded api/v2/sources.py: GET /api/v2/sources (registry rows joined with query-time health via SourceHealthService built from settings staleness thresholds; filterable by ?type and ?stale, FR-SOURCE-001..006; query:read); PATCH /api/v2/sources/{id} mutating token_label + billing_mode (api_billed|subscription, 400 on unknown) without changing event identity (FR-SOURCE-010; admin:tokens); POST /api/v2/sources/{id}/revoke setting revoked=True while retaining all history (FR-SOURCE-012; admin:tokens); 404 on unknown. Wired into v2 router. Response schemas SourceOut + nested SourceHealthOut (stale, last_successful_ingest, recent_error_count, reported_schema_version, clock_skew_seconds, staleness_threshold_seconds) expose no token hashes/secrets (FR-PRIV-011). Token administration was already scoped in 63.3 (create with scopes + optional source_allowlist, list showing scopes + last_used, revoke); documented rotation flow (mint replacement -> deploy -> revoke old, FR-SEC-009) in new docs/api/sources.md. Provisioning an ingest-only proxy token is one call (Epic TOK-4 acceptance). Tests: test_sources_api.py (list with health + no token_hash, type + stale filters, PATCH label/billing preserving usage_events_v2.source_id, invalid billing 400, revoke keeps history, 404s, source admin requires admin scope with query-only reader getting 200 on list + 403 on patch, token list never exposes hash/token). OpenAPI snapshot updated with the 3 sources paths. Gates: pytest 583 passed/28 skipped, ruff clean, mypy strict clean (102 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-19T01:00:57.650Z>",
+            "status": "done",
             "dependencies": [
               "63.2",
               "63.4"
             ],
             "parentTaskId": 63,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T01:01:27.487Z"
           },
           {
             "id": 6,
@@ -2638,7 +2639,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-19T00:47:24.592Z"
+        "updatedAt": "2026-07-19T01:01:27.487Z"
       },
       {
         "id": "64",
@@ -3537,7 +3538,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-19T00:47:24.594Z",
+      "lastModified": "2026-07-19T01:01:27.488Z",
       "taskCount": 71,
       "completedCount": 62,
       "tags": [
