@@ -27,6 +27,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -257,6 +258,12 @@ class Source(Base):
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Health state, updated per batch and evaluated at query time (task 63.2).
+    last_successful_ingest: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    recent_error_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_window_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reported_schema_version: Mapped[int | None] = mapped_column(Integer)
+    clock_skew_seconds: Mapped[float | None] = mapped_column(Float)
 
 
 class LimitSnapshot(Base):

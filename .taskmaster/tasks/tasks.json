@@ -2566,13 +2566,14 @@
             "id": 2,
             "title": "Source health tracking service",
             "description": "Freshness, error counts, schema version, and clock skew per source.",
-            "details": "Extend services/sources.py with health state per source: last_successful_ingest, recent_error_count (rolling window from ingest rejections attributed to the source), reported schema_version from the batch envelope, and clock skew computed from the delta between batch receipt time and max event timestamp (bounded future timestamps rejected per R-009 mitigation, skew beyond a warning threshold recorded as a clock_skew data quality event). Staleness derives from last_successful_ingest against a configurable per-source-type threshold (collectors 30 minutes, gateways 10 minutes defaults) and feeds both the dashboard sources page (Task 67) and the stale_source alert kind (Task 68) per FR-SOURCE-005/006/007. Health computation is query-time from stored fields, not a background job, to stay simple. Test strategy: unit tests for skew math including negative skew, staleness thresholds per type, and error-window accounting; integration test ingesting healthy then erroring batches and asserting the health transitions; data quality record emission test for skew.",
-            "status": "pending",
+            "details": "Extend services/sources.py with health state per source: last_successful_ingest, recent_error_count (rolling window from ingest rejections attributed to the source), reported schema_version from the batch envelope, and clock skew computed from the delta between batch receipt time and max event timestamp (bounded future timestamps rejected per R-009 mitigation, skew beyond a warning threshold recorded as a clock_skew data quality event). Staleness derives from last_successful_ingest against a configurable per-source-type threshold (collectors 30 minutes, gateways 10 minutes defaults) and feeds both the dashboard sources page (Task 67) and the stale_source alert kind (Task 68) per FR-SOURCE-005/006/007. Health computation is query-time from stored fields, not a background job, to stay simple. Test strategy: unit tests for skew math including negative skew, staleness thresholds per type, and error-window accounting; integration test ingesting healthy then erroring batches and asserting the health transitions; data quality record emission test for skew.\n<info added on 2026-07-19T00:12:21.690Z>\nAdded source health tracking: migration 0012 adds columns to `sources` (`last_successful_ingest`, `recent_error_count` default 0, `error_window_started_at`, `reported_schema_version`, `clock_skew_seconds` Float); `SourceHealthService` in `services/sources.py` wired into v2 ingest. Health is query-time from stored fields (no background job). `record_ingest(source_id, received_at, schema_version, max_event_ts, error_count)` per batch sets `reported_schema_version`; on zero errors advances `last_successful_ingest`; maintains rolling `recent_error_count` keyed to `error_window_started_at` (accumulates within `source_error_window_seconds`, resets when window lapses); computes `clock_skew_seconds = max_event_ts - received_at` and records a `clock_skew` data-quality event when `abs(skew)` exceeds `source_clock_skew_warn_seconds` (R-009 mitigation; bounded-future rejection stays in wire/validation layer). `staleness_threshold(type)` returns per-type thresholds (collector 1800s, gateway 600s, default 1800s); `health(source, now)` returns `SourceHealth` dataclass with `stale = last_successful_ingest is None or older than threshold` (never-ingested is stale). Config: `source_stale_collector/gateway/default_seconds`, `source_error_window_seconds`, `source_clock_skew_warn_seconds`. `IngestV2Service` constructs `SourceHealthService` and, after applying the batch, records health for the batch's primary source (`received_at` reused with `ingest_batches` row, max `ts_started`, rejected count as errors); multi-source batches attribute to the first source (documented). Feeds Task 67 sources page and Task 68 `stale_source` alert. Tests: `test_source_health.py` (healthy sets `last_successful`, error-window accumulate + reset-after-lapse, positive clock skew records DQ with correct seconds, negative skew under threshold no DQ, per-type staleness thresholds + fresh→stale transition, never-ingested stale). Gates: pytest 559 passed/27 skipped, ruff clean, mypy strict clean (99 files), trivy no HIGH/CRITICAL.\n</info added on 2026-07-19T00:12:21.690Z>",
+            "status": "done",
             "dependencies": [
               "63.1"
             ],
             "parentTaskId": 63,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T00:12:52.589Z"
           },
           {
             "id": 3,
@@ -2635,7 +2636,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-18T23:58:53.075Z"
+        "updatedAt": "2026-07-19T00:12:52.589Z"
       },
       {
         "id": "64",
@@ -3534,7 +3535,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-18T23:58:53.077Z",
+      "lastModified": "2026-07-19T00:12:52.591Z",
       "taskCount": 71,
       "completedCount": 62,
       "tags": [

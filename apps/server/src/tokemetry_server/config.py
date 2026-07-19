@@ -108,6 +108,16 @@ class Settings(BaseSettings):
     query_rate_capacity: float = Field(default=240.0, gt=0)
     query_rate_per_second: float = Field(default=120.0, gt=0)
 
+    #: Source-health thresholds (task 63.2, FR-SOURCE-005/006). A source is
+    #: stale when its last successful ingest is older than the per-type
+    #: threshold; the error window bounds the recent-error rolling count; a
+    #: clock skew beyond the warn threshold records a data-quality event.
+    source_stale_collector_seconds: float = Field(default=1800.0, gt=0)
+    source_stale_gateway_seconds: float = Field(default=600.0, gt=0)
+    source_stale_default_seconds: float = Field(default=1800.0, gt=0)
+    source_error_window_seconds: float = Field(default=3600.0, gt=0)
+    source_clock_skew_warn_seconds: float = Field(default=300.0, gt=0)
+
     @property
     def project_root_markers(self) -> tuple[str, ...]:
         """Parse :attr:`project_roots` into a tuple of marker segments."""

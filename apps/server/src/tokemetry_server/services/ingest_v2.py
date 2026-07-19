@@ -38,7 +38,10 @@ from tokemetry_server.services.data_quality import DataQualityService
 from tokemetry_server.services.logical_requests import LogicalRequestService
 from tokemetry_server.services.privacy import PrivacyValidator
 from tokemetry_server.services.revisions import ConflictMode, Outcome, RevisionEngine
-from tokemetry_server.services.sources import SourceRegistryService
+from tokemetry_server.services.sources import (
+    SourceHealthService,
+    SourceRegistryService,
+)
 
 #: Default cap on the number of ids echoed back per list (FR-INGEST-009).
 DEFAULT_MAX_RETURNED_IDS = 1000
@@ -101,6 +104,7 @@ class IngestV2Service:
         self._engine = RevisionEngine(session, data_quality)
         self._logical_requests = LogicalRequestService(session)
         self._sources = SourceRegistryService(session)
+        self._health = SourceHealthService(session, data_quality)
         self._max_returned_ids = max_returned_ids
 
     async def ingest(
@@ -158,6 +162,16 @@ class IngestV2Service:
         for provider, logical_request_id in touched:
             await self._logical_requests.recompute(provider, logical_request_id)
 
+        received_at = datetime.now(UTC)
+        if batch_source_id is not None:
+            await self._health.record_ingest(
+                batch_source_id,
+                received_at,
+                schema_version=2,
+                max_event_ts=max((event.ts_started for event in cleaned), default=None),
+                error_count=counts[Outcome.REJECTED],
+            )
+
         batch_id = uuid.uuid4().hex
         capped_accepted, truncated_a = self._cap(accepted_ids)
         capped_updated, truncated_u = self._cap(updated_ids)
@@ -173,7 +187,7 @@ class IngestV2Service:
                 rejected=counts[Outcome.REJECTED],
                 corrected=counts[Outcome.CORRECTED],
                 schema_version=2,
-                received_at=datetime.now(UTC),
+                received_at=received_at,
                 request_id=request_id,
             )
         )
