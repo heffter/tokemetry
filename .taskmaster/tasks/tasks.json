@@ -3210,13 +3210,14 @@
             "id": 2,
             "title": "Stale-source alert kind",
             "description": "Alert when a reporting source stops ingesting.",
-            "details": "Add evaluator stale_source: fires when a non-revoked source has no successful ingest for longer than warn or crit minutes (thresholds per rule, defaults from source-type thresholds in Task 63.2), one alert per source with per-source firing state so multiple stale sources notify independently (FR-ALERT-003, FR-SOURCE-007, AC-010); context includes source identity, last successful ingest, and staleness duration; respects the new dimension filters (alert only on selected source types or names). The existing collector_stale machine-based rule keeps working unchanged; seed no new default rules (user opt-in). Test strategy: unit tests with clock injection for warn and crit transitions, per-source state isolation, revoked-source exclusion, and resolve-on-recovery; integration test through the engine loop into alert_events with an ntfy stub.",
-            "status": "pending",
+            "details": "Add evaluator stale_source: fires when a non-revoked source has no successful ingest for longer than warn or crit minutes (thresholds per rule, defaults from source-type thresholds in Task 63.2), one alert per source with per-source firing state so multiple stale sources notify independently (FR-ALERT-003, FR-SOURCE-007, AC-010); context includes source identity, last successful ingest, and staleness duration; respects the new dimension filters (alert only on selected source types or names). The existing collector_stale machine-based rule keeps working unchanged; seed no new default rules (user opt-in). Test strategy: unit tests with clock injection for warn and crit transitions, per-source state isolation, revoked-source exclusion, and resolve-on-recovery; integration test through the engine loop into alert_events with an ntfy stub.\n<info added on 2026-07-20T15:19:12.457Z>\nImplemented. Per-entity firing-state machine (FR-ALERT-003, FR-SOURCE-007, AC-010) via nullable JSONB alert_rules.entity_state column (migration 0025) storing {source_id: {state, last_fired_at}}; single-finding rules leave NULL and use existing state/last_fired_at. EntityFinding(key, finding) dataclass; evaluate_stale_sources scans non-revoked sources respecting config.filters.source name filter (other dims ignored, no source-row attribute), staleness = now - (last_successful_ingest or first_seen for never-ingested), warn defaults to per-source-type threshold from 63.2 (collector 30m, gateway 10m), crit = 4x warn (mirrors collector_stale), explicit overrides supported. Split registry: EVALUATORS (single), GROUPED_EVALUATORS (per-entity), ALL_EVALUATOR_KINDS for API validation; is_grouped_kind(). Engine _run_grouped drives per-source state machine with independent cooldown and resolve-on-recovery; revoked/removed source clears state silently. Wired stale_thresholds/default_stale_seconds from settings. API accepts stale_source via ALL_EVALUATOR_KINDS. No seeded default rule. docs/alerting.md updated. test_stale_source.py 15 cases: type/explicit thresholds with clock injection, gateway-shorter, per-source isolation, revoked exclusion, source-name filter, never-ingested-from-first-seen, content assertion, engine per-source fire+record, independent cooldown, resolve-on-recovery, revoke-clears-without-notice, API accepts kind+filter. Full suite 644 passed / 43 skipped (Postgres) / 0 failed; ruff+mypy strict clean, trivy no HIGH/CRITICAL.\n</info added on 2026-07-20T15:19:12.457Z>",
+            "status": "done",
             "dependencies": [
               "68.1"
             ],
             "parentTaskId": 68,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T15:20:05.400Z"
           },
           {
             "id": 3,
@@ -3270,7 +3271,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T11:10:28.871Z"
+        "updatedAt": "2026-07-20T15:20:05.400Z"
       },
       {
         "id": "69",
@@ -3683,7 +3684,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T11:10:28.872Z",
+      "lastModified": "2026-07-20T15:20:05.401Z",
       "taskCount": 77,
       "completedCount": 69,
       "tags": [

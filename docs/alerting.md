@@ -12,10 +12,19 @@ default 60) and on demand via the API. Each firing is recorded in
 | `predicted_exhaustion` | the 5-hour block is predicted to hit 100% before it resets | — |
 | `burn_rate` | token burn rate exceeds the threshold | tokens/min (default 5000) |
 | `collector_stale` | a machine has not reported within the threshold | minutes (default 30) |
+| `stale_source` | a reporting source has not ingested within the threshold | minutes (default: the source type's staleness threshold, e.g. 30 for collectors, 10 for gateways; critical at 4x) |
 | `unknown_model` | events in the last day could not be priced | — |
 
 Severity is derived (for example `limit_pct` is `warning`, or `critical` at
 95%+). Rules are stored in `alert_rules`; their logic is selected by `kind`.
+
+`stale_source` fires **one alert per source**, each tracked independently: a
+source re-fires only after its own cooldown and sends its own recovery notice
+when it ingests again, so several stale sources never suppress one another.
+Revoked sources never fire. The rule's `source` dimension filter (a list of
+source names under `config.filters.source`) scopes which sources it watches;
+staleness measures the time since a source's last successful ingest (or its
+first sighting, if it has never ingested successfully).
 
 ## Suppression
 

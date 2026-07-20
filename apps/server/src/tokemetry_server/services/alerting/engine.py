@@ -19,9 +19,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
 from tokemetry_server.services.alerting.notifiers import Notifier
-from tokemetry_server.services.alerting.rules import AlertFinding, evaluate_rule
+from tokemetry_server.services.alerting.rules import (
+    AlertFinding,
+    EntityFinding,
+    evaluate_rule,
+    evaluate_stale_sources,
+    is_grouped_kind,
+)
+from tokemetry_server.services.sources import DEFAULT_STALE_SECONDS
 
-#: Firing-state values stored on ``AlertRule.state``.
+#: Firing-state values stored on ``AlertRule.state`` and per-entity states.
 _FIRING = "firing"
 _NORMAL = "normal"
 
@@ -48,14 +55,24 @@ def _resolved_finding(rule: models.AlertRule) -> AlertFinding:
 class AlertEngine:
     """Evaluates alert rules and dispatches through notification channels."""
 
-    def __init__(self, notifiers: dict[str, Notifier], timezone: str = "UTC") -> None:
+    def __init__(
+        self,
+        notifiers: dict[str, Notifier],
+        timezone: str = "UTC",
+        stale_thresholds: dict[str, float] | None = None,
+        default_stale_seconds: float = DEFAULT_STALE_SECONDS,
+    ) -> None:
         """Create the engine over a channel-name -> notifier registry.
 
         ``timezone`` is the IANA name in which quiet hours are evaluated; an
-        unknown name falls back to UTC.
+        unknown name falls back to UTC. ``stale_thresholds`` and
+        ``default_stale_seconds`` are the per-source-type staleness thresholds
+        (Task 63.2) used as the defaults for ``stale_source`` rules.
         """
         self._notifiers = notifiers
         self._tz = _resolve_zone(timezone)
+        self._stale_thresholds = stale_thresholds
+        self._default_stale_seconds = default_stale_seconds
 
     def reconfigure(self, notifiers: dict[str, Notifier]) -> None:
         """Swap the notifier registry (after channel settings change)."""
@@ -76,6 +93,9 @@ class AlertEngine:
         for rule in rules:
             if _in_quiet_hours(rule, reference, self._tz):
                 continue
+            if is_grouped_kind(rule.kind):
+                await self._run_grouped(session, rule, reference, fired)
+                continue
             finding = await evaluate_rule(session, rule, reference)
             if finding is not None:
                 # Notify on the transition into firing, or on a repeat once the
@@ -95,6 +115,112 @@ class AlertEngine:
                 rule.state = _NORMAL
                 fired.append(FiredAlert(rule.name, resolved, delivered))
         return fired
+
+    async def _run_grouped(
+        self,
+        session: AsyncSession,
+        rule: models.AlertRule,
+        now: datetime,
+        fired: list[FiredAlert],
+    ) -> None:
+        """Evaluate a per-entity rule, tracking firing state for each entity.
+
+        Every affected entity fires (and re-fires only after its own cooldown)
+        and resolves independently, so multiple stale sources notify without
+        suppressing one another (FR-ALERT-003, FR-SOURCE-007). Per-entity state
+        lives in ``rule.entity_state``.
+        """
+        findings = await self._evaluate_grouped(session, rule, now)
+        state: dict[str, Any] = dict(rule.entity_state or {})
+        active_keys = {ef.key for ef in findings}
+        fires = 0
+
+        for entity in findings:
+            prev = state.get(entity.key)
+            if (
+                isinstance(prev, dict)
+                and prev.get("state") == _FIRING
+                and self._entity_in_cooldown(prev, rule, now)
+            ):
+                continue  # already firing and still inside its cooldown
+            delivered = await self._dispatch(rule, entity.finding)
+            self._record(session, rule, now, entity.finding, delivered)
+            fired.append(FiredAlert(rule.name, entity.finding, delivered))
+            state[entity.key] = {"state": _FIRING, "last_fired_at": now.isoformat()}
+            fires += 1
+
+        for key, prev in list(state.items()):
+            if not (isinstance(prev, dict) and prev.get("state") == _FIRING):
+                continue
+            if key in active_keys:
+                continue
+            resolved = await self._resolved_entity(session, key)
+            if resolved is None:
+                del state[key]  # revoked or removed: not a recovery, clear silently
+                continue
+            delivered = await self._dispatch(rule, resolved)
+            self._record(session, rule, now, resolved, delivered)
+            fired.append(FiredAlert(rule.name, resolved, delivered))
+            state[key] = {"state": _NORMAL, "last_fired_at": prev.get("last_fired_at")}
+
+        rule.entity_state = state
+        rule.state = _FIRING if active_keys else _NORMAL
+        if fires:
+            rule.last_fired_at = now
+
+    async def _evaluate_grouped(
+        self, session: AsyncSession, rule: models.AlertRule, now: datetime
+    ) -> list[EntityFinding]:
+        """Dispatch a grouped rule kind to its per-entity evaluator."""
+        return await evaluate_stale_sources(
+            session,
+            rule,
+            now,
+            stale_thresholds=self._stale_thresholds,
+            default_stale_seconds=self._default_stale_seconds,
+        )
+
+    def _entity_in_cooldown(
+        self, prev: dict[str, Any], rule: models.AlertRule, now: datetime
+    ) -> bool:
+        """True when an entity last fired within the rule's cooldown window."""
+        raw = prev.get("last_fired_at")
+        if not isinstance(raw, str):
+            return False
+        try:
+            last = datetime.fromisoformat(raw)
+        except ValueError:
+            return False
+        last_aware = last if last.tzinfo else last.replace(tzinfo=UTC)
+        return (now - last_aware).total_seconds() < rule.cooldown_seconds
+
+    async def _resolved_entity(
+        self, session: AsyncSession, key: str
+    ) -> AlertFinding | None:
+        """Build the recovery notice for a source, or None to clear state silently.
+
+        A source that is gone or revoked is not a recovery -- a deliberate
+        revocation should not read as "ingesting again" -- so its firing state is
+        cleared without a resolved notice.
+        """
+        try:
+            source_id = int(key)
+        except ValueError:
+            return None
+        source = await session.get(models.Source, source_id)
+        if source is None or source.revoked:
+            return None
+        return AlertFinding(
+            severity="info",
+            title=f"Resolved: source {source.name}",
+            body=f"Source '{source.name}' ({source.type}) is ingesting again.",
+            context={
+                "resolved": True,
+                "source_id": source.id,
+                "source_type": source.type,
+                "source_name": source.name,
+            },
+        )
 
     def _record(
         self,

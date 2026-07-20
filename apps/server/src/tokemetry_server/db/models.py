@@ -642,6 +642,11 @@ class AlertRule(Base):
     # Firing-state machine: "normal" or "firing"; drives resolved notices.
     state: Mapped[str] = mapped_column(String(20), default="normal")
     last_fired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Per-entity firing state for rule kinds that fire one alert per entity
+    # (e.g. stale_source, one per source). Maps an entity key to
+    # ``{"state": "firing"|"normal", "last_fired_at": <iso8601>}``; NULL for
+    # single-finding rules, which use ``state``/``last_fired_at`` above.
+    entity_state: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
 
     events: Mapped[list[AlertEvent]] = relationship(back_populates="rule")
 

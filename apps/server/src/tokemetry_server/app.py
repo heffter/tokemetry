@@ -132,7 +132,13 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         async with session_factory() as channel_session:
             effective = await resolve_channel_settings(channel_session, resolved)
         alert_engine = AlertEngine(
-            build_notifiers(effective, http_client), timezone=resolved.timezone
+            build_notifiers(effective, http_client),
+            timezone=resolved.timezone,
+            stale_thresholds={
+                "collector": resolved.source_stale_collector_seconds,
+                "gateway": resolved.source_stale_gateway_seconds,
+            },
+            default_stale_seconds=resolved.source_stale_default_seconds,
         )
         app.state.settings = resolved
         app.state.engine = engine

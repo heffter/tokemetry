@@ -21,10 +21,19 @@ from tokemetry_server.services.alerting.filters import (
     apply_ledger_filters,
     filters_from_config,
 )
+from tokemetry_server.services.sources import (
+    DEFAULT_STALE_SECONDS,
+    SourceHealthService,
+)
 
 #: The token counters a burn-rate window sums (reasoning is excluded, matching
 #: analytics.token_burn_rate).
 _BURN_RATE_WINDOW_MINUTES = 60
+
+#: Default critical staleness as a multiple of the warn threshold when a
+#: ``stale_source`` rule sets no explicit ``crit_threshold`` (mirrors the
+#: ``collector_stale`` default ratio of 30 -> 120 minutes).
+_STALE_CRIT_MULTIPLE = 4.0
 
 
 async def _ledger_burn_rate(
@@ -62,6 +71,20 @@ class AlertFinding:
     title: str
     body: str
     context: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EntityFinding:
+    """A per-entity finding: a stable entity key plus the finding it fired.
+
+    Grouped rule kinds (e.g. ``stale_source``) return one of these per affected
+    entity so the engine can track firing state, cooldown, and recovery for each
+    entity independently. ``key`` is a content-free stable identifier (the
+    source id for ``stale_source``).
+    """
+
+    key: str
+    finding: AlertFinding
 
 
 def _threshold(rule: models.AlertRule, default: float) -> float:
@@ -240,7 +263,105 @@ async def _unknown_model(
     return None
 
 
-#: Rule kind to evaluator.
+def _aware(moment: datetime, reference: datetime) -> datetime:
+    """Align a possibly-naive stored timestamp with ``reference`` for subtraction.
+
+    SQLite reads timestamps back naive; assume UTC (how they are written) so
+    staleness durations are correct on both SQLite and Postgres.
+    """
+    return moment if moment.tzinfo else moment.replace(tzinfo=reference.tzinfo or UTC)
+
+
+def _stale_thresholds_minutes(
+    rule: models.AlertRule, threshold_seconds: float
+) -> tuple[float, float]:
+    """Resolve a source's (warn, crit) staleness thresholds in minutes.
+
+    ``warn`` falls back to the source-type staleness threshold from Task 63.2
+    (``threshold_seconds``); ``crit`` falls back to a fixed multiple of warn.
+    Explicit per-rule ``warn_threshold``/``crit_threshold`` (or the legacy single
+    ``threshold``) override the defaults and apply to every scoped source.
+    """
+    warn = _threshold(rule, threshold_seconds / 60.0)
+    crit = (
+        float(rule.crit_threshold)
+        if rule.crit_threshold is not None
+        else warn * _STALE_CRIT_MULTIPLE
+    )
+    return warn, max(warn, crit)
+
+
+async def evaluate_stale_sources(
+    session: AsyncSession,
+    rule: models.AlertRule,
+    now: datetime | None = None,
+    *,
+    stale_thresholds: dict[str, float] | None = None,
+    default_stale_seconds: float = DEFAULT_STALE_SECONDS,
+) -> list[EntityFinding]:
+    """Return one finding per stale, non-revoked, in-scope reporting source.
+
+    A source is stale when the time since its last successful ingest (or its
+    first sighting, if it never ingested successfully) crosses the warn or crit
+    threshold. Thresholds default per source type (Task 63.2) but a rule may set
+    explicit warn/crit minutes. Revoked sources never fire (FR-SOURCE-012). The
+    rule's ``source`` dimension filter, when set, restricts the scan to those
+    source names -- the other dimensions have no attribute on a source row and
+    are ignored. Each finding carries the source identity and staleness duration;
+    the filter scope is recorded content-free as dimension names only.
+    """
+    reference = now if now is not None else datetime.now(UTC)
+    filters = filters_from_config(rule.config)
+    health = SourceHealthService(
+        session,
+        stale_thresholds=stale_thresholds,
+        default_stale_seconds=default_stale_seconds,
+    )
+    scoped = filters.scoped_dimensions()
+
+    statement = select(models.Source).where(models.Source.revoked.is_(False))
+    if filters.source:
+        statement = statement.where(models.Source.name.in_(filters.source))
+    sources = (await session.execute(statement)).scalars().all()
+
+    findings: list[EntityFinding] = []
+    for source in sources:
+        threshold_seconds = health.staleness_threshold(source.type)
+        warn, crit = _stale_thresholds_minutes(rule, threshold_seconds)
+        baseline = source.last_successful_ingest or source.first_seen
+        stale_minutes = (reference - _aware(baseline, reference)).total_seconds() / 60.0
+        severity = _severity_for(stale_minutes, warn, crit)
+        if severity is None:
+            continue
+        crossed = crit if severity == "critical" else warn
+        last = source.last_successful_ingest
+        findings.append(
+            EntityFinding(
+                key=str(source.id),
+                finding=AlertFinding(
+                    severity=severity,
+                    title=f"Source stale: {source.name}",
+                    body=(
+                        f"Source '{source.name}' ({source.type}) has not ingested "
+                        f"for {stale_minutes:.0f} min (threshold {crossed:.0f})."
+                    ),
+                    context={
+                        "source_id": source.id,
+                        "source_type": source.type,
+                        "source_name": source.name,
+                        "last_successful_ingest": (
+                            _aware(last, reference).isoformat() if last is not None else None
+                        ),
+                        "stale_minutes": round(stale_minutes, 1),
+                        "scoped_dimensions": scoped,
+                    },
+                ),
+            )
+        )
+    return findings
+
+
+#: Rule kind to single-finding evaluator.
 EVALUATORS = {
     "limit_pct": _limit_pct,
     "predicted_exhaustion": _predicted_exhaustion,
@@ -249,14 +370,30 @@ EVALUATORS = {
     "unknown_model": _unknown_model,
 }
 
+#: Rule kinds that fire one finding per entity, tracked with per-entity state.
+GROUPED_EVALUATORS = {
+    "stale_source": evaluate_stale_sources,
+}
+
+#: Every valid rule kind (single-finding and grouped), for API validation.
+ALL_EVALUATOR_KINDS = frozenset(EVALUATORS) | frozenset(GROUPED_EVALUATORS)
+
+
+def is_grouped_kind(kind: str) -> bool:
+    """Whether a rule kind fires one finding per entity (grouped state machine)."""
+    return kind in GROUPED_EVALUATORS
+
 
 async def evaluate_rule(
     session: AsyncSession, rule: models.AlertRule, now: datetime | None = None
 ) -> AlertFinding | None:
-    """Evaluate a single rule; return a finding or None.
+    """Evaluate a single-finding rule; return a finding or None.
+
+    Grouped kinds (see :data:`GROUPED_EVALUATORS`) are evaluated by their own
+    entrypoint (e.g. :func:`evaluate_stale_sources`), not here.
 
     Raises:
-        ValueError: If the rule's kind has no evaluator.
+        ValueError: If the rule's kind has no single-finding evaluator.
     """
     evaluator = EVALUATORS.get(rule.kind)
     if evaluator is None:

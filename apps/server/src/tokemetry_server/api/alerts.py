@@ -25,7 +25,7 @@ from tokemetry_server.api.schemas_alerts import (
 from tokemetry_server.db import models
 from tokemetry_server.scopes import QUERY_READ
 from tokemetry_server.services.alerting.notifiers import build_notifiers
-from tokemetry_server.services.alerting.rules import EVALUATORS
+from tokemetry_server.services.alerting.rules import ALL_EVALUATOR_KINDS
 from tokemetry_server.services.channel_config import (
     channel_views,
     resolve_channel_settings,
@@ -57,11 +57,11 @@ def _rule_out(rule: models.AlertRule) -> AlertRuleOut:
 
 
 def _validate_kind(kind: str) -> None:
-    """Reject rules whose kind has no evaluator."""
-    if kind not in EVALUATORS:
+    """Reject rules whose kind has no evaluator (single-finding or grouped)."""
+    if kind not in ALL_EVALUATOR_KINDS:
         raise HTTPException(
             status_code=422,
-            detail=f"unknown rule kind; valid: {sorted(EVALUATORS)}",
+            detail=f"unknown rule kind; valid: {sorted(ALL_EVALUATOR_KINDS)}",
         )
 
 
