@@ -3391,7 +3391,7 @@
         "description": "Production hardening: configurable incremental retention with rollup verification, snapshot compaction, administrative deletion APIs, audit log, rate limiting and request bounds, backup and restore automation, runbooks, security and privacy test suite, and release gates. PRD-TOK-002 Sections 12.17, 12.18; Epic TOK-10; FR-PRIV-001..012, FR-RET-001..007, NFR-SEC-001..008; decisions D-010, D-014.",
         "details": "Objective: safe long-term operation of the v2 platform (Migration Phase 6).\n\nDesign: retention configuration per record category with PRD defaults (raw final attempts 180 days, superseded snapshots 7 days per D-010, daily rollups indefinite, limit snapshots 400 days, ingest batch metadata 30 days, audit records 400 days, corrections indefinite); retention jobs incremental and resumable (FR-RET-002) with rollup verification before raw deletion (FR-RET-004, FR-ROLLUP-010) and legal hold support (FR-RET-006); consistent behavior on SQLite and Postgres (FR-RET-007); operational retention status visible (FR-RET-005). Administrative deletion by source, machine, project, or time range (FR-PRIV-007) recorded in audit_log alongside repricing, token operations, and price applies (FR-PRIV-009, NFR-SEC-005). Rate limiting split between ingest and query (FR-INGEST-015, NFR-SEC-003); request size and JSON depth limits (NFR-SEC-004); restrictive CORS defaults and TLS deployment guidance (NFR-SEC-006/007). Backup and restore automation with restore tests (NFR-REL-004); runbooks for migration and rollback, token rotation, and upgrade (FR-SEC-009, AC-018). Security and privacy test suite: prohibited-key fuzzing (FR-PRIV-012), oversized metadata, deeply nested JSON, token scope bypass, revoked tokens, WebSocket authorization, secret redaction, pseudonymized identifiers, SQL and filter injection (PRD 18.6). Stored-field documentation for privacy review (FR-PRIV-005). Tenancy is out of scope but schema review confirms nothing precludes it (D-014).\n\nAcceptance criteria (PRD Epic TOK-10): configurable retention exists; backup and restore tests pass; scoped token rotation documented; rate limits and request bounds enforced; audit log covers administrative actions; migration and rollback runbooks exist; performance and security gates pass.\n\nTest strategy: unit tests for retention eligibility; integration tests for retention jobs on production-scale fixtures with resume-after-interrupt; restore verification on SQLite and Postgres; the full security and privacy suite; sustained-load performance test at the documented 1000 events per second reference target (NFR-PERF-002); trivy clean; final walkthrough of release acceptance criteria AC-001 through AC-022.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "62",
           "63",
@@ -3408,11 +3408,12 @@
             "id": 1,
             "title": "Retention configuration model",
             "description": "Per-category retention policy with legal hold.",
-            "details": "Add a retention policy model (settings plus app_settings overrides): per-category durations with PRD 12.18 defaults (raw final attempt events 180 days, superseded snapshot revisions 7 days per decision D-010, daily rollups indefinite, limit snapshots 400 days, ingest batch metadata 30 days, security audit records 400 days, administrative correction records indefinite, alert events 400 days); category-level enable and disable plus a global legal-hold flag that suspends all deletion (FR-RET-001/006); the usage_events_v1_archive table from 62.10 becomes a policy category (default retained until operator opt-in deletion). Policy validation rejects nonsensical values (raw events shorter than rollup verification lag). Expose GET and PUT /api/v2/admin/retention requiring admin:retention scope, audited. Test strategy: unit tests for defaults, override precedence, validation rules, and legal-hold gating; API scope and audit tests.",
-            "status": "pending",
+            "details": "Add a retention policy model (settings plus app_settings overrides): per-category durations with PRD 12.18 defaults (raw final attempt events 180 days, superseded snapshot revisions 7 days per decision D-010, daily rollups indefinite, limit snapshots 400 days, ingest batch metadata 30 days, security audit records 400 days, administrative correction records indefinite, alert events 400 days); category-level enable and disable plus a global legal-hold flag that suspends all deletion (FR-RET-001/006); the usage_events_v1_archive table from 62.10 becomes a policy category (default retained until operator opt-in deletion). Policy validation rejects nonsensical values (raw events shorter than rollup verification lag). Expose GET and PUT /api/v2/admin/retention requiring admin:retention scope, audited. Test strategy: unit tests for defaults, override precedence, validation rules, and legal-hold gating; API scope and audit tests.\n<info added on 2026-07-20T21:52:43.710Z>\nRetention configuration model complete. services/retention.py defines 9 categories (raw_events, superseded_snapshots, daily_rollups, limit_snapshots, ingest_batches, audit_records, corrections, alert_events, v1_archive) as frozen RetentionPolicy with CategoryRule(retention_days|None, enabled) plus global legal_hold. DEFAULT_RETENTION_POLICY implements PRD 12.18 defaults: raw 180d, snapshots 7d (D-010), rollups/corrections indefinite, limits/audit/alerts 400d, ingest batches 30d, v1_archive indefinite+disabled. resolve_retention_policy layers app_settings retention.* overrides (non-empty wins, blank falls back to defaults). validate_retention_policy enforces ≥1-day durations, rejects unknown categories, and blocks raw_events shorter than 2-day rollup verification lag (FR-RET-004). is_deletion_active gates worker execution: false under legal hold, when disabled, or when indefinite. Admin API: GET/PUT /api/v2/admin/retention (full read-modify-write) requiring admin:retention scope, PUT audited via save_retention_policy writing content-free audit_log row (action=retention_policy_update). Schemas RetentionCategoryConfig/RetentionPolicyBody in api/v2/schemas.py with ge=1 validation on days. No migration required (reuses app_settings KV). docs/architecture/retention.md rewritten for configurable model and admin API. Tests: test_retention.py (13 service tests: defaults, copy isolation, override precedence+blank fallback, indefinite round-trip, all validation rules, legal-hold gating, audit write, reject-before-write) and test_retention_api.py (8 API tests: default GET, scope 403 on GET+PUT, round-trip, 400 on raw<lag and missing category, audit row, 422 on days=0). Gates: SQLite suite 717 passed/48 skipped/0 failed; ruff, mypy (294 files), trivy all clean.\n</info added on 2026-07-20T21:52:43.710Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 70,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T21:53:03.052Z"
           },
           {
             "id": 2,
@@ -3505,7 +3506,8 @@
             "parentTaskId": 70,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-07-20T21:53:03.052Z"
       },
       {
         "id": "71",
@@ -3703,7 +3705,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T21:17:47.914Z",
+      "lastModified": "2026-07-20T21:53:03.053Z",
       "taskCount": 78,
       "completedCount": 72,
       "tags": [

@@ -12,7 +12,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from tokemetry_server.api.serialization import UtcDatetime
 
@@ -638,3 +638,31 @@ class RollupsResponse(BaseModel):
 
     rollups: list[RollupOut]
     next_cursor: str | None = None
+
+
+class RetentionCategoryConfig(BaseModel):
+    """Retention rule for one record category (Task 70.1).
+
+    ``retention_days`` is a positive whole-day count, or ``null`` for an
+    indefinite (never-deleted) category. ``enabled`` gates deletion of the
+    category independently of the duration.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    retention_days: int | None = Field(default=None, ge=1)
+    enabled: bool
+
+
+class RetentionPolicyBody(BaseModel):
+    """The full per-category retention policy plus the global legal hold.
+
+    Used for both the GET response and the PUT request: the client reads the
+    resolved policy, edits it, and writes it back in full. ``categories`` must
+    name every known category exactly.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    categories: dict[str, RetentionCategoryConfig]
+    legal_hold: bool
