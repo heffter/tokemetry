@@ -99,7 +99,7 @@ async def create_rule(
         cooldown_seconds=payload.cooldown_seconds,
         quiet_hours=payload.quiet_hours,
         enabled=payload.enabled,
-        config=payload.config,
+        config=payload.config.model_dump(),
     )
     session.add(rule)
     await session.flush()
@@ -128,7 +128,7 @@ async def update_rule(
     rule.cooldown_seconds = payload.cooldown_seconds
     rule.quiet_hours = payload.quiet_hours
     rule.enabled = payload.enabled
-    rule.config = payload.config
+    rule.config = payload.config.model_dump()
     return _rule_out(rule)
 
 

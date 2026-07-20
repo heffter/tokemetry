@@ -3187,7 +3187,7 @@
         "description": "Operational alerts for reporting and accounting failures: stale sources, unpriced events, unknown models, exporter schema drift, failure rate, latency, and fallback rate, all filterable by provider, model, source, project, and environment, all content-free. PRD-TOK-002 Section 12.15; Epic TOK-9; FR-ALERT-001..010.",
         "details": "Objective: data quality and exporter health become alertable operational signals (PP-012).\n\nDesign: extend the existing rule engine (services/alerting/) with new rule kinds: stale_source (built on source health last-ingest timestamps, replacing machine-only collector_stale semantics while keeping that rule working), unpriced_events (computed_costs cost_status unpriced over a window), unknown_model (v2 data quality events), schema_drift (exporter schema version vs supported versions), failure_rate, latency_p95, and fallback_rate (from attempt outcomes, latency, and routing metadata). All rules gain optional provider, model, source, project, and environment filters (FR-ALERT-002). Existing spend and limit alerts continue to work unchanged (FR-ALERT-001); cooldown and quiet-hours behavior preserved (FR-ALERT-009); alert context stays content-free (FR-ALERT-010); delivery channels ntfy, Telegram, and SMTP unchanged.\n\nAcceptance criteria (PRD Epic TOK-9): stale source alerts work; unknown model and unpriced usage alerts work; failure, latency, and fallback-rate alerts work; alert context content-free; existing delivery channels supported.\n\nTest strategy: unit tests per evaluator with synthetic v2 fixtures covering warning and critical thresholds, filters, cooldown, and quiet hours; integration test firing each new kind end to end into alert_events; regression tests that the four seeded default rules and existing channels behave identically; content-free context assertion tests.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "63",
           "64",
@@ -3199,11 +3199,12 @@
             "id": 1,
             "title": "Alert rule dimension filters",
             "description": "Provider, model, source, project, and environment filters on every rule.",
-            "details": "Extend the alert rule model and engine (services/alerting/): AlertRule.config gains an optional filters object (provider, model, source, project, environment lists) applied by every evaluator when scoping its query window (FR-ALERT-002); rule CRUD API and validation updated; existing rules migrate with empty filters (behavior unchanged, FR-ALERT-001). Evaluators receive a shared filtered-query helper so filter semantics are uniform. Alert event context records the matched filter scope, staying content-free (FR-ALERT-010). Cooldown, dual thresholds, quiet hours, and the firing-state machine are untouched (FR-ALERT-009). Test strategy: unit tests per evaluator with filters applied and empty; migration test for existing rules; API validation tests for unknown filter keys; regression run of the full existing alert test suite.",
-            "status": "pending",
+            "details": "Extend the alert rule model and engine (services/alerting/): AlertRule.config gains an optional filters object (provider, model, source, project, environment lists) applied by every evaluator when scoping its query window (FR-ALERT-002); rule CRUD API and validation updated; existing rules migrate with empty filters (behavior unchanged, FR-ALERT-001). Evaluators receive a shared filtered-query helper so filter semantics are uniform. Alert event context records the matched filter scope, staying content-free (FR-ALERT-010). Cooldown, dual thresholds, quiet hours, and the firing-state machine are untouched (FR-ALERT-009). Test strategy: unit tests per evaluator with filters applied and empty; migration test for existing rules; API validation tests for unknown filter keys; regression run of the full existing alert test suite.\n<info added on 2026-07-20T11:09:47.536Z>\nImplemented alert-rule dimension filters. New services/alerting/filters.py: AlertFilters (frozen dataclass, list/IN semantics for provider/model/source/project/environment), filters_from_config(config) reading config['filters'] (absent/empty = unscoped, preserving existing rule behavior per FR-ALERT-001), apply_ledger_filters(stmt, filters) scoping a usage_events_v2 query (source matched by name via sources registry subquery), and scoped_dimensions() returning dimension NAMES only (content-free per FR-ALERT-010).\n\nEvaluator wiring (rules.py): ledger-scanning kinds honor all five dimensions—unknown_model now queries usage_events_v2 (attempt/final, cost_usd IS NULL) with apply_ledger_filters; burn_rate uses new _ledger_burn_rate over usage_events_v2 when filters present (unfiltered rules retain exact v1-view analytics.token_burn_rate path for zero behavior change). limit_pct honors provider only (LimitSnapshot carries just provider); predicted_exhaustion and collector_stale have no applicable dimension (global limit/machine identity) and remain unfiltered. Each firing sets context['scoped_dimensions'] to dims actually applied. Firing-state machine, cooldown, quiet hours, dual thresholds untouched—evaluators stay pure (session, rule, now) -> AlertFinding | None.\n\nConfig validation (schemas_alerts.py): AlertRuleIn.config now typed as AlertConfigIn (extra='forbid') with filters: AlertFiltersIn (extra='forbid', five list[str] fields). Unknown config keys AND unknown filter keys -> 422. api/alerts.py stores payload.config.model_dump() into free-form JSON column. No migration needed (config is JSONType; existing rows have {} which parses to empty filters).\n\nTests (test_alert_filters.py, 11 cases): config parsing + empty cases; burn_rate provider-scoped window (unfiltered fires, scoped-below-threshold does not); scoped_dimensions recorded on fire; unknown_model filtered by environment and by source; unfiltered counts all; limit_pct provider filter (absent provider never fires, present records scoped_dimensions=['provider']); API persists filters + rejects unknown filter/config keys. Full alert suite 39 passed (28 existing regression + 11 new). ruff clean, mypy strict clean, no dep/secret changes.\n</info added on 2026-07-20T11:09:47.536Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 68,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T11:10:28.871Z"
           },
           {
             "id": 2,
@@ -3268,7 +3269,8 @@
             "parentTaskId": 68,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-07-20T11:10:28.871Z"
       },
       {
         "id": "69",
@@ -3681,7 +3683,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T10:42:47.085Z",
+      "lastModified": "2026-07-20T11:10:28.872Z",
       "taskCount": 77,
       "completedCount": 69,
       "tags": [

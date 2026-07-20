@@ -10,6 +10,30 @@ from pydantic import BaseModel, ConfigDict, Field
 from tokemetry_server.api.serialization import UtcDatetime
 
 
+class AlertFiltersIn(BaseModel):
+    """Optional dimension filters scoping a rule's evaluation (Task 68.1).
+
+    Each list is a set of allowed values for that dimension; an absent or empty
+    list leaves the dimension unscoped. Unknown keys are rejected.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: list[str] = Field(default_factory=list)
+    model: list[str] = Field(default_factory=list)
+    source: list[str] = Field(default_factory=list)
+    project: list[str] = Field(default_factory=list)
+    environment: list[str] = Field(default_factory=list)
+
+
+class AlertConfigIn(BaseModel):
+    """An alert rule's config object: currently just optional dimension filters."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    filters: AlertFiltersIn = Field(default_factory=AlertFiltersIn)
+
+
 class AlertRuleIn(BaseModel):
     """Create/update payload for an alert rule."""
 
@@ -25,7 +49,7 @@ class AlertRuleIn(BaseModel):
     cooldown_seconds: int = Field(default=3600, ge=0)
     quiet_hours: dict[str, Any] | None = None
     enabled: bool = True
-    config: dict[str, Any] = Field(default_factory=dict)
+    config: AlertConfigIn = Field(default_factory=AlertConfigIn)
 
 
 class AlertRuleOut(BaseModel):
