@@ -11,9 +11,37 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from tokemetry_server.db.models import LogicalRequest, UsageEventRevision, UsageEventV2
+from tokemetry_server.db.models import (
+    LogicalRequest,
+    Source,
+    UsageEventRevision,
+    UsageEventV2,
+)
 
 _TS = datetime(2026, 7, 10, 12, 0, 0, tzinfo=UTC)
+
+#: The sources row id that :func:`_full_event` points at via ``source_id``.
+_SOURCE_ID = 7
+
+
+def _seed_source(session: Session, source_id: int = _SOURCE_ID) -> None:
+    """Insert the ``sources`` parent row a full event's ``source_id`` references.
+
+    ``usage_events_v2.source_id`` is a real foreign key to ``sources.id``.
+    SQLite does not enforce foreign keys by default, but Postgres does, so the
+    parent row must exist for a fully populated event to persist on both engines
+    (this is exactly the cross-dialect gap Task 77 exercises).
+    """
+    session.add(
+        Source(
+            id=source_id,
+            type="gateway",
+            name="aiProviderProxy",
+            first_seen=_TS,
+            last_seen=_TS,
+        )
+    )
+    session.flush()
 
 #: The single-column indexes the migration must create on ``usage_events_v2``.
 _EXPECTED_V2_INDEXES = {
@@ -98,6 +126,7 @@ def _full_event(**overrides: object) -> UsageEventV2:
 def test_usage_event_v2_full_round_trip(migrated_engine: sa.Engine) -> None:
     """Every column, including JSON payloads, survives a write/read cycle."""
     with Session(migrated_engine) as session:
+        _seed_source(session)
         session.add(_full_event())
         session.commit()
 
@@ -167,6 +196,7 @@ def test_usage_event_v2_optional_columns_nullable(migrated_engine: sa.Engine) ->
 
 def test_usage_event_v2_composite_pk_rejects_duplicate(migrated_engine: sa.Engine) -> None:
     with Session(migrated_engine) as session:
+        _seed_source(session)
         session.add(_full_event())
         session.commit()
 
@@ -179,6 +209,7 @@ def test_usage_event_v2_composite_pk_rejects_duplicate(migrated_engine: sa.Engin
 def test_same_event_id_different_provider_allowed(migrated_engine: sa.Engine) -> None:
     """The provider is part of the grain, so an id may repeat per provider."""
     with Session(migrated_engine) as session:
+        _seed_source(session)
         session.add(_full_event(provider="anthropic"))
         session.add(_full_event(provider="openai"))
         session.commit()

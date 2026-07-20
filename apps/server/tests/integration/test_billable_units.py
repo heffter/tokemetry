@@ -41,9 +41,44 @@ async def _units(session: AsyncSession) -> list[models.BillableUnit]:
     return list(rows.scalars().all())
 
 
+def _seed_parent_event(session: Session, provider: str, event_id: str) -> None:
+    """Insert the ``usage_events_v2`` row a billable unit references.
+
+    ``billable_units`` carries a composite foreign key ``(provider, event_id)``
+    to ``usage_events_v2``. SQLite does not enforce it by default, but Postgres
+    does, so the parent event must exist first (the cross-dialect gap Task 77
+    exercises).
+    """
+    session.add(
+        models.UsageEventV2(
+            provider=provider,
+            event_id=event_id,
+            schema_version=2,
+            event_kind="attempt",
+            finality="final",
+            sequence=0,
+            native_model="claude-sonnet-4-5",
+            ts_started=_TS,
+            input_tokens=0,
+            output_tokens=0,
+            cache_read_tokens=0,
+            cache_write_short_tokens=0,
+            cache_write_long_tokens=0,
+            reasoning_tokens=0,
+            success=True,
+            tool_call_count=0,
+            provenance="local_estimate",
+            dimensions={},
+            extra={},
+        )
+    )
+    session.flush()
+
+
 def test_billable_unit_grain_is_unique(migrated_engine: sa.Engine) -> None:
     """One row per (provider, event_id, unit_type); the FK is enforced on Postgres."""
     with Session(migrated_engine) as session:
+        _seed_parent_event(session, "anthropic", "e1")
         session.add(
             models.BillableUnit(
                 provider="anthropic",

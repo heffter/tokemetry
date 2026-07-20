@@ -15,21 +15,35 @@ the Task 66 query endpoints -- and asserts the five acceptance groups (Task
 4. a streaming snapshot sequence resolves to exactly one final record (AC-004);
 5. replaying a batch does not inflate totals (AC-003).
 
-These run against the SQLite-backed HTTP client, the dialect every api_v2 HTTP
-test uses (the async app and query services are wired to SQLite in tests). The
-cross-dialect SQL these endpoints depend on is exercised on Postgres by the
-sync migration/view suites when ``TOKEMETRY_TEST_POSTGRES_URL`` is set. Running
-these same HTTP acceptance assertions on a Postgres-backed app is not yet wired
-and is tracked as a high-priority follow-up (Task 77).
+Every group runs twice: once on the SQLite-backed HTTP app (the default every
+api_v2 test uses) and once on a Postgres-backed app, via the parametrized
+``dual_engine_client`` fixture (Task 77). The Postgres leg runs only when
+``TOKEMETRY_TEST_POSTGRES_URL`` is set (a CI service container) and skips
+otherwise, so the same HTTP assertions prove cross-dialect query correctness --
+JSONB vs JSON, timestamp precision, and any dialect-specific SQL SQLAlchemy
+emits -- end-to-end on production-like infrastructure. Test IDs carry
+``[sqlite]`` / ``[postgres]`` to distinguish the two legs.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from .fixtures import ALL_SCENARIOS, Scenario
+
+
+@pytest.fixture
+def client(dual_engine_client: TestClient) -> TestClient:
+    """Run every acceptance test on both SQLite and Postgres (Task 77).
+
+    Overrides the SQLite-only ``client`` from the shared conftest with the
+    parametrized ``dual_engine_client``, so all five groups execute against each
+    engine while the test bodies and HTTP helpers stay unchanged.
+    """
+    return dual_engine_client
 
 # The fixture corpus keyed by name, so tests reuse the shared scenarios.
 _SCENARIOS: dict[str, Scenario] = {scenario.name: scenario for scenario in ALL_SCENARIOS}

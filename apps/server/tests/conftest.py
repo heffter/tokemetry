@@ -159,6 +159,67 @@ def _reset_postgres_schema(sync_url: str) -> None:
         engine.dispose()
 
 
+#: Sync-URL prefixes the Postgres test URL may carry, longest first, mapped to
+#: the asyncpg driver the app's async engine needs.
+_POSTGRES_SYNC_PREFIXES = ("postgresql+psycopg://", "postgresql://")
+
+
+def async_postgres_url(sync_url: str) -> str:
+    """Convert a synchronous Postgres URL to its ``asyncpg`` async form.
+
+    ``TOKEMETRY_TEST_POSTGRES_URL`` holds a *synchronous* URL (used directly by
+    the migration/view suites). The HTTP app wants an async driver, so rewrite
+    the scheme to ``postgresql+asyncpg://``; the sync variant Alembic runs with
+    is derived back from it by :attr:`Settings.sync_database_url`.
+    """
+    for prefix in _POSTGRES_SYNC_PREFIXES:
+        if sync_url.startswith(prefix):
+            return "postgresql+asyncpg://" + sync_url[len(prefix) :]
+    return sync_url
+
+
+@pytest.fixture(params=["sqlite", "postgres"])
+def dual_engine_client(
+    request: pytest.FixtureRequest, tmp_path: Path
+) -> Iterator[TestClient]:
+    """A TestClient over a migrated app on each supported engine (Task 77).
+
+    SQLite always runs against a temp file. Postgres runs only when
+    ``TOKEMETRY_TEST_POSTGRES_URL`` is set (a CI service container), resetting
+    the schema before and after so each run starts clean; otherwise it skips.
+    The app's own startup lifespan migrates the empty schema to head, so the
+    same HTTP assertions execute identically on both dialects. Test IDs carry
+    ``[sqlite]`` / ``[postgres]`` to distinguish the two legs.
+    """
+    if request.param == "sqlite":
+        settings = Settings(
+            database_url=f"sqlite+aiosqlite:///{tmp_path / 'api.db'}",
+            api_bootstrap_token=BOOTSTRAP_TOKEN,
+            seed_default_alerts=False,
+            cost_worker_enabled=False,
+        )
+        app = create_app(settings=settings)
+        with TestClient(app) as test_client:
+            yield test_client
+        return
+    sync_url = os.environ.get(POSTGRES_TEST_URL_ENV)
+    if not sync_url:
+        pytest.skip(f"{POSTGRES_TEST_URL_ENV} not set; Postgres acceptance leg skipped")
+    _reset_postgres_schema(sync_url)
+    settings = Settings(
+        database_url=async_postgres_url(sync_url),
+        api_bootstrap_token=BOOTSTRAP_TOKEN,
+        seed_default_alerts=False,
+        cost_worker_enabled=False,
+    )
+    app = create_app(settings=settings)
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        _reset_postgres_schema(sync_url)
+
+
 @pytest.fixture(params=["sqlite", "postgres"])
 def migration_url(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[str]:
     """A clean, un-migrated synchronous DB URL for each supported engine.

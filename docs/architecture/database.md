@@ -179,6 +179,25 @@ database (a CI service container), resetting the `public` schema around each
 test, and skips otherwise. Every schema-changing migration ships upgrade and
 downgrade coverage on both engines.
 
+The end-to-end HTTP acceptance suite
+(`tests/integration/proxy_harness/test_e2e_acceptance.py`) runs on both engines
+too (Task 77), via the `dual_engine_client` fixture: it builds the FastAPI app
+over an async SQLite URL and, when `TOKEMETRY_TEST_POSTGRES_URL` is set, over
+the same database as an async `postgresql+asyncpg` URL (`async_postgres_url`
+rewrites the sync test URL), letting the app's own startup lifespan migrate the
+reset schema to head. The five acceptance groups therefore exercise the query
+endpoints -- JSONB vs JSON, timestamp precision, and any dialect-specific SQL
+SQLAlchemy emits -- identically on both dialects, with `[sqlite]` / `[postgres]`
+test IDs. To run the Postgres leg locally, point the env var at any reachable
+Postgres, for example a throwaway container:
+
+```
+docker run -d --name pg -e POSTGRES_PASSWORD=tokemetry -e POSTGRES_USER=tokemetry \
+  -e POSTGRES_DB=tokemetry_test -p 5432:5432 postgres:16-alpine
+export TOKEMETRY_TEST_POSTGRES_URL=postgresql+psycopg://tokemetry:tokemetry@127.0.0.1:5432/tokemetry_test
+uv run pytest apps/server/tests/integration/proxy_harness/test_e2e_acceptance.py -v
+```
+
 ## Sessions
 
 `db/session.py` builds the async engine and session factory. `session_scope`
