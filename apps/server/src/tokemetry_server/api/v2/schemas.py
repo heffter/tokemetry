@@ -690,3 +690,39 @@ class RetentionStatusResponse(BaseModel):
 
     legal_hold: bool
     categories: list[RetentionCategoryStatus]
+
+
+class DeletionCriteriaBody(BaseModel):
+    """Targeted deletion criteria; any combination narrows the match (Task 70.3)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str | None = None
+    machine: str | None = None
+    project: str | None = None
+    start: UtcDatetime | None = None
+    end: UtcDatetime | None = None
+
+
+class DeletionRequest(BaseModel):
+    """A dry-run or confirm administrative-deletion request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    criteria: DeletionCriteriaBody
+    #: Required only on confirm (``dry_run=false``): the dry run's digest.
+    digest: str | None = None
+    #: Recompute the affected days' rollups after deletion (default true).
+    recompute_rollups: bool = True
+
+
+class DeletionResponse(BaseModel):
+    """The dry-run preview or the confirmed deletion outcome."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    executed: bool
+    counts: dict[str, int]
+    affected_days: list[str]
+    digest: str
+    rollups_recomputed: int

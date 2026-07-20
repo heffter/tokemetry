@@ -80,6 +80,26 @@ category (last run, rows deleted last time and cumulatively, current backlog,
 oldest row still retained), surfaced at `GET /api/v2/admin/retention/status`
 (scope `admin:retention`).
 
+## Administrative deletion
+
+`POST /api/v2/admin/data` (scope `admin:retention`) is the privacy-owner surface
+for targeted, GDPR-style erasure and mistake recovery (FR-PRIV-007). Deletion is
+scoped by any combination of `source`, `machine`, `project`, and a `start`/`end`
+time range (all ANDed; at least one is required).
+
+It is a two-step dry-run/confirm flow, mirroring the pricing import:
+
+1. **Dry run** (`?dry_run=true`, the default) returns per-table counts
+   (`usage_events_v2`, `computed_costs`, `billable_units`,
+   `usage_event_revisions`) and a content `digest`, without touching data.
+2. **Confirm** (`?dry_run=false`) must echo that `digest`. It is rejected (409)
+   if the data changed since the dry run, or if a legal hold is active. On
+   success it deletes dependents before events, and -- unless
+   `recompute_rollups: false` -- drops and rebuilds the affected days' rollups
+   so no stale grain lingers. Every execution writes an `audit_log` entry
+   (`action = admin_data_delete`) with the actor, criteria, digest, and
+   per-table counts (FR-PRIV-009).
+
 ## Deletions that already exist (unchanged)
 
 None of these are part of the retention policy:

@@ -3432,13 +3432,14 @@
             "id": 3,
             "title": "Administrative deletion APIs",
             "description": "Targeted deletion by source, machine, project, or time range.",
-            "details": "Add DELETE (POST-based for safety) /api/v2/admin/data endpoints for targeted administrative deletion by source, machine, project, or time range (FR-PRIV-007): dry-run mode returning affected row counts per table first, then an explicit confirm call referencing the dry-run digest (mirroring the pricing import pattern); deletion cascades through usage rows, cost records, billable units, revisions, and optionally rollup recomputation for affected days; every execution writes an audit_log entry with actor, criteria, digest, and per-table counts (FR-PRIV-009); admin:retention scope required; legal hold blocks execution. This is the GDPR-style and mistake-recovery surface for a privacy owner (persona 6.5). Test strategy: integration tests for each criterion including dry-run accuracy versus actual deletion, digest mismatch rejection, rollup recomputation correctness after deletion, audit completeness, and legal-hold blocking; scope denial tests.",
-            "status": "pending",
+            "details": "Add DELETE (POST-based for safety) /api/v2/admin/data endpoints for targeted administrative deletion by source, machine, project, or time range (FR-PRIV-007): dry-run mode returning affected row counts per table first, then an explicit confirm call referencing the dry-run digest (mirroring the pricing import pattern); deletion cascades through usage rows, cost records, billable units, revisions, and optionally rollup recomputation for affected days; every execution writes an audit_log entry with actor, criteria, digest, and per-table counts (FR-PRIV-009); admin:retention scope required; legal hold blocks execution. This is the GDPR-style and mistake-recovery surface for a privacy owner (persona 6.5). Test strategy: integration tests for each criterion including dry-run accuracy versus actual deletion, digest mismatch rejection, rollup recomputation correctness after deletion, audit completeness, and legal-hold blocking; scope denial tests.\n<info added on 2026-07-20T22:59:43.183Z>\nImplemented administrative deletion (services/admin_deletion.py + api/v2/admin_data.py). POST /api/v2/admin/data scoped by any combination of source/machine/project/start/end (ANDed; at least one required, else 400). Two-step dry-run/confirm mirroring pricing_import: preview_deletion returns per-table counts (usage_events_v2, computed_costs, billable_units, usage_event_revisions), the inclusive affected-day span, and a sha256 digest over criteria+counts, touching nothing; execute_deletion recomputes the preview, requires the caller digest to still match (else DeletionDigestMismatchError -> 409), deletes dependents via tuple_(provider,event_id) IN subquery before events (FR-PRIV-003), then -- unless recompute_rollups=false -- deletes and rebuilds the affected days' daily_rollups (refresh_rollups_for_days) so no stale grain lingers, and writes an audit_log admin_data_delete row with actor/criteria/digest/counts/affected_days (FR-PRIV-009). Legal hold blocks confirm at the API layer (409); admin:retention scope required; source criterion resolves name->id via a sources subquery. Registered admin_data router in api/v2/__init__. Schemas DeletionCriteriaBody/DeletionRequest/DeletionResponse in api/v2/schemas.py. Docs: added the administrative-deletion section to retention.md. Tests: test_admin_deletion.py (7 service: preview counts, empty-criteria reject, cascade+leave-others, digest mismatch, rollup rebuild leaves only survivor, audit completeness, time-range scoping) and test_admin_data_api.py (9: dry-run no-op, confirm deletes, by-source, digest 409, missing-digest 400, empty 400, scope 403, legal-hold 409, audit). Cross-dialect proven: a direct preview+execute on Postgres 16 deleted events+dependents and recomputed rollups to the surviving machine. Gates: full SQLite suite 744 passed/48 skipped/0 failed; ruff, mypy . (301 files), trivy clean.\n</info added on 2026-07-20T22:59:43.183Z>",
+            "status": "done",
             "dependencies": [
               "70.2"
             ],
             "parentTaskId": 70,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T23:00:08.600Z"
           },
           {
             "id": 4,
@@ -3508,7 +3509,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T22:30:19.526Z"
+        "updatedAt": "2026-07-20T23:00:08.600Z"
       },
       {
         "id": "71",
@@ -3706,7 +3707,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T22:30:19.528Z",
+      "lastModified": "2026-07-20T23:00:08.601Z",
       "taskCount": 78,
       "completedCount": 72,
       "tags": [

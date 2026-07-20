@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from tokemetry_server.api.v2.admin_data import router as _admin_data_router
 from tokemetry_server.api.v2.costs import router as _costs_router
 from tokemetry_server.api.v2.ingest import router as _ingest_router
 from tokemetry_server.api.v2.pricing import router as _pricing_router
@@ -30,3 +31,4 @@ router.include_router(_requests_router)
 router.include_router(_sessions_router)
 router.include_router(_resources_router)
 router.include_router(_retention_router)
+router.include_router(_admin_data_router)
