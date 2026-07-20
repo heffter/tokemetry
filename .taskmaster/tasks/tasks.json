@@ -2808,7 +2808,7 @@
         "description": "Ship the production integration contract for the aiProviderProxy (RelayPlane) exporter: mapping documentation, OpenAPI-generated Python and TypeScript clients with batching and retry wrappers, end-to-end ingest verification for Anthropic, OpenAI, and Z.ai attempt events without double counting. PRD-TOK-002 Epic TOK-6; companion PRD FR-TOK-001..030, CanonicalUsageEvent; decisions D-012, D-016.",
         "details": "Objective: the first direct gateway exporter works end to end; this completes the usable vertical slice (Migration Phase 3, dual write with cost reconciliation).\n\nDesign: Tokemetry owns the wire contract; the proxy transforms its CanonicalUsageEvent into the v2 usage event (companion PRD FR-TOK-003). Integration documentation at docs/integrations/ai-provider-proxy.md covers field-by-field mapping (camelCase canonical to snake_case wire), event identity and deterministic fallback IDs, finality and sequence semantics for streaming snapshots, outcome vocabulary, privacy rules (no prompt, response, file path, tool argument, or code content; FR-TOK-029), version negotiation, and batching guidance (default 100 events, 256 KiB; FR-TOK-008..010). Client libraries generated from OpenAPI with thin hand-written wrappers for auth, batching, retry with exponential backoff and jitter on 429 and 5xx, pause on 401, poison-event isolation on 400 and 422 (D-012; companion FR-TOK-011..016) published under packages/clients/python and packages/clients/typescript. Exporter-observed cost is stored as reconciliation metadata and never replaces authoritative cost (FR-COST-003/004, D-016).\n\nAcceptance criteria (PRD Epic TOK-6): integration documentation complete; TypeScript client or examples available; proxy attempt events ingest successfully; retries and fallback attempts do not double count; requested and routed model visible; content-free payload tests pass; source freshness visible.\n\nTest strategy: compose-based integration harness with a test server and mock proxy exporter fixtures for all three providers including retries, fallbacks, and snapshot-then-final sequences; end-to-end assertions that logical request views never double count attempt usage (AC-005/006); contract conformance suite with golden payloads shared with the proxy repository; poison-event behavior verification; ingest-only token provisioning runbook validated.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "62",
           "63",
@@ -2897,17 +2897,18 @@
             "id": 7,
             "title": "Contract conformance suite and content-free payload verification",
             "description": "Golden payloads shared with the proxy repo; poison and privacy behavior locked.",
-            "details": "Produce the conformance artifacts the proxy team builds against: a versioned directory of golden request and response pairs (valid batches for all three providers with exact expected ingest responses; invalid batches with exact expected structured errors) exported from the harness fixtures, published under docs/integrations/conformance/ and mirrored as JSON fixtures the proxy repository can vendor (companion FR-TOK-030 snapshot testing hook). Content-free verification: fuzzed payloads embedding prompts, file paths, tool arguments, and code snippets in every extension point are rejected or stripped per policy with the exact error surfaced (AC-011; companion FR-TOK-029); poison-event behavior verified: a batch with one invalid event returns an error identifying the index so recursive splitting terminates (companion FR-TOK-015 client contract). Version the conformance set (v2.0) and document the compatibility promise for future schema evolution (PP-010). Test strategy: conformance suite runs in CI comparing live server responses to golden files; privacy fuzz corpus green; a change to any v2 schema that alters a golden response fails CI until the conformance set is versioned forward deliberately.",
-            "status": "pending",
+            "details": "Produce the conformance artifacts the proxy team builds against: a versioned directory of golden request and response pairs (valid batches for all three providers with exact expected ingest responses; invalid batches with exact expected structured errors) exported from the harness fixtures, published under docs/integrations/conformance/ and mirrored as JSON fixtures the proxy repository can vendor (companion FR-TOK-030 snapshot testing hook). Content-free verification: fuzzed payloads embedding prompts, file paths, tool arguments, and code snippets in every extension point are rejected or stripped per policy with the exact error surfaced (AC-011; companion FR-TOK-029); poison-event behavior verified: a batch with one invalid event returns an error identifying the index so recursive splitting terminates (companion FR-TOK-015 client contract). Version the conformance set (v2.0) and document the compatibility promise for future schema evolution (PP-010). Test strategy: conformance suite runs in CI comparing live server responses to golden files; privacy fuzz corpus green; a change to any v2 schema that alters a golden response fails CI until the conformance set is versioned forward deliberately.\n<info added on 2026-07-20T10:42:14.773Z>\nDelivered: contract-conformance suite v2.0 with content-free and poison-index verification. Implementation in proxy_harness/conformance.py exports build_conformance_document() rendering 9 valid_batches (harness fixture scenarios with exact accepted/updated/duplicate/rejected/corrected counts) and 7 invalid_batches (content-free/poison cases with exact index/code/field_path_contains). Artifact published to docs/integrations/conformance/v2.0/conformance.json for proxy repo vendoring (FR-TOK-030). docs/integrations/conformance/README.md documents layout and PP-010 compatibility promise: versioned sets never mutated; schema changes altering golden outcomes require new version directory; major version for breaking wire changes, minor for compatible refinements.\n\nContent-free corpus (FR-TOK-029, AC-011) verifies content smuggled into every extension point is rejected with exact codes: prompt/file_path/code-snippet in extra returns content_key; disallowed top-level extra namespace returns extra_namespace_not_allowed; content-like dimension key returns dimension_not_allowed; tool_histogram while tool names disabled returns tool_names_disabled. Codes sourced from services/privacy.py _CONTENT_KEY_TOKENS (prompt/response/message/content/text/arguments/path/code/snippet/completion/body).\n\nPoison-index verification (FR-TOK-015): 3-event batch with one content-bearing middle event returns 422 with single error at index 1, enabling client recursive bisection termination.\n\nTest coverage in test_conformance_v2.py (19 passing): parametrized valid-golden (200 with exact counts) and invalid-golden (422 with exact errors), extension-point coverage, poison-index verification, and test_golden_export_is_in_sync asserting committed conformance.json equals build_conformance_document() output, failing CI on drift until regenerated and versioned forward.\n\nQuality gates passed: ruff clean, mypy strict clean, 19 conformance tests passing, trivy secret scan of fuzz corpus clean (fake content only, no real secrets).\n</info added on 2026-07-20T10:42:14.773Z>",
+            "status": "done",
             "dependencies": [
               "65.5",
               "65.6"
             ],
             "parentTaskId": 65,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T10:42:47.084Z"
           }
         ],
-        "updatedAt": "2026-07-20T10:33:17.460Z"
+        "updatedAt": "2026-07-20T10:42:47.084Z"
       },
       {
         "id": "66",
@@ -3680,9 +3681,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T10:33:17.461Z",
+      "lastModified": "2026-07-20T10:42:47.085Z",
       "taskCount": 77,
-      "completedCount": 68,
+      "completedCount": 69,
       "tags": [
         "master"
       ]

@@ -1,0 +1,781 @@
+{
+  "conformance_version": "2.0",
+  "schema_version": 2,
+  "endpoint": "POST /api/v2/ingest/events",
+  "valid_batches": [
+    {
+      "name": "anthropic_cache_read_and_writes",
+      "provider": "anthropic",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "anthropic:msg_cache_1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "requested_model": "claude-sonnet-4-5",
+            "success": true,
+            "outcome": "success",
+            "http_status": 200,
+            "input_tokens": 1200,
+            "output_tokens": 350,
+            "cache_read_tokens": 8000,
+            "cache_write_short_tokens": 512,
+            "cache_write_long_tokens": 2048,
+            "ts_first_token": "2026-07-10T12:00:01Z",
+            "ts_completed": "2026-07-10T12:00:03Z",
+            "extra": {
+              "anthropic": {
+                "stop_reason": "end_turn"
+              }
+            }
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 1,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    },
+    {
+      "name": "anthropic_streaming_snapshots",
+      "provider": "anthropic",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "anthropic:msg_stream_1",
+            "event_kind": "attempt",
+            "finality": "snapshot",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-opus-4-6",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "output_tokens": 40,
+            "ts_first_token": "2026-07-10T12:00:01Z"
+          },
+          {
+            "schema_version": 2,
+            "event_id": "anthropic:msg_stream_1",
+            "event_kind": "attempt",
+            "finality": "snapshot",
+            "sequence": 2,
+            "provider": "anthropic",
+            "native_model": "claude-opus-4-6",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "output_tokens": 180
+          },
+          {
+            "schema_version": 2,
+            "event_id": "anthropic:msg_stream_1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 3,
+            "provider": "anthropic",
+            "native_model": "claude-opus-4-6",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "input_tokens": 900,
+            "output_tokens": 512,
+            "success": true,
+            "outcome": "success",
+            "http_status": 200,
+            "ts_completed": "2026-07-10T12:00:03Z"
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 1,
+        "updated": 2,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    },
+    {
+      "name": "anthropic_retry_after_429",
+      "provider": "anthropic",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "anthropic:lr_retry#0",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-haiku-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "logical_request_id": "lr_retry",
+            "attempt_id": "att_0",
+            "success": false,
+            "outcome": "error",
+            "http_status": 429,
+            "routing": {
+              "policy": "retry",
+              "reason": "rate_limited",
+              "attempt_index": 0
+            }
+          },
+          {
+            "schema_version": 2,
+            "event_id": "anthropic:lr_retry#1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-haiku-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "logical_request_id": "lr_retry",
+            "attempt_id": "att_1",
+            "success": true,
+            "outcome": "success",
+            "http_status": 200,
+            "input_tokens": 600,
+            "output_tokens": 220,
+            "routing": {
+              "policy": "retry",
+              "attempt_index": 1
+            },
+            "ts_completed": "2026-07-10T12:00:03Z"
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 2,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    },
+    {
+      "name": "anthropic_client_cancelled_partial",
+      "provider": "anthropic",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "anthropic:msg_cancel_1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": false,
+            "outcome": "client_cancelled",
+            "input_tokens": 1500,
+            "output_tokens": 64,
+            "ts_first_token": "2026-07-10T12:00:01Z"
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 1,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    },
+    {
+      "name": "openai_cached_input_and_reasoning",
+      "provider": "openai",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "openai:resp_cache_1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "openai",
+            "native_model": "gpt-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "requested_model": "gpt-5",
+            "success": true,
+            "outcome": "success",
+            "http_status": 200,
+            "input_tokens": 2400,
+            "cache_read_tokens": 1800,
+            "output_tokens": 300,
+            "reasoning_tokens": 1024,
+            "service_tier": "priority",
+            "ts_first_token": "2026-07-10T12:00:01Z",
+            "ts_completed": "2026-07-10T12:00:03Z"
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 1,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    },
+    {
+      "name": "openai_web_search_billable_unit",
+      "provider": "openai",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "openai:resp_search_1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "openai",
+            "native_model": "gpt-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "http_status": 200,
+            "input_tokens": 800,
+            "output_tokens": 450,
+            "tool_call_count": 2,
+            "billable_units": {
+              "web_search_request": 2
+            },
+            "service_tier": "standard",
+            "ts_completed": "2026-07-10T12:00:03Z"
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 1,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    },
+    {
+      "name": "zai_glm_cached_input",
+      "provider": "zai",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "zai:chatcmpl_1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "zai",
+            "native_model": "glm-4.6",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "requested_model": "glm-4.6",
+            "success": true,
+            "outcome": "success",
+            "http_status": 200,
+            "input_tokens": 3000,
+            "cache_read_tokens": 2600,
+            "output_tokens": 280,
+            "ts_completed": "2026-07-10T12:00:03Z"
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 1,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    },
+    {
+      "name": "cross_provider_fallback",
+      "provider": "anthropic",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "anthropic:lr_fb#0",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-opus-4-6",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "logical_request_id": "lr_fb",
+            "attempt_id": "fb_0",
+            "requested_model": "auto",
+            "success": false,
+            "outcome": "error",
+            "http_status": 529,
+            "routing": {
+              "policy": "cascade",
+              "reason": "overloaded",
+              "attempt_index": 0
+            }
+          },
+          {
+            "schema_version": 2,
+            "event_id": "openai:lr_fb#1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "openai",
+            "native_model": "gpt-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "logical_request_id": "lr_fb",
+            "attempt_id": "fb_1",
+            "requested_model": "auto",
+            "success": true,
+            "outcome": "success",
+            "http_status": 200,
+            "input_tokens": 700,
+            "output_tokens": 210,
+            "routing": {
+              "attempt_index": 1,
+              "fallback_from": "claude-opus-4-6",
+              "fallback_trigger": "overloaded"
+            },
+            "ts_completed": "2026-07-10T12:00:03Z"
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 2,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    },
+    {
+      "name": "failed_attempt_zero_tokens",
+      "provider": "openai",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "openai:resp_fail_1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "openai",
+            "native_model": "gpt-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": false,
+            "outcome": "error",
+            "http_status": 500
+          }
+        ]
+      },
+      "expected_response": {
+        "accepted": 1,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "corrected": 0
+      }
+    }
+  ],
+  "invalid_batches": [
+    {
+      "name": "content_prompt_in_extra",
+      "reason": "a prompt under a provider namespace in extra is rejected content",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "conf:extra_prompt",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "extra": {
+              "anthropic": {
+                "prompt": "user secret"
+              }
+            }
+          }
+        ]
+      },
+      "expected_status": 422,
+      "expected_errors": [
+        {
+          "index": 0,
+          "code": "content_key",
+          "field_path_contains": "prompt"
+        }
+      ]
+    },
+    {
+      "name": "content_file_path_in_extra",
+      "reason": "a file path anywhere in extra is rejected content",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "conf:extra_path",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "extra": {
+              "gateway": {
+                "file_path": "/home/u/secret.py"
+              }
+            }
+          }
+        ]
+      },
+      "expected_status": 422,
+      "expected_errors": [
+        {
+          "index": 0,
+          "code": "content_key",
+          "field_path_contains": "path"
+        }
+      ]
+    },
+    {
+      "name": "content_code_snippet_in_extra",
+      "reason": "a code snippet nested in extra is rejected content",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "conf:extra_code",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "extra": {
+              "anthropic": {
+                "detail": {
+                  "snippet": "def f(): return secret"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expected_status": 422,
+      "expected_errors": [
+        {
+          "index": 0,
+          "code": "content_key",
+          "field_path_contains": "snippet"
+        }
+      ]
+    },
+    {
+      "name": "disallowed_extra_namespace",
+      "reason": "an unknown top-level extra namespace is rejected",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "conf:extra_ns",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "extra": {
+              "exfil": {
+                "k": "v"
+              }
+            }
+          }
+        ]
+      },
+      "expected_status": 422,
+      "expected_errors": [
+        {
+          "index": 0,
+          "code": "extra_namespace_not_allowed",
+          "field_path_contains": "exfil"
+        }
+      ]
+    },
+    {
+      "name": "content_key_in_dimensions",
+      "reason": "a non-allowlisted (content-like) dimension key is rejected",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "conf:dim",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "dimensions": {
+              "prompt_text": "the user asked ..."
+            }
+          }
+        ]
+      },
+      "expected_status": 422,
+      "expected_errors": [
+        {
+          "index": 0,
+          "code": "dimension_not_allowed",
+          "field_path_contains": "prompt_text"
+        }
+      ]
+    },
+    {
+      "name": "tool_histogram_when_disabled",
+      "reason": "a tool-name histogram is rejected while tool names are disabled",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "conf:tools",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "tool_histogram": {
+              "run_bash": 3
+            }
+          }
+        ]
+      },
+      "expected_status": 422,
+      "expected_errors": [
+        {
+          "index": 0,
+          "code": "tool_names_disabled",
+          "field_path_contains": "tool_histogram"
+        }
+      ]
+    },
+    {
+      "name": "poison_event_surfaces_its_index",
+      "reason": "one content-bearing event among valid ones surfaces its batch index",
+      "request": {
+        "schema_version": 2,
+        "events": [
+          {
+            "schema_version": 2,
+            "event_id": "conf:poison0",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5
+          },
+          {
+            "schema_version": 2,
+            "event_id": "conf:poison1",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "extra": {
+              "anthropic": {
+                "message": "hi there"
+              }
+            }
+          },
+          {
+            "schema_version": 2,
+            "event_id": "conf:poison2",
+            "event_kind": "attempt",
+            "finality": "final",
+            "sequence": 1,
+            "provider": "anthropic",
+            "native_model": "claude-sonnet-4-5",
+            "ts_started": "2026-07-10T12:00:00Z",
+            "source": {
+              "type": "gateway",
+              "name": "aiProviderProxy",
+              "version": "1.4.0"
+            },
+            "success": true,
+            "outcome": "success",
+            "input_tokens": 10,
+            "output_tokens": 5
+          }
+        ]
+      },
+      "expected_status": 422,
+      "expected_errors": [
+        {
+          "index": 1,
+          "code": "content_key",
+          "field_path_contains": "message"
+        }
+      ]
+    }
+  ]
+}
