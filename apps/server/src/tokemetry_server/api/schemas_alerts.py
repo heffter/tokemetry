@@ -27,11 +27,18 @@ class AlertFiltersIn(BaseModel):
 
 
 class AlertConfigIn(BaseModel):
-    """An alert rule's config object: currently just optional dimension filters."""
+    """An alert rule's config object: dimension filters and window settings.
+
+    ``window_minutes`` and ``min_samples`` tune the sliding-window reliability
+    kinds (``failure_rate``, ``latency_p95``, ``fallback_rate``); other kinds
+    ignore them. Both are optional and fall back to per-kind defaults.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     filters: AlertFiltersIn = Field(default_factory=AlertFiltersIn)
+    window_minutes: int | None = Field(default=None, ge=1)
+    min_samples: int | None = Field(default=None, ge=1)
 
 
 class AlertRuleIn(BaseModel):

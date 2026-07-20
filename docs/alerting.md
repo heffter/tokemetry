@@ -15,6 +15,9 @@ default 60) and on demand via the API. Each firing is recorded in
 | `stale_source` | a reporting source has not ingested within the threshold | minutes (default: the source type's staleness threshold, e.g. 30 for collectors, 10 for gateways; critical at 4x) |
 | `unpriced_events` | active costs in the last day are unpriced or partially priced | event count (warn default 1, crit 100) |
 | `unknown_model` | events in the last day used a model the registry does not know | event count (warn default 1, crit 25) |
+| `failure_rate` | the failed-attempt share in the window crosses the threshold | percent (warn default 10, crit 25) |
+| `latency_p95` | the p95 of `latency_ms` in the window crosses the threshold | milliseconds (warn default 10000, crit 30000) |
+| `fallback_rate` | the share of logical requests that fell back crosses the threshold | percent (warn default 10, crit 25) |
 
 Severity is derived (for example `limit_pct` is `warning`, or `critical` at
 95%+). Rules are stored in `alert_rules`; their logic is selected by `kind`.
@@ -26,6 +29,16 @@ recognize (lifecycle `unknown`, or never registered) is *unknown*. Both honor
 dimension filters, name the top offending `(provider, model)` pairs in their
 content-free context, and report the open data-quality record count for the gap
 they summarize.
+
+`failure_rate`, `latency_p95`, and `fallback_rate` are the sliding-window
+reliability kinds. They read final attempt events (`fallback_rate` reads
+logical requests, so a multi-attempt fallback counts once) over the last
+`config.window_minutes` (default 60) and stay silent below
+`config.min_samples` (default 20) so a tiny window cannot fire on noise. Their
+context records the measured value, the sample size, and the scope.
+`failure_rate` and `latency_p95` honor all dimension filters; `fallback_rate`
+honors provider and model only (a logical request carries no
+source/project/environment).
 
 `stale_source` fires **one alert per source**, each tracked independently: a
 source re-fires only after its own cooldown and sends its own recovery notice

@@ -7,11 +7,12 @@ data (rows in ``alert_rules``); this module is the logic they select.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
@@ -49,6 +50,14 @@ _UNPRICED_STATUSES = ("unpriced", "partial")
 #: Registry lifecycles that count as a *known* model; anything else (including a
 #: missing registry row) is treated as unknown for the ``unknown_model`` alert.
 _KNOWN_LIFECYCLES = ("active", "deprecated", "retired")
+
+#: Default sliding window (minutes) for the reliability kinds (failure_rate,
+#: latency_p95, fallback_rate) when a rule sets no ``window_minutes``.
+_RELIABILITY_WINDOW_MINUTES = 60
+
+#: Default minimum sample size below which a reliability kind stays silent, so a
+#: single failure in a tiny window does not fire. Overridable via ``min_samples``.
+_RELIABILITY_MIN_SAMPLES = 20
 
 
 async def _ledger_burn_rate(
@@ -480,6 +489,174 @@ async def evaluate_stale_sources(
     return findings
 
 
+def _config_int(rule: models.AlertRule, key: str, default: int) -> int:
+    """Read a positive integer from a rule's config, or a default.
+
+    The API validates ``window_minutes``/``min_samples`` as ``>= 1``; this guards
+    against hand-written rows by falling back to the default on anything invalid.
+    """
+    raw = (rule.config or {}).get(key)
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        return default
+    return raw
+
+
+def _percentile(values: list[int], pct: float) -> float:
+    """Nearest-rank percentile of ``values`` (assumed non-empty), 0 <= pct <= 100."""
+    ordered = sorted(values)
+    rank = max(1, math.ceil(pct / 100.0 * len(ordered)))
+    return float(ordered[min(rank, len(ordered)) - 1])
+
+
+async def _failure_rate(
+    session: AsyncSession, rule: models.AlertRule, now: datetime
+) -> AlertFinding | None:
+    """Fire when the failed-attempt share crosses a warn/crit percentage (FR-ALERT-007).
+
+    Over final attempts in the sliding window, ``failed / total`` as a percent.
+    Stays silent below the minimum sample size so a tiny window cannot fire.
+    """
+    warn, crit = _warn_crit(rule, 10.0, 25.0)
+    filters = filters_from_config(rule.config)
+    window = _config_int(rule, "window_minutes", _RELIABILITY_WINDOW_MINUTES)
+    min_samples = _config_int(rule, "min_samples", _RELIABILITY_MIN_SAMPLES)
+    since = now - timedelta(minutes=window)
+    event = models.UsageEventV2
+    statement = select(
+        func.count().label("total"),
+        func.sum(case((event.success.is_(False), 1), else_=0)).label("failed"),
+    ).where(
+        event.event_kind == "attempt",
+        event.finality == "final",
+        event.ts_started >= since,
+    )
+    statement = apply_ledger_filters(statement, filters)
+    row = (await session.execute(statement)).one()
+    total = int(row.total or 0)
+    if total < min_samples:
+        return None
+    failed = int(row.failed or 0)
+    pct = 100.0 * failed / total
+    severity = _severity_for(pct, warn, crit)
+    if severity is None:
+        return None
+    crossed = crit if severity == "critical" else warn
+    return AlertFinding(
+        severity=severity,
+        title="High failure rate",
+        body=(
+            f"{pct:.1f}% of {total} attempts in the last {window}m failed "
+            f"(threshold {crossed:.0f}%)."
+        ),
+        context={
+            "failure_rate_pct": round(pct, 2),
+            "failed": failed,
+            "sample_size": total,
+            "window_minutes": window,
+            "scoped_dimensions": filters.scoped_dimensions(),
+        },
+    )
+
+
+async def _latency_p95(
+    session: AsyncSession, rule: models.AlertRule, now: datetime
+) -> AlertFinding | None:
+    """Fire when the p95 of ``latency_ms`` crosses a warn/crit threshold (FR-ALERT-007).
+
+    Percentile is over final attempts in the window that recorded a latency;
+    stays silent below the minimum sample size.
+    """
+    warn, crit = _warn_crit(rule, 10_000.0, 30_000.0)
+    filters = filters_from_config(rule.config)
+    window = _config_int(rule, "window_minutes", _RELIABILITY_WINDOW_MINUTES)
+    min_samples = _config_int(rule, "min_samples", _RELIABILITY_MIN_SAMPLES)
+    since = now - timedelta(minutes=window)
+    event = models.UsageEventV2
+    statement = select(event.latency_ms).where(
+        event.event_kind == "attempt",
+        event.finality == "final",
+        event.ts_started >= since,
+        event.latency_ms.is_not(None),
+    )
+    statement = apply_ledger_filters(statement, filters)
+    values = [int(v) for (v,) in await session.execute(statement)]
+    if len(values) < min_samples:
+        return None
+    p95 = _percentile(values, 95.0)
+    severity = _severity_for(p95, warn, crit)
+    if severity is None:
+        return None
+    crossed = crit if severity == "critical" else warn
+    return AlertFinding(
+        severity=severity,
+        title="High latency (p95)",
+        body=(
+            f"p95 latency {p95:.0f}ms over {len(values)} attempts in the last "
+            f"{window}m (threshold {crossed:.0f}ms)."
+        ),
+        context={
+            "latency_p95_ms": p95,
+            "sample_size": len(values),
+            "window_minutes": window,
+            "scoped_dimensions": filters.scoped_dimensions(),
+        },
+    )
+
+
+async def _fallback_rate(
+    session: AsyncSession, rule: models.AlertRule, now: datetime
+) -> AlertFinding | None:
+    """Fire when the share of logical requests that fell back crosses a threshold.
+
+    The denominator is *logical requests* (not attempts) so a multi-attempt
+    fallback is counted once (FR-ALERT-008). Only the provider and model
+    dimensions apply -- a logical request carries no source/project/environment
+    -- so those filters are recorded as scope, the rest ignored.
+    """
+    warn, crit = _warn_crit(rule, 10.0, 25.0)
+    filters = filters_from_config(rule.config)
+    window = _config_int(rule, "window_minutes", _RELIABILITY_WINDOW_MINUTES)
+    min_samples = _config_int(rule, "min_samples", _RELIABILITY_MIN_SAMPLES)
+    since = now - timedelta(minutes=window)
+    lr = models.LogicalRequest
+    statement = select(
+        func.count().label("total"),
+        func.sum(case((lr.fallback_count > 0, 1), else_=0)).label("fell_back"),
+    ).where(lr.ts_last.is_not(None), lr.ts_last >= since)
+    applied: list[str] = []
+    if filters.provider:
+        statement = statement.where(lr.provider.in_(filters.provider))
+        applied.append("provider")
+    if filters.model:
+        statement = statement.where(lr.requested_model.in_(filters.model))
+        applied.append("model")
+    row = (await session.execute(statement)).one()
+    total = int(row.total or 0)
+    if total < min_samples:
+        return None
+    fell_back = int(row.fell_back or 0)
+    pct = 100.0 * fell_back / total
+    severity = _severity_for(pct, warn, crit)
+    if severity is None:
+        return None
+    crossed = crit if severity == "critical" else warn
+    return AlertFinding(
+        severity=severity,
+        title="High fallback rate",
+        body=(
+            f"{pct:.1f}% of {total} logical requests in the last {window}m fell "
+            f"back (threshold {crossed:.0f}%)."
+        ),
+        context={
+            "fallback_rate_pct": round(pct, 2),
+            "fell_back": fell_back,
+            "sample_size": total,
+            "window_minutes": window,
+            "scoped_dimensions": applied,
+        },
+    )
+
+
 #: Rule kind to single-finding evaluator.
 EVALUATORS = {
     "limit_pct": _limit_pct,
@@ -488,6 +665,9 @@ EVALUATORS = {
     "collector_stale": _collector_stale,
     "unpriced_events": _unpriced_events,
     "unknown_model": _unknown_model,
+    "failure_rate": _failure_rate,
+    "latency_p95": _latency_p95,
+    "fallback_rate": _fallback_rate,
 }
 
 #: Rule kinds that fire one finding per entity, tracked with per-entity state.

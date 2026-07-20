@@ -3236,13 +3236,14 @@
             "id": 4,
             "title": "Failure-rate, latency, and fallback-rate alert kinds",
             "description": "Operational reliability alerts from attempt outcomes and routing.",
-            "details": "Add three evaluators over final attempt events in a sliding window: failure_rate (failed outcome share versus threshold, minimum sample size guard to avoid firing on tiny volumes), latency_p95 (p95 of latency_ms versus threshold milliseconds), and fallback_rate (share of logical requests with fallback_count > 0 versus threshold) per FR-ALERT-007/008; each scoped by the dimension filters so per-provider or per-model reliability rules are expressible (US-006 operational side); context carries the measured value, sample size, and scope. Window length and minimum samples configurable per rule via config. Test strategy: unit tests for each metric computation including empty and below-minimum windows, filter scoping, warn and crit transitions, and resolve behavior; property test that fallback_rate uses logical requests not attempts as denominator (no double counting); integration smoke through the engine.",
-            "status": "pending",
+            "details": "Add three evaluators over final attempt events in a sliding window: failure_rate (failed outcome share versus threshold, minimum sample size guard to avoid firing on tiny volumes), latency_p95 (p95 of latency_ms versus threshold milliseconds), and fallback_rate (share of logical requests with fallback_count > 0 versus threshold) per FR-ALERT-007/008; each scoped by the dimension filters so per-provider or per-model reliability rules are expressible (US-006 operational side); context carries the measured value, sample size, and scope. Window length and minimum samples configurable per rule via config. Test strategy: unit tests for each metric computation including empty and below-minimum windows, filter scoping, warn and crit transitions, and resolve behavior; property test that fallback_rate uses logical requests not attempts as denominator (no double counting); integration smoke through the engine.\n<info added on 2026-07-20T15:49:59.233Z>\nImplemented the three sliding-window reliability alert kinds (FR-ALERT-007/008).\n\nfailure_rate: over final attempts in the window, 100*failed/total as a percent (failed = success IS FALSE via func.sum(case(...))), warn/crit percent thresholds (defaults 10/25). Silent below min_samples. Honors all five dimension filters (apply_ledger_filters). Context: failure_rate_pct, failed, sample_size, window_minutes, scoped_dimensions.\n\nlatency_p95: p95 of latency_ms over final attempts in the window that recorded a latency (latency_ms IS NOT NULL). Values fetched and p95 computed in Python (_percentile, nearest-rank: rank=ceil(pct/100*n)); no portable SQL percentile. warn/crit in ms (defaults 10000/30000). Silent below min_samples. All five filters. Context: latency_p95_ms, sample_size, window_minutes, scoped_dimensions.\n\nfallback_rate: denominator is LOGICAL REQUESTS not attempts (FR-ALERT-008) - counts logical_requests with fallback_count>0 over total in window (ts_last within window), so a multi-attempt fallback counts once. warn/crit percent (defaults 10/25). Only provider (lr.provider) and model (lr.requested_model) filters apply - a logical request carries no source/project/environment - recorded in scoped_dimensions as only the applied dims. Context: fallback_rate_pct, fell_back, sample_size, window_minutes, scoped_dimensions.\n\nConfig: window length and min samples are per-rule via config.window_minutes / config.min_samples (defaults 60m / 20 samples). Extended AlertConfigIn (schemas_alerts.py) with window_minutes/min_samples (int|None, ge=1); other kinds ignore them. _config_int(rule, key, default) reads them defensively (rejects bool/non-int/<1). All three registered in EVALUATORS (auto-valid via ALL_EVALUATOR_KINDS).\n\nTests (test_reliability_alerts.py, 17): failure warn/crit/empty/below-min/provider-filter/min_samples-override; latency above-threshold, percentile-not-max property (19x1000 + 1x100000 -> p95=1000), null-latency+min-samples; fallback denominator-is-requests property, warn, below-min, provider-filter, out-of-window; engine smoke fires+records; API accepts window config + rejects window_minutes=0 (422). Reliability build UsageEventV2 rows directly since make_v1_event hardcodes success=True.\n\nGates: reliability+api+filters 36 passed; remaining alert suites 49 passed; ruff clean, mypy strict clean (7 files). No dep/lockfile/secret changes (trivy unchanged; full scan at 68.6).\n</info added on 2026-07-20T15:49:59.233Z>",
+            "status": "done",
             "dependencies": [
               "68.1"
             ],
             "parentTaskId": 68,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T15:50:19.880Z"
           },
           {
             "id": 5,
@@ -3272,7 +3273,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T15:38:02.335Z"
+        "updatedAt": "2026-07-20T15:50:19.880Z"
       },
       {
         "id": "69",
@@ -3685,7 +3686,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T15:38:02.336Z",
+      "lastModified": "2026-07-20T15:50:19.881Z",
       "taskCount": 77,
       "completedCount": 69,
       "tags": [
