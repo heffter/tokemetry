@@ -2831,13 +2831,14 @@
             "id": 2,
             "title": "TypeScript client package generated from OpenAPI",
             "description": "packages/clients/typescript with batching and retry wrapper.",
-            "details": "Set up packages/clients/typescript: types generated from the server OpenAPI document (openapi-typescript) in a build step, plus a small hand-written wrapper class TokemetryClient (fetch-based, no runtime dependencies beyond the platform) providing bearer auth, ingestEvents with automatic batch splitting by count and bytes, retry with exponential backoff and jitter on 429 and 5xx honoring Retry-After, fail-fast pause signaling on 401, structured validation-error surfacing for 400 and 422 so callers can implement poison isolation, and a validate() helper hitting the validate endpoint (decision D-012; companion FR-TOK-011..016 client side). Strict TypeScript, ESLint per repo conventions, vitest tests, 2-space indent per code style. Package private-publishable (npm pack) so the proxy repo can consume it or vendor the generated types. Regeneration script wired into CI so schema drift fails the build. Test strategy: vitest unit tests with a mocked fetch covering batch splitting boundaries, backoff schedule determinism (injected RNG), 401 pause behavior, error-shape parsing against the 62.6 error snapshot, and gzip encoding when available; a smoke test against a live local server in the integration harness of subtask 4.",
-            "status": "pending",
+            "details": "Set up packages/clients/typescript: types generated from the server OpenAPI document (openapi-typescript) in a build step, plus a small hand-written wrapper class TokemetryClient (fetch-based, no runtime dependencies beyond the platform) providing bearer auth, ingestEvents with automatic batch splitting by count and bytes, retry with exponential backoff and jitter on 429 and 5xx honoring Retry-After, fail-fast pause signaling on 401, structured validation-error surfacing for 400 and 422 so callers can implement poison isolation, and a validate() helper hitting the validate endpoint (decision D-012; companion FR-TOK-011..016 client side). Strict TypeScript, ESLint per repo conventions, vitest tests, 2-space indent per code style. Package private-publishable (npm pack) so the proxy repo can consume it or vendor the generated types. Regeneration script wired into CI so schema drift fails the build. Test strategy: vitest unit tests with a mocked fetch covering batch splitting boundaries, backoff schedule determinism (injected RNG), 401 pause behavior, error-shape parsing against the 62.6 error snapshot, and gzip encoding when available; a smoke test against a live local server in the integration harness of subtask 4.\n<info added on 2026-07-20T08:16:21.724Z>\nTypeScript client package @tokemetry/client (packages/clients/typescript), generated from OpenAPI.\n\n- packages/clients/generate_openapi.py: emits packages/clients/openapi.json from create_app().openapi(), augmented with the UsageEventV2 + LimitSnapshotV2 wire schemas injected into components.schemas (the ingest endpoints validate bodies manually so FastAPI omits those input schemas); lifts Pydantic $defs into components and rewrites all $defs refs (incl nested, e.g. SourceRef.type->SourceType) so openapi-typescript resolves them. 61 paths.\n- src/generated.ts: openapi-typescript output (committed; regen via npm run generate).\n- src/client.ts: hand-written IngestClient over the generated UsageEventV2 type (D-012). Auth (bearer ingest:events), batching (100 events / 256 KiB), and the resilient submit policy: retry with full-jitter exponential backoff on 429/5xx (IngestRetryError when exhausted), PAUSE on 401 (IngestAuthError, no retry), and poison-event isolation on 400/422 by BISECTING a rejected batch so a single malformed event is set aside while the good ones ingest. Injectable fetch/sleep/random for tests.\n- src/client.test.ts (8 vitest): batching by size + envelope/bearer shape; retry on 429 + 500; exhausted-retry error; 401 pause without retry; single poison isolation on 422; batch bisection isolating the poison and accepting the rest.\n\nvitest 8 passed; tsc --noEmit clean. node_modules gitignored.\n</info added on 2026-07-20T08:16:21.724Z>",
+            "status": "done",
             "dependencies": [
               "65.1"
             ],
             "parentTaskId": 65,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T08:16:44.819Z"
           },
           {
             "id": 3,
@@ -2902,7 +2903,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T08:07:28.446Z"
+        "updatedAt": "2026-07-20T08:16:44.819Z"
       },
       {
         "id": "66",
@@ -3661,7 +3662,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T08:07:28.447Z",
+      "lastModified": "2026-07-20T08:16:44.820Z",
       "taskCount": 76,
       "completedCount": 68,
       "tags": [
