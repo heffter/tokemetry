@@ -2857,14 +2857,15 @@
             "id": 4,
             "title": "Integration test harness with mock proxy exporter fixtures",
             "description": "Compose-based test rig replaying realistic proxy exports for all three providers.",
-            "details": "Build the integration rig under apps/server/tests/integration/proxy_harness/: a fixture library of realistic proxy export batches for anthropic (cache read plus short and long writes, streaming snapshot sequence ending in final), openai (cached input, reasoning tokens, web_search_request billable unit, service tier), and zai (GLM ids, cached input), each with logical requests spanning multiple attempts (retry after 429, fallback to a second provider with fallback_from and fallback_trigger set), client-cancelled attempts with partial usage, and failed attempts with zero tokens (FR-EVENT-024). A replay driver posts these through the real HTTP surface using the Python client with an ingest-only token. Optionally a docker compose profile (deploy/compose.test.yml) running server plus Postgres for the Postgres leg; SQLite leg runs in-process. The fixtures are the shared truth also exported for the proxy repository (subtask 7). Test strategy: the harness itself ships with assertions that every fixture batch ingests with expected accepted/updated counts and that re-running the driver is a pure no-op (replay safety, AC-003); fixture JSON validated against the published schema from 62.12.",
-            "status": "pending",
+            "details": "Build the integration rig under apps/server/tests/integration/proxy_harness/: a fixture library of realistic proxy export batches for anthropic (cache read plus short and long writes, streaming snapshot sequence ending in final), openai (cached input, reasoning tokens, web_search_request billable unit, service tier), and zai (GLM ids, cached input), each with logical requests spanning multiple attempts (retry after 429, fallback to a second provider with fallback_from and fallback_trigger set), client-cancelled attempts with partial usage, and failed attempts with zero tokens (FR-EVENT-024). A replay driver posts these through the real HTTP surface using the Python client with an ingest-only token. Optionally a docker compose profile (deploy/compose.test.yml) running server plus Postgres for the Postgres leg; SQLite leg runs in-process. The fixtures are the shared truth also exported for the proxy repository (subtask 7). Test strategy: the harness itself ships with assertions that every fixture batch ingests with expected accepted/updated counts and that re-running the driver is a pure no-op (replay safety, AC-003); fixture JSON validated against the published schema from 62.12.\n<info added on 2026-07-20T09:09:19.866Z>\nIntegration harness complete at apps/server/tests/integration/proxy_harness/ (fixtures.py, driver.py, conftest.py, test_proxy_harness.py, __init__.py). 21 tests pass.\n\nFixture library (fixtures.py): 9 realistic proxy-export Scenario batches as plain wire dicts (the shared truth exported for the proxy repo via as_json(), subtask 7 consumes it), each paired with expected accepted/updated/duplicate/rejected/rows. Covers: anthropic cache read + short/long writes; anthropic streaming snapshot sequence (snap seq1->snap seq2->final seq3, one row, accepted=1 updated=2); anthropic retry-after-429 (two attempts, two rows); anthropic client-cancelled partial; openai cached-input + reasoning_tokens + service_tier=priority; openai web_search_request billable unit; zai GLM cached input; cross-provider fallback (anthropic 529 -> openai with routing.fallback_from/fallback_trigger); failed attempt with zero tokens (FR-EVENT-024).\n\nReplay driver (driver.py): drives the REAL Python client (tokemetry_client.IngestClient) against the in-process app -- the client's httpx transport IS the test TestClient over ASGI, so events traverse POST /api/v2/ingest/events exactly as a proxy would. Mints an ingest-only token (scope ingest:events) via POST /api/v1/tokens. conftest.py puts packages/clients/python/src on sys.path (client is a standalone package, not a workspace member). post_batch() helper posts raw dicts to read the server's full count breakdown.\n\nTests: (1) every fixture event conforms to the published usage_event_json_schema (62.12) -- validates + only-known-properties; (2) each scenario ingests with its exact expected count breakdown + row footprint (direct HTTP); (3) each scenario replay through the Python client is a no-op (AC-003): first run accepted==expected & rows==expected, second run accepted==0 & rows unchanged; (4) full-corpus idempotency; (5) JSON export round-trips.\n\nGOTCHA / client bug found and fixed: the harness caught a real bug in the 65.3 Python client. IngestClient serialized events with model_dump(mode='json') including ALL defaults, emitting dimensions:null (and other None optionals). The server types dimensions as a dict defaulting to {} and 422s an explicit null, so EVERY event was rejected+bisected to poison (accepted=0). Fixed by serializing with exclude_none=True (new _event_json helper in client.py, used by _payload and _iter_batches) so unset optionals are omitted and the server applies its defaults. The TS client is unaffected (JS objects don't materialize defaults). Client unit tests (11) still pass; harness (21) green. ruff clean, mypy strict clean on harness + client (only generated models.py retains its gate-excluded 9 errors).\n</info added on 2026-07-20T09:09:19.866Z>",
+            "status": "done",
             "dependencies": [
               "65.2",
               "65.3"
             ],
             "parentTaskId": 65,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T09:10:08.073Z"
           },
           {
             "id": 5,
@@ -2904,7 +2905,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T08:48:49.283Z"
+        "updatedAt": "2026-07-20T09:10:08.073Z"
       },
       {
         "id": "66",
@@ -3663,7 +3664,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T08:48:49.284Z",
+      "lastModified": "2026-07-20T09:10:08.075Z",
       "taskCount": 76,
       "completedCount": 68,
       "tags": [

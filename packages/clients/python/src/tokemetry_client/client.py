@@ -82,6 +82,16 @@ def _classify(status: int, batch_len: int) -> _Disposition:
     return _Disposition.RETRY_EXHAUSTED
 
 
+def _event_json(event: UsageEventV2) -> dict[str, object]:
+    """Serialize one event to its wire form.
+
+    ``exclude_none`` drops unset optional fields so the server applies its own
+    defaults; sending an explicit ``null`` for a field the server defaults to a
+    container (e.g. ``dimensions``) would be rejected.
+    """
+    return event.model_dump(mode="json", exclude_none=True)
+
+
 def _iter_batches(
     events: list[UsageEventV2], batch_size: int, max_batch_bytes: int
 ) -> Iterator[list[UsageEventV2]]:
@@ -89,7 +99,7 @@ def _iter_batches(
     current: list[UsageEventV2] = []
     size = 0
     for event in events:
-        event_bytes = len(json.dumps(event.model_dump(mode="json"))) + 1
+        event_bytes = len(json.dumps(_event_json(event))) + 1
         if current and (
             len(current) >= batch_size or size + event_bytes > max_batch_bytes
         ):
@@ -105,7 +115,7 @@ def _payload(batch: list[UsageEventV2]) -> dict[str, object]:
     """Build the request envelope for a batch."""
     return {
         "schema_version": 2,
-        "events": [event.model_dump(mode="json") for event in batch],
+        "events": [_event_json(event) for event in batch],
     }
 
 
