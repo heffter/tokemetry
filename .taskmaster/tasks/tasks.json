@@ -3223,13 +3223,14 @@
             "id": 3,
             "title": "Unpriced-event and unknown-model alert kinds",
             "description": "Accounting-gap alerts on v2 data.",
-            "details": "Add evaluator unpriced_events: fires when the count (or cost-bearing share) of computed_costs rows with status unpriced or partial within the evaluation window crosses thresholds (FR-ALERT-004), context listing the top offending (provider, model) pairs. Rework the existing unknown_model evaluator onto v2 sources: unknown-model observations from data_quality_events and registry lifecycle unknown instead of the NULL-cost heuristic (FR-ALERT-005), preserving the existing rule kind name so configured rules keep working. Both respect dimension filters, and both link into the data-quality records they summarize. Test strategy: unit tests with seeded unpriced and partial cost fixtures across providers, threshold and filter behavior, top-offender ordering; migration-behavior test that a pre-existing unknown_model rule fires equivalently on the reworked source; content-free context assertions.",
-            "status": "pending",
+            "details": "Add evaluator unpriced_events: fires when the count (or cost-bearing share) of computed_costs rows with status unpriced or partial within the evaluation window crosses thresholds (FR-ALERT-004), context listing the top offending (provider, model) pairs. Rework the existing unknown_model evaluator onto v2 sources: unknown-model observations from data_quality_events and registry lifecycle unknown instead of the NULL-cost heuristic (FR-ALERT-005), preserving the existing rule kind name so configured rules keep working. Both respect dimension filters, and both link into the data-quality records they summarize. Test strategy: unit tests with seeded unpriced and partial cost fixtures across providers, threshold and filter behavior, top-offender ordering; migration-behavior test that a pre-existing unknown_model rule fires equivalently on the reworked source; content-free context assertions.\n<info added on 2026-07-20T15:37:31.425Z>\nImplemented. unpriced_events evaluator (new) counts computed_costs rows with cost_status in (unpriced, partial) over trailing 1-day window, joined to usage_events_v2, applying all five dimension filters via apply_ledger_filters. Warn/crit thresholds default 1/100. Context: unpriced_events total, top_offenders (top 5 provider/model/count by count desc), open_data_quality_events count as link, scoped_dimensions. unknown_model evaluator reworked from NULL-cost heuristic to model registry lifecycle signal: ledger events LEFT JOIN models on (provider, native_model); event counts as unknown when no registry row exists OR lifecycle NOT IN (active, deprecated, retired). Cleanly separates unknown models from known-but-unpriced (now unpriced_events). Preserves rule kind name for backward compatibility; applies all five dimension filters; links open unknown_model DQ count. Context key renamed unpriced_events -> unknown_model_events (3 assertions updated in test_alert_filters.py). Shared helpers: _top_offenders(counts) content-free catalog identifiers, _open_dq_count(session, kind). Constants: _ACCOUNTING_WINDOW_DAYS, _TOP_OFFENDERS, _UNPRICED_STATUSES, _KNOWN_LIFECYCLES. Test suite test_accounting_alerts.py (15 tests): unpriced fires on unpriced+partial, excludes priced/estimated, count thresholds warn/crit, provider filter, top-offender ordering, open-DQ link; unknown_model fires for unregistered and lifecycle=unknown, silent for active/deprecated/retired including known-but-unpriced, provider filter, top-offenders+DQ link, pre-existing config-less rule migration behavior, content-free context exact key set. docs/alerting.md updated with both rows plus accounting-gap distinction note. Gates: 33 alert suite tests passed, 54 adjacent regression tests passed/1 skipped, ruff clean, mypy strict clean (6 files). No dependency/lockfile/secret changes.\n</info added on 2026-07-20T15:37:31.425Z>",
+            "status": "done",
             "dependencies": [
               "68.1"
             ],
             "parentTaskId": 68,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T15:38:02.335Z"
           },
           {
             "id": 4,
@@ -3271,7 +3272,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T15:20:05.400Z"
+        "updatedAt": "2026-07-20T15:38:02.335Z"
       },
       {
         "id": "69",
@@ -3684,7 +3685,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T15:20:05.401Z",
+      "lastModified": "2026-07-20T15:38:02.336Z",
       "taskCount": 77,
       "completedCount": 69,
       "tags": [

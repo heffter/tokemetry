@@ -121,7 +121,7 @@ async def test_unknown_model_filters_by_environment(
         _NOW,
     )
     assert finding is not None
-    assert finding.context["unpriced_events"] == 1
+    assert finding.context["unknown_model_events"] == 1
     assert finding.context["scoped_dimensions"] == ["environment"]
 
 
@@ -142,7 +142,7 @@ async def test_unknown_model_filters_by_source(async_session: AsyncSession) -> N
         _NOW,
     )
     assert finding is not None
-    assert finding.context["unpriced_events"] == 1
+    assert finding.context["unknown_model_events"] == 1
 
 
 async def test_unfiltered_unknown_model_counts_all(async_session: AsyncSession) -> None:
@@ -151,7 +151,7 @@ async def test_unfiltered_unknown_model_counts_all(async_session: AsyncSession) 
     await async_session.commit()
     finding = await evaluate_rule(async_session, _rule("unknown_model"), _NOW)
     assert finding is not None
-    assert finding.context["unpriced_events"] == 2
+    assert finding.context["unknown_model_events"] == 2
     assert finding.context["scoped_dimensions"] == []
 
 

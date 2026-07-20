@@ -13,10 +13,19 @@ default 60) and on demand via the API. Each firing is recorded in
 | `burn_rate` | token burn rate exceeds the threshold | tokens/min (default 5000) |
 | `collector_stale` | a machine has not reported within the threshold | minutes (default 30) |
 | `stale_source` | a reporting source has not ingested within the threshold | minutes (default: the source type's staleness threshold, e.g. 30 for collectors, 10 for gateways; critical at 4x) |
-| `unknown_model` | events in the last day could not be priced | — |
+| `unpriced_events` | active costs in the last day are unpriced or partially priced | event count (warn default 1, crit 100) |
+| `unknown_model` | events in the last day used a model the registry does not know | event count (warn default 1, crit 25) |
 
 Severity is derived (for example `limit_pct` is `warning`, or `critical` at
 95%+). Rules are stored in `alert_rules`; their logic is selected by `kind`.
+
+`unpriced_events` and `unknown_model` are the accounting-gap alerts and are
+distinct: a **known** model that merely lacks a rate card is *unpriced* (its
+computed cost is `unpriced`/`partial`), while a model the registry does not
+recognize (lifecycle `unknown`, or never registered) is *unknown*. Both honor
+dimension filters, name the top offending `(provider, model)` pairs in their
+content-free context, and report the open data-quality record count for the gap
+they summarize.
 
 `stale_source` fires **one alert per source**, each tracked independently: a
 source re-fires only after its own cooldown and sends its own recovery notice

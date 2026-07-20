@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
@@ -34,6 +34,21 @@ _BURN_RATE_WINDOW_MINUTES = 60
 #: ``stale_source`` rule sets no explicit ``crit_threshold`` (mirrors the
 #: ``collector_stale`` default ratio of 30 -> 120 minutes).
 _STALE_CRIT_MULTIPLE = 4.0
+
+#: Trailing window (days) the accounting-gap evaluators (``unpriced_events``,
+#: ``unknown_model``) scan for recent gaps.
+_ACCOUNTING_WINDOW_DAYS = 1
+
+#: How many top offending (provider, model) pairs an accounting alert names.
+_TOP_OFFENDERS = 5
+
+#: Cost statuses that mean an event still lacks a full price (mirrors
+#: services.pricing_admin._UNPRICED_STATUSES).
+_UNPRICED_STATUSES = ("unpriced", "partial")
+
+#: Registry lifecycles that count as a *known* model; anything else (including a
+#: missing registry row) is treated as unknown for the ``unknown_model`` alert.
+_KNOWN_LIFECYCLES = ("active", "deprecated", "retired")
 
 
 async def _ledger_burn_rate(
@@ -231,36 +246,140 @@ async def _collector_stale(
     )
 
 
+def _top_offenders(counts: dict[tuple[str, str], int]) -> list[dict[str, Any]]:
+    """The top offending (provider, model) pairs by event count, content-free.
+
+    Provider and model are catalog identifiers (never usage content), so an
+    operator can see which models to price without exposing any event content.
+    """
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    return [
+        {"provider": provider, "model": model, "count": count}
+        for (provider, model), count in ranked[:_TOP_OFFENDERS]
+    ]
+
+
+async def _open_dq_count(session: AsyncSession, kind: str) -> int:
+    """Count open (unresolved) data-quality records of ``kind`` (a link, not a scan)."""
+    dq = models.DataQualityEvent
+    statement = (
+        select(func.count())
+        .select_from(dq)
+        .where(dq.kind == kind, dq.resolved.is_(False))
+    )
+    return int((await session.execute(statement)).scalar_one())
+
+
+async def _unpriced_events(
+    session: AsyncSession, rule: models.AlertRule, now: datetime
+) -> AlertFinding | None:
+    """Fire when active costs are unpriced or partial over the window (FR-ALERT-004).
+
+    Counts ``computed_costs`` rows still marked ``unpriced`` or ``partial`` for
+    events in the trailing window, honoring the rule's dimension filters. A known
+    model that simply lacks a rate card lands here (its cost is unpriced), which
+    is distinct from an unknown model (see :func:`_unknown_model`). Context names
+    the top offending (provider, model) pairs so an operator knows what to price.
+    """
+    since = now - timedelta(days=_ACCOUNTING_WINDOW_DAYS)
+    filters = filters_from_config(rule.config)
+    warn, crit = _warn_crit(rule, 1.0, 100.0)
+    cost = models.ComputedCost
+    event = models.UsageEventV2
+    statement = (
+        select(event.provider, event.native_model, func.count().label("n"))
+        .select_from(cost)
+        .join(event, (cost.provider == event.provider) & (cost.event_id == event.event_id))
+        .where(
+            cost.active.is_(True),
+            cost.cost_status.in_(_UNPRICED_STATUSES),
+            event.ts_started >= since,
+        )
+        .group_by(event.provider, event.native_model)
+    )
+    statement = apply_ledger_filters(statement, filters)
+    counts = {
+        (row.provider, row.native_model): int(row.n)
+        for row in await session.execute(statement)
+    }
+    total = sum(counts.values())
+    severity = _severity_for(float(total), warn, crit)
+    if severity is None:
+        return None
+    crossed = crit if severity == "critical" else warn
+    return AlertFinding(
+        severity=severity,
+        title="Unpriced usage",
+        body=(
+            f"{total} events in the last {_ACCOUNTING_WINDOW_DAYS}d are unpriced or "
+            f"partially priced (threshold {crossed:.0f})."
+        ),
+        context={
+            "unpriced_events": total,
+            "top_offenders": _top_offenders(counts),
+            "open_data_quality_events": await _open_dq_count(session, "unpriced_usage"),
+            "scoped_dimensions": filters.scoped_dimensions(),
+        },
+    )
+
+
 async def _unknown_model(
     session: AsyncSession, rule: models.AlertRule, now: datetime
 ) -> AlertFinding | None:
-    """Fire when recent events could not be priced (unknown model)."""
-    since = now - timedelta(days=1)
+    """Fire when recent events used a model the registry does not know (FR-ALERT-005).
+
+    Reworked off the old NULL-cost heuristic onto the model registry's lifecycle
+    signal: an event counts when its ``(provider, native_model)`` has no registry
+    row, or a row whose ``lifecycle`` is ``unknown`` -- the same signal the
+    ``unknown_model`` data-quality records track. A known-but-unpriced model does
+    not count here (that is :func:`_unpriced_events`). Honors the rule's
+    dimension filters; context names the top offending (provider, model) pairs.
+    """
+    since = now - timedelta(days=_ACCOUNTING_WINDOW_DAYS)
     filters = filters_from_config(rule.config)
+    warn, crit = _warn_crit(rule, 1.0, 25.0)
     event = models.UsageEventV2
+    model = models.Model
     statement = (
-        select(func.count())
+        select(event.provider, event.native_model, func.count().label("n"))
         .select_from(event)
+        .outerjoin(
+            model,
+            (model.provider == event.provider)
+            & (model.native_model_id == event.native_model),
+        )
         .where(
             event.event_kind == "attempt",
             event.finality == "final",
             event.ts_started >= since,
-            event.cost_usd.is_(None),
+            or_(model.native_model_id.is_(None), model.lifecycle.notin_(_KNOWN_LIFECYCLES)),
         )
+        .group_by(event.provider, event.native_model)
     )
     statement = apply_ledger_filters(statement, filters)
-    count = int((await session.execute(statement)).scalar_one())
-    if count > 0:
-        return AlertFinding(
-            severity="warning",
-            title="Unpriced usage",
-            body=f"{count} events in the last day have no known price (new model?).",
-            context={
-                "unpriced_events": count,
-                "scoped_dimensions": filters.scoped_dimensions(),
-            },
-        )
-    return None
+    counts = {
+        (row.provider, row.native_model): int(row.n)
+        for row in await session.execute(statement)
+    }
+    total = sum(counts.values())
+    severity = _severity_for(float(total), warn, crit)
+    if severity is None:
+        return None
+    crossed = crit if severity == "critical" else warn
+    return AlertFinding(
+        severity=severity,
+        title="Unknown model",
+        body=(
+            f"{total} events in the last {_ACCOUNTING_WINDOW_DAYS}d used a model the "
+            f"registry does not know (threshold {crossed:.0f})."
+        ),
+        context={
+            "unknown_model_events": total,
+            "top_offenders": _top_offenders(counts),
+            "open_data_quality_events": await _open_dq_count(session, "unknown_model"),
+            "scoped_dimensions": filters.scoped_dimensions(),
+        },
+    )
 
 
 def _aware(moment: datetime, reference: datetime) -> datetime:
@@ -367,6 +486,7 @@ EVALUATORS = {
     "predicted_exhaustion": _predicted_exhaustion,
     "burn_rate": _burn_rate,
     "collector_stale": _collector_stale,
+    "unpriced_events": _unpriced_events,
     "unknown_model": _unknown_model,
 }
 
