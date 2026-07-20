@@ -32,6 +32,7 @@ DATA_QUALITY_KINDS = (
     "unpriced_usage",
     "limit_source_failure",
     "clock_skew",
+    "retention_rollup_mismatch",
 )
 
 

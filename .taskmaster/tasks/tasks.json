@@ -3419,13 +3419,14 @@
             "id": 2,
             "title": "Retention jobs: incremental, resumable, verified-before-delete",
             "description": "Background deletion with rollup verification and snapshot compaction.",
-            "details": "Implement the retention worker (background loop like the alert engine): per category, delete in bounded batches (configurable, default 5000 rows) oldest-first with a persisted high-water mark so interrupted runs resume without rescanning (FR-RET-002); raw attempt events are only deleted after verifying the covering daily rollups exist and match event sums for the affected days (FR-RET-004, FR-ROLLUP-010; mismatch aborts the day, records a data quality event); superseded snapshot revisions compact after 7 days; referential integrity maintained by deleting dependents first (computed_costs and billable_units rows with their events; FR-RET-003); consistent behavior on SQLite and Postgres including vacuum guidance (FR-RET-007). Retention status (per-category last run, rows deleted, oldest retained, pending backlog) exposed operationally via readiness or an admin endpoint (FR-RET-005). Test strategy: integration tests on production-scale seeded tables (PRD 18.5) covering batch progression, resume-after-kill, verification-failure abort, legal-hold suspension, and integrity (no orphaned cost or unit rows); dual-engine runs.",
-            "status": "pending",
+            "details": "Implement the retention worker (background loop like the alert engine): per category, delete in bounded batches (configurable, default 5000 rows) oldest-first with a persisted high-water mark so interrupted runs resume without rescanning (FR-RET-002); raw attempt events are only deleted after verifying the covering daily rollups exist and match event sums for the affected days (FR-RET-004, FR-ROLLUP-010; mismatch aborts the day, records a data quality event); superseded snapshot revisions compact after 7 days; referential integrity maintained by deleting dependents first (computed_costs and billable_units rows with their events; FR-RET-003); consistent behavior on SQLite and Postgres including vacuum guidance (FR-RET-007). Retention status (per-category last run, rows deleted, oldest retained, pending backlog) exposed operationally via readiness or an admin endpoint (FR-RET-005). Test strategy: integration tests on production-scale seeded tables (PRD 18.5) covering batch progression, resume-after-kill, verification-failure abort, legal-hold suspension, and integrity (no orphaned cost or unit rows); dual-engine runs.\n<info added on 2026-07-20T22:29:02.385Z>\nImplemented the retention worker (services/retention_worker.py). run_retention_sweep iterates every deletion-active category and deletes bounded oldest-first batches (default 5000/category/sweep); destructive deletion makes interrupted sweeps naturally resumable (FR-RET-002). Raw events are deleted a whole day at a time and only after _rollups_cover_day verifies a daily_rollups row exists for the day AND its total_tokens sum equals the day's final-attempt event token sum (FR-RET-004/FR-ROLLUP-010); a mismatch aborts the day and records a deduped retention_rollup_mismatch DQ event (new DATA_QUALITY_KINDS entry). Dependents deleted first via tuple_(provider,event_id) IN subquery: computed_costs and billable_units before usage_events_v2 (FR-RET-003). Superseded_snapshots vs corrections both map to usage_event_revisions split by reason; simple categories (limit_snapshots/ingest_batches/audit_records/alert_events) delete oldest-first by their ts column; daily_rollups by Date; v1_archive via guarded raw SQL (frozen legacy table, skipped if absent). Day windows computed in Python (no dialect date funcs) for SQLite/Postgres parity (FR-RET-007). New retention_status table (migration 0026) upserted per sweep with last_run/last_deleted/total_deleted/pending_backlog/oldest_retained (FR-RET-005), surfaced at GET /api/v2/admin/retention/status (admin:retention). Config triad retention_worker_enabled(default false)/interval(3600s)/batch_size(5000); _retention_loop wired into app.py lifespan alongside cost/alert loops (resolves policy each tick, cancelled on shutdown). Tests: test_retention_worker.py (9: verified deletion+status, keep-within-window, missing-rollup abort+DQ, mismatched-total abort, legal-hold suspension, dependents-integrity, batch-bound+resume, simple-category deletion, indefinite/disabled skipped) + 2 status API tests. Cross-dialect proven: migration 0026 drift+up/down on Postgres 16, and a direct worker sweep on Postgres deleted events+dependents with status persisted. Gates: full SQLite suite 728 passed/48 skipped/0 failed; ruff, mypy . (297 files), trivy clean.\n</info added on 2026-07-20T22:29:02.385Z>",
+            "status": "done",
             "dependencies": [
               "70.1"
             ],
             "parentTaskId": 70,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T22:30:19.526Z"
           },
           {
             "id": 3,
@@ -3507,7 +3508,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T21:53:03.052Z"
+        "updatedAt": "2026-07-20T22:30:19.526Z"
       },
       {
         "id": "71",
@@ -3705,7 +3706,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T21:53:03.053Z",
+      "lastModified": "2026-07-20T22:30:19.528Z",
       "taskCount": 78,
       "completedCount": 72,
       "tags": [

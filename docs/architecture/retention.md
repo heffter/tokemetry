@@ -3,12 +3,7 @@
 Retention is **configurable per record category** (Epic TOK-10, PRD 12.18).
 Each category has a duration in days -- or is kept indefinitely -- and can be
 individually enabled or disabled. A single global **legal hold** suspends all
-deletion at once.
-
-> Enforcement (the incremental, resumable retention worker that actually
-> deletes eligible rows, verifying rollups before removing raw events) lands in
-> Task 70.2. Task 70.1 delivers the policy model and its administration API;
-> until the worker ships, the policy is defined but no rows are deleted.
+deletion at once. A background worker enforces the policy (Task 70.2).
 
 ## Categories and defaults
 
@@ -56,6 +51,34 @@ worker can never delete raw rows the rollup pipeline has not yet confirmed
 `legal_hold: true` suspends deletion across every category at once
 (FR-RET-006), leaving durations untouched so normal retention resumes when the
 hold is cleared.
+
+## The retention worker
+
+`services/retention_worker.py` runs a background sweep (disabled by default;
+`TOKEMETRY_RETENTION_WORKER_ENABLED=true`, interval
+`TOKEMETRY_RETENTION_WORKER_INTERVAL_SECONDS`, default hourly). Each sweep, for
+every deletion-active category, deletes up to
+`TOKEMETRY_RETENTION_WORKER_BATCH_SIZE` (default 5000) rows oldest-first. Because
+deletion is destructive, an interrupted sweep simply resumes on the next tick --
+deleted rows never reappear, so no rescanning is needed (FR-RET-002).
+
+- **Raw events** are deleted a whole day at a time, and only after the covering
+  daily rollups are verified to exist and match that day's event token sums
+  (FR-RET-004, FR-ROLLUP-010). A mismatch aborts that day and records a
+  `retention_rollup_mismatch` data-quality event; the day is retried on the next
+  sweep once the rollups are corrected.
+- **Referential integrity**: an event's `computed_costs` and `billable_units`
+  rows are deleted before the event (FR-RET-003).
+- **Superseded snapshots** (7 days) and **administrative corrections**
+  (indefinite) are both `usage_event_revisions`, split by `reason`.
+- Day windows are computed in Python (no dialect-specific date functions), so
+  behaviour is identical on SQLite and Postgres (FR-RET-007). After a large
+  Postgres deletion, run `VACUUM` (or rely on autovacuum) to reclaim space.
+
+**Status** (FR-RET-005): each sweep upserts a `retention_status` row per
+category (last run, rows deleted last time and cumulatively, current backlog,
+oldest row still retained), surfaced at `GET /api/v2/admin/retention/status`
+(scope `admin:retention`).
 
 ## Deletions that already exist (unchanged)
 

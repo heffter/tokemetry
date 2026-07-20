@@ -716,3 +716,22 @@ class AppSetting(Base):
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(String(2000), default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class RetentionStatus(Base):
+    """Per-category retention worker status (FR-RET-005, Task 70.2).
+
+    One row per policy category, updated after each sweep so operators can see
+    the last run, how much it deleted, the cumulative total, the current
+    backlog still eligible for deletion, and the oldest row still retained.
+    """
+
+    __tablename__ = "retention_status"
+
+    category: Mapped[str] = mapped_column(String(50), primary_key=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_deleted: Mapped[int] = mapped_column(Integer, default=0)
+    total_deleted: Mapped[int] = mapped_column(BigInteger, default=0)
+    pending_backlog: Mapped[int] = mapped_column(BigInteger, default=0)
+    oldest_retained: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

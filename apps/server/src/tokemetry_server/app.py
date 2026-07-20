@@ -14,6 +14,7 @@ import contextlib
 import uuid
 from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import httpx
@@ -39,6 +40,8 @@ from tokemetry_server.services.pricing_repo import load_pricing_table, seed_defa
 from tokemetry_server.services.rate_limit import RateLimiter
 from tokemetry_server.services.registries import seed_default_providers
 from tokemetry_server.services.registry_backfill import RegistryBackfill
+from tokemetry_server.services.retention import resolve_retention_policy
+from tokemetry_server.services.retention_worker import run_retention_sweep
 
 #: Type of the per-event cost function stored on app state.
 CostFn = Callable[[UsageEvent], "Decimal | None"]
@@ -94,6 +97,34 @@ async def _cost_loop(
             from loguru import logger
 
             logger.warning("cost worker sweep failed: {}", exc)
+
+
+async def _retention_loop(
+    session_factory: async_sessionmaker[AsyncSession],
+    interval: float,
+    batch_size: int,
+    dedup_window_seconds: float,
+) -> None:
+    """Periodically delete rows past their retention policy (Task 70.2)."""
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            async with session_factory() as session:
+                policy = await resolve_retention_policy(session)
+                await run_retention_sweep(
+                    session,
+                    policy,
+                    datetime.now(UTC),
+                    batch_size=batch_size,
+                    dedup_window_seconds=dedup_window_seconds,
+                )
+                await session.commit()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            from loguru import logger
+
+            logger.warning("retention sweep failed: {}", exc)
 
 
 def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) -> FastAPI:
@@ -170,9 +201,23 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
                     resolved.billing_mode_override_map,
                 )
             )
+        retention_task: asyncio.Task[None] | None = None
+        if resolved.retention_worker_enabled:
+            retention_task = asyncio.create_task(
+                _retention_loop(
+                    session_factory,
+                    resolved.retention_worker_interval_seconds,
+                    resolved.retention_worker_batch_size,
+                    resolved.data_quality_dedup_window_seconds,
+                )
+            )
         try:
             yield
         finally:
+            if retention_task is not None:
+                retention_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await retention_task
             if cost_task is not None:
                 cost_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):

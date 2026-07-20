@@ -11,14 +11,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.v2.schemas import (
     RetentionCategoryConfig,
+    RetentionCategoryStatus,
     RetentionPolicyBody,
+    RetentionStatusResponse,
 )
+from tokemetry_server.db import models
 from tokemetry_server.scopes import ADMIN_RETENTION
 from tokemetry_server.services.retention import (
     RETENTION_CATEGORIES,
@@ -95,3 +99,35 @@ async def put_retention_policy(
     except RetentionPolicyError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return _to_body(saved)
+
+
+@router.get("/status", response_model=RetentionStatusResponse)
+async def get_retention_status(
+    session: AsyncSession = Depends(get_session),
+    _: Principal = Depends(require_scopes(ADMIN_RETENTION)),
+) -> RetentionStatusResponse:
+    """Return each category's policy plus its last retention-worker outcome."""
+    policy = await resolve_retention_policy(session)
+    rows = {
+        row.category: row
+        for row in (
+            await session.execute(select(models.RetentionStatus))
+        ).scalars()
+    }
+    categories = []
+    for category in RETENTION_CATEGORIES:
+        rule = policy.rules[category]
+        st = rows.get(category)
+        categories.append(
+            RetentionCategoryStatus(
+                category=category,
+                retention_days=rule.retention_days,
+                enabled=rule.enabled,
+                last_run_at=st.last_run_at if st else None,
+                last_deleted=st.last_deleted if st else 0,
+                total_deleted=st.total_deleted if st else 0,
+                pending_backlog=st.pending_backlog if st else 0,
+                oldest_retained=st.oldest_retained if st else None,
+            )
+        )
+    return RetentionStatusResponse(legal_hold=policy.legal_hold, categories=categories)

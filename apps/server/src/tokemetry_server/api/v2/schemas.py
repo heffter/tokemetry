@@ -666,3 +666,27 @@ class RetentionPolicyBody(BaseModel):
 
     categories: dict[str, RetentionCategoryConfig]
     legal_hold: bool
+
+
+class RetentionCategoryStatus(BaseModel):
+    """One category's policy plus its last retention-worker outcome (Task 70.2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: str
+    retention_days: int | None
+    enabled: bool
+    last_run_at: UtcDatetime | None
+    last_deleted: int
+    total_deleted: int
+    pending_backlog: int
+    oldest_retained: UtcDatetime | None
+
+
+class RetentionStatusResponse(BaseModel):
+    """Operational retention status across every category (FR-RET-005)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    legal_hold: bool
+    categories: list[RetentionCategoryStatus]

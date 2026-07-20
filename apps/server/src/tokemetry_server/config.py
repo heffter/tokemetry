@@ -72,6 +72,15 @@ class Settings(BaseSettings):
     #: Seed a default alert-rule set on first run when the table is empty.
     seed_default_alerts: bool = Field(default=True)
 
+    #: Run the background retention worker that deletes rows past their policy
+    #: retention (Task 70.2), keeping the deletion sweep off the request path.
+    #: Disabled by default so retention never runs without an explicit opt-in.
+    retention_worker_enabled: bool = Field(default=False)
+    #: Seconds between retention-worker sweeps (default hourly).
+    retention_worker_interval_seconds: float = Field(default=3600.0, gt=0)
+    #: Maximum rows deleted per category per retention sweep.
+    retention_worker_batch_size: int = Field(default=5000, ge=1)
+
     #: IANA timezone name used to evaluate alert quiet hours (e.g.
     #: "Europe/Budapest"). Defaults to UTC; an unknown name falls back to UTC.
     timezone: str = Field(default="UTC")

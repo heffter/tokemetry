@@ -131,3 +131,26 @@ def test_put_rejects_negative_days_via_schema(
     body["categories"]["limit_snapshots"]["retention_days"] = 0
     response = client.put(_URL, json=body, headers=auth)
     assert response.status_code == 422
+
+
+def test_status_returns_every_category(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    """GET /status lists every category with its policy and (empty) counters."""
+    body = client.get(f"{_URL}/status", headers=auth).json()
+    assert body["legal_hold"] is False
+    names = {c["category"] for c in body["categories"]}
+    assert "raw_events" in names and "v1_archive" in names
+    raw = next(c for c in body["categories"] if c["category"] == "raw_events")
+    assert raw["retention_days"] == 180
+    assert raw["last_deleted"] == 0
+    assert raw["last_run_at"] is None
+
+
+def test_status_requires_admin_retention_scope(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    read_only = _make_token(client, auth, [QUERY_READ], "reader")
+    assert (
+        client.get(f"{_URL}/status", headers=_bearer(read_only)).status_code == 403
+    )
