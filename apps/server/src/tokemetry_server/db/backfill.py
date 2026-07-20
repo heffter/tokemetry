@@ -423,10 +423,21 @@ def _aggregate_v2(
 ) -> dict[tuple[date, str, str], dict[str, Any]]:
     """Aggregate backfilled ``usage_events_v2`` rows by (day, provider, machine)."""
     table = models.UsageEventV2.__table__
+    # Select only the columns this aggregation reads, by name, rather than the
+    # whole table: the ORM model gains columns over time (e.g. observed_cost),
+    # but this historical verification runs at migration 0010 when the table has
+    # only its then-current columns. A full ``select(table)`` would reference a
+    # not-yet-existing column and fail.
+    columns = [
+        table.c[name]
+        for name in ("provider", "event_id", "extra", "ts_started", "machine", *_TOKEN_COLUMNS)
+    ]
     aggregate: dict[tuple[date, str, str], dict[str, Any]] = {}
     last: tuple[str, str] | None = None
     while True:
-        stmt = sa.select(table).order_by(table.c.provider, table.c.event_id).limit(chunk_size)
+        stmt = (
+            sa.select(*columns).order_by(table.c.provider, table.c.event_id).limit(chunk_size)
+        )
         if last is not None:
             stmt = stmt.where(_after(table.c.provider, table.c.event_id, last))
         rows = connection.execute(stmt).mappings().all()

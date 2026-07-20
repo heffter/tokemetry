@@ -114,7 +114,13 @@ class CostEngineV2:
             source_id=None,  # the wire event is not yet resolved to a source row
             machine=event.machine,
         )
-        return await self._record(event.provider, event.event_id, inputs, pricing_version)
+        return await self._record(
+            event.provider,
+            event.event_id,
+            inputs,
+            pricing_version,
+            observed_cost=event.observed_cost,
+        )
 
     async def compute_and_record_row(
         self,
@@ -141,7 +147,13 @@ class CostEngineV2:
             source_id=row.source_id,
             machine=row.machine,
         )
-        return await self._record(row.provider, row.event_id, inputs, pricing_version)
+        return await self._record(
+            row.provider,
+            row.event_id,
+            inputs,
+            pricing_version,
+            observed_cost=row.observed_cost,
+        )
 
     async def _record(
         self,
@@ -149,6 +161,7 @@ class CostEngineV2:
         event_id: str,
         inputs: PriceInputs,
         pricing_version: str | None,
+        observed_cost: Decimal | None = None,
     ) -> models.ComputedCost:
         """Compute and record the cost for one event."""
         version = (
@@ -176,6 +189,7 @@ class CostEngineV2:
             billing_mode=billing_mode,
             subscription_equivalent_amount=subscription_equivalent,
             missing_units={"units": result.missing_units} if result.missing_units else None,
+            observed_cost=observed_cost,
         )
 
     async def _source_billing_mode(self, source_id: int | None) -> str | None:

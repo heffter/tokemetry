@@ -389,7 +389,7 @@ class CostResponse(BaseModel):
 
 
 class ReconciliationRowOut(BaseModel):
-    """Observed-versus-computed cost drift for one provider (FR-COST-003/005)."""
+    """Observed-versus-computed cost drift for a provider (and optional day)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -398,6 +398,8 @@ class ReconciliationRowOut(BaseModel):
     observed_usd: Decimal
     drift_usd: Decimal
     event_count: int
+    day: str | None = None
+    drift_pct: Decimal | None = None
 
 
 class ReconciliationResponse(BaseModel):

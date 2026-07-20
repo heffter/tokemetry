@@ -77,22 +77,37 @@ def test_backfill_maps_all_columns(pre_view_engine: sa.Engine) -> None:
 
     _backfill(pre_view_engine)
 
-    with Session(pre_view_engine) as session:
-        row = session.get(models.UsageEventV2, ("anthropic", "a1"))
-        assert row is not None
-        assert row.event_kind == "attempt"
-        assert row.finality == "final"
-        assert row.sequence == 0
-        assert row.native_model == "claude-sonnet-4-5"
-        assert row.requested_model is None
-        assert row.reasoning_tokens == 0
-        assert row.input_tokens == 100
-        assert row.success is True
-        assert row.source_id is None
-        assert row.extra["web_search"] == 1
-        assert row.extra[BACKFILL_MARKER] is True
-        assert row.extra[V1_NAMESPACE]["git_branch"] == "main"
-        assert row.extra[V1_NAMESPACE]["cost_usd"] == "1.2345000000"
+    # Read explicit typed columns rather than the full ORM entity: this DB is
+    # migrated to a pre-view revision that predates later columns (observed_cost),
+    # so a full-entity load would reference a not-yet-existing column.
+    table = models.UsageEventV2.__table__
+    with pre_view_engine.connect() as connection:
+        row = (
+            connection.execute(
+                sa.select(
+                    table.c.event_kind, table.c.finality, table.c.sequence,
+                    table.c.native_model, table.c.requested_model,
+                    table.c.reasoning_tokens, table.c.input_tokens, table.c.success,
+                    table.c.source_id, table.c.extra,
+                ).where(table.c.provider == "anthropic", table.c.event_id == "a1")
+            )
+            .mappings()
+            .one_or_none()
+        )
+    assert row is not None
+    assert row["event_kind"] == "attempt"
+    assert row["finality"] == "final"
+    assert row["sequence"] == 0
+    assert row["native_model"] == "claude-sonnet-4-5"
+    assert row["requested_model"] is None
+    assert row["reasoning_tokens"] == 0
+    assert row["input_tokens"] == 100
+    assert row["success"] is True
+    assert row["source_id"] is None
+    assert row["extra"]["web_search"] == 1
+    assert row["extra"][BACKFILL_MARKER] is True
+    assert row["extra"][V1_NAMESPACE]["git_branch"] == "main"
+    assert row["extra"][V1_NAMESPACE]["cost_usd"] == "1.2345000000"
 
 
 def test_verify_reports_all_equal(pre_view_engine: sa.Engine) -> None:
@@ -127,9 +142,13 @@ def test_backfill_is_idempotent_and_resumable(pre_view_engine: sa.Engine) -> Non
 def test_downgrade_removes_only_backfilled(pre_view_engine: sa.Engine) -> None:
     with Session(pre_view_engine) as session:
         _add_v1(session, "a1")
-        # A natively-ingested v2 row (no backfill marker) must survive downgrade.
-        session.add(
-            models.UsageEventV2(
+        session.commit()
+    # Insert the native (non-backfilled) v2 row via an explicit-column core
+    # insert so it does not reference columns absent at this pre-view revision.
+    table = models.UsageEventV2.__table__
+    with pre_view_engine.begin() as connection:
+        connection.execute(
+            sa.insert(table).values(
                 provider="anthropic",
                 event_id="native-1",
                 schema_version=2,
@@ -144,16 +163,24 @@ def test_downgrade_removes_only_backfilled(pre_view_engine: sa.Engine) -> None:
                 extra={"gateway": {}},
             )
         )
-        session.commit()
 
     _backfill(pre_view_engine)
     with pre_view_engine.begin() as connection:
         removed = remove_backfilled_rows(connection)
     assert removed == 1
 
-    with Session(pre_view_engine) as session:
-        assert session.get(models.UsageEventV2, ("anthropic", "a1")) is None
-        assert session.get(models.UsageEventV2, ("anthropic", "native-1")) is not None
+    def _count(connection: sa.Connection, event_id: str) -> int:
+        return int(
+            connection.execute(
+                sa.select(sa.func.count())
+                .select_from(table)
+                .where(table.c.provider == "anthropic", table.c.event_id == event_id)
+            ).scalar_one()
+        )
+
+    with pre_view_engine.connect() as connection:
+        assert _count(connection, "a1") == 0  # backfilled row removed
+        assert _count(connection, "native-1") == 1  # native row survives
 
 
 def test_verify_detects_mismatch(pre_view_engine: sa.Engine) -> None:

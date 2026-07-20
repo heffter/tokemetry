@@ -31,6 +31,7 @@ from tokemetry_server.api.v2.schemas import (
 from tokemetry_server.config import Settings
 from tokemetry_server.scopes import QUERY_READ
 from tokemetry_server.services.queries_v2 import (
+    RECONCILIATION_DIMENSIONS,
     USAGE_DIMENSIONS,
     cost_reconciliation,
     grouped_costs,
@@ -114,19 +115,24 @@ async def reconciliation_endpoint(
     request: Request,
     start: datetime = Query(alias="from"),
     end: datetime = Query(alias="to"),
+    group_by: str = Query(default="provider"),
     filters: QueryFilters = Depends(query_filters),
     session: AsyncSession = Depends(get_session),
     _: Principal = Depends(require_scopes(QUERY_READ)),
 ) -> ReconciliationResponse:
-    """Observed-versus-computed cost drift by provider over a bounded range."""
+    """Observed-versus-computed cost drift by provider, optionally by day."""
     settings: Settings = request.app.state.settings
     start, end = to_utc(start), to_utc(end)
     try:
         enforce_range_bound(start, end, settings.query_max_range_days)
+        if group_by not in RECONCILIATION_DIMENSIONS:
+            raise QueryParamError(
+                f"group_by {group_by!r} is not one of {sorted(RECONCILIATION_DIMENSIONS)}"
+            )
     except QueryParamError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
-    rows = await cost_reconciliation(session, start, end, filters)
+    rows = await cost_reconciliation(session, start, end, filters, group_by)
     return ReconciliationResponse(
         rows=[ReconciliationRowOut(**dataclasses.asdict(r)) for r in rows]
     )

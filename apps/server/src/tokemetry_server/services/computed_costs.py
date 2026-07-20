@@ -39,6 +39,7 @@ async def record_cost(
     subscription_equivalent_amount: Decimal | None = None,
     missing_units: dict[str, Any] | None = None,
     currency: str = "USD",
+    observed_cost: Decimal | None = None,
 ) -> models.ComputedCost:
     """Record the authoritative cost for an event; return the active row.
 
@@ -83,7 +84,7 @@ async def record_cost(
             billing_mode=billing_mode,
             subscription_equivalent_amount=subscription_equivalent_amount,
             missing_units=missing_units,
-            observed_cost=None,
+            observed_cost=observed_cost,
             calculated_at=now,
             active=True,
         )
@@ -96,6 +97,7 @@ async def record_cost(
     existing.billing_mode = billing_mode
     existing.subscription_equivalent_amount = subscription_equivalent_amount
     existing.missing_units = missing_units
+    existing.observed_cost = observed_cost
     existing.calculated_at = now
     existing.active = True
     return existing

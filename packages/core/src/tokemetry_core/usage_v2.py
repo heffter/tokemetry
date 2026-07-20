@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import enum
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import Field, ValidationInfo, field_validator
@@ -165,6 +166,10 @@ class UsageEventV2(_FrozenModel):
     routing: Routing | None = None
     dimensions: dict[str, str] = Field(default_factory=dict)
     billable_units: dict[str, float] | None = None
+    #: Upstream cost the proxy observed, for drift reconciliation only. Tokemetry
+    #: rate cards stay authoritative; this never replaces computed cost (D-016,
+    #: FR-COST-003/004). Non-negative when present.
+    observed_cost: Decimal | None = Field(default=None, ge=0)
     extra: dict[str, Any] = Field(default_factory=dict)
 
     trace_id: str | None = None

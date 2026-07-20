@@ -232,6 +232,7 @@ def usage_event_v2_row(
         "tool_histogram": event.tool_histogram,
         "provenance": str(event.provenance),
         "cost_usd": cost,
+        "observed_cost": event.observed_cost,
         "source_id": source_id,
         "routing": event.routing.model_dump(mode="json") if event.routing else None,
         "dimensions": dict(event.dimensions),

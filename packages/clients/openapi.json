@@ -3020,12 +3020,35 @@
       },
       "ReconciliationRowOut": {
         "additionalProperties": false,
-        "description": "Observed-versus-computed cost drift for one provider (FR-COST-003/005).",
+        "description": "Observed-versus-computed cost drift for a provider (and optional day).",
         "properties": {
           "computed_usd": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Computed Usd",
             "type": "string"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "drift_pct": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift Pct"
           },
           "drift_usd": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -4903,6 +4926,23 @@
             "minLength": 1,
             "title": "Native Model",
             "type": "string"
+          },
+          "observed_cost": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Observed Cost"
           },
           "outcome": {
             "anyOf": [
@@ -7887,7 +7927,7 @@
     },
     "/api/v2/costs/reconciliation": {
       "get": {
-        "description": "Observed-versus-computed cost drift by provider over a bounded range.",
+        "description": "Observed-versus-computed cost drift by provider, optionally by day.",
         "operationId": "reconciliation_endpoint_api_v2_costs_reconciliation_get",
         "parameters": [
           {
@@ -7907,6 +7947,16 @@
             "schema": {
               "format": "date-time",
               "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "provider",
+              "title": "Group By",
               "type": "string"
             }
           },

@@ -61,6 +61,7 @@ namespaced key (see [Extension metadata](#extension-metadata)).
 | `sessionId` / `agentId` / `project` / `environment` / `machine` | same, snake_case | Optional dimensions. |
 | `routing` | `routing` | Object, see [Routing](#routing). |
 | `provenance` | `provenance` | `official` when read from the provider; else `local_estimate`. |
+| `observedCost` | `observed_cost` | Optional upstream cost the proxy observed, for drift reconciliation only (see [Cost reconciliation](#cost-reconciliation)). Non-negative. |
 | `source` | `source` | Required source identity, see [Source](#source-and-freshness). |
 | `traceId` / `spanId` / `parentSpanId` | `trace_id` / `span_id` / `parent_span_id` | OTel linkage. |
 
@@ -118,10 +119,15 @@ freshness view. Distinct source identities never merge with collector streams.
 
 ## Cost reconciliation
 
-If the proxy observed an upstream cost, submit it as **reconciliation metadata**
-only (companion FR-COST-003/004, D-016): tokemetry's rate cards remain
-authoritative and the observed value is stored for drift reporting
-(`GET /api/v2/costs/reconciliation`), never replacing computed cost.
+If the proxy observed an upstream cost, submit it in the `observed_cost` field
+as **reconciliation metadata** only (companion FR-COST-003/004, D-016):
+tokemetry's rate cards remain authoritative and the observed value is stored for
+drift reporting, never replacing computed cost. It is copied onto the event's
+computed-cost record at pricing time and surfaced by
+`GET /api/v2/costs/reconciliation`, which reports observed-versus-computed
+`drift_usd` and `drift_pct` per provider (`group_by=provider`, the default) or
+per provider and UTC day (`group_by=day`). Only events carrying an
+`observed_cost` participate; the percentage is null when computed cost is zero.
 
 ## Privacy (FR-TOK-029)
 
@@ -138,3 +144,79 @@ current schema at `GET /api/v2/schemas/usage-event`; regenerate the client and
 this mapping from it when the version increments. Unknown fields the server does
 not recognize are rejected under `extra="forbid"`, so keep the client in sync
 with the published schema.
+
+## Operator runbook
+
+Steps to provision, configure, and monitor a proxy exporter against a tokemetry
+server. Commands use the bootstrap admin token only to *mint* the scoped ingest
+token; the exporter itself never holds admin scopes.
+
+### 1. Provision an ingest-only token
+
+Mint a token scoped to ingest, not query or admin. `ingest:events` is required;
+add `ingest:limits` if the proxy also reports provider rate-limit snapshots.
+Bind it to the proxy's source identity with `source_allowlist` so a leaked token
+cannot impersonate a different source (FR-AUTH). Ingest is denied (`403`) for any
+event whose `source.name` is outside the allowlist.
+
+```sh
+curl -sS -X POST "$TOKEMETRY_URL/api/v1/tokens" \
+  -H "Authorization: Bearer $BOOTSTRAP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"label":"relayplane-proxy","scopes":["ingest:events","ingest:limits"],
+       "source_allowlist":["aiProviderProxy"]}'
+# -> {"token":"tkm_...","label":"relayplane-proxy", ...}
+```
+
+Store the returned `token` in the proxy's secret store; the token is shown once.
+
+### 2. Configure the exporter
+
+Point the exporter at the server and reference the token **by secret handle**,
+never inline in committed config:
+
+- `baseUrl`: `$TOKEMETRY_URL` (the exporter appends `/api/v2/ingest/events`).
+- `token`: a reference to the secret (env var / secret manager key), not the
+  literal value.
+- `queuePath`: a durable on-disk queue directory so events survive restarts and
+  are retried with backoff (the client pauses on `401`, retries `429`/`5xx`, and
+  isolates poison events on `400`/`422`).
+- `source`: `{ type: "gateway", name: "aiProviderProxy", version: "<build>" }`,
+  matching the `source_allowlist` above.
+
+### 3. Verify connectivity
+
+Dry-run a sample event against the validate endpoint before enabling live
+export. It runs the schema and privacy checks and **never persists**, returning
+`{ "valid": true, "errors": [] }` on success:
+
+```sh
+curl -sS -X POST "$TOKEMETRY_URL/api/v2/ingest/validate" \
+  -H "Authorization: Bearer $INGEST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"schema_version":2,"events":[ ...one UsageEventV2... ]}'
+```
+
+`GET /api/v2/ready` (unauthenticated) confirms the server and its migrations are
+healthy before you start.
+
+### 4. Monitor exporter health
+
+`GET /api/v2/sources` lists every source with a `health` block:
+`last_successful_ingest`, `recent_error_count`, `reported_schema_version`,
+`clock_skew_seconds`, and a `stale` flag against `staleness_threshold_seconds`.
+A gateway source is **stale** once no error-free ingest has landed within its
+threshold (10 minutes by default; configurable via
+`TOKEMETRY_SOURCE_STALE_GATEWAY_SECONDS`) -- so a silently stopped exporter
+becomes visible. Filter with `?type=gateway` and `?stale=true` to alert on
+silent proxies:
+
+```sh
+curl -sS "$TOKEMETRY_URL/api/v2/sources?type=gateway&stale=true" \
+  -H "Authorization: Bearer $QUERY_TOKEN"
+```
+
+Watch `clock_skew_seconds` (a large value means the proxy's clock disagrees with
+the server) and `reported_schema_version` (a drift from the current version
+means the client needs regenerating). Track cost trust with
+`GET /api/v2/costs/reconciliation` (see [Cost reconciliation](#cost-reconciliation)).

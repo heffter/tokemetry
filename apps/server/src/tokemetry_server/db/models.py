@@ -150,6 +150,9 @@ class UsageEventV2(Base):
     # exposes cost during migration. Cost moves to computed_costs in Task 64,
     # which drops this column (design Section 3.4).
     cost_usd: Mapped[Decimal | None] = mapped_column(_MONEY)
+    # Upstream cost the proxy reported, carried for drift reconciliation only
+    # (never replaces computed cost). Copied onto computed_costs at pricing time.
+    observed_cost: Mapped[Decimal | None] = mapped_column(_MONEY)
     source_id: Mapped[int | None] = mapped_column(Integer, index=True)
     routing: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     dimensions: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)

@@ -951,9 +951,18 @@ class RecomputeResult(BaseModel):
     rollups_refreshed: Annotated[int, Field(title='Rollups Refreshed')]
 
 
+class DriftPct(RootModel[str]):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    root: Annotated[
+        str, Field(pattern='^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$', title='Drift Pct')
+    ]
+
+
 class ReconciliationRowOut(BaseModel):
     """
-    Observed-versus-computed cost drift for one provider (FR-COST-003/005).
+    Observed-versus-computed cost drift for a provider (and optional day).
     """
 
     model_config = ConfigDict(
@@ -963,6 +972,8 @@ class ReconciliationRowOut(BaseModel):
     computed_usd: Annotated[
         str, Field(pattern='^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$', title='Computed Usd')
     ]
+    day: Annotated[str | None, Field(title='Day')] = None
+    drift_pct: Annotated[DriftPct | None, Field(title='Drift Pct')] = None
     drift_usd: Annotated[
         str, Field(pattern='^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$', title='Drift Usd')
     ]
@@ -1464,6 +1475,19 @@ class LatencyMs(RootModel[int]):
     root: Annotated[int, Field(ge=0, title='Latency Ms')] = None
 
 
+class ObservedCost(RootModel[float]):
+    root: Annotated[float, Field(ge=0.0, title='Observed Cost')] = None
+
+
+class ObservedCost1(RootModel[str]):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    root: Annotated[
+        str, Field(pattern='^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$', title='Observed Cost')
+    ] = None
+
+
 class TimeToFirstTokenMs(RootModel[int]):
     root: Annotated[int, Field(ge=0, title='Time To First Token Ms')] = None
 
@@ -1888,6 +1912,9 @@ class UsageEventV2(BaseModel):
     logical_request_id: Annotated[str | None, Field(title='Logical Request Id')] = None
     machine: Annotated[str | None, Field(title='Machine')] = None
     native_model: Annotated[str, Field(min_length=1, title='Native Model')]
+    observed_cost: Annotated[
+        ObservedCost | ObservedCost1 | None, Field(title='Observed Cost')
+    ] = None
     outcome: Annotated[str | None, Field(title='Outcome')] = None
     output_tokens: Annotated[int | None, Field(ge=0, title='Output Tokens')] = 0
     parent_span_id: Annotated[str | None, Field(title='Parent Span Id')] = None

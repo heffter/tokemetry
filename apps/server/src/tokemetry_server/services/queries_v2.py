@@ -67,13 +67,24 @@ class CostRow:
 
 @dataclass(frozen=True)
 class ReconciliationRow:
-    """Observed-versus-computed cost drift for one provider (FR-COST-003/005)."""
+    """Observed-versus-computed cost drift for a provider (and optional day).
+
+    ``drift_usd`` is observed minus computed; ``drift_pct`` expresses it as a
+    percentage of computed cost, or None when computed cost is zero. ``day`` is
+    set only when grouping by day (FR-COST-003/005).
+    """
 
     provider: str
     computed_usd: Decimal
     observed_usd: Decimal
     drift_usd: Decimal
     event_count: int
+    day: str | None = None
+    drift_pct: Decimal | None = None
+
+
+#: Reconciliation groupings: by provider, or by provider and UTC calendar day.
+RECONCILIATION_DIMENSIONS = frozenset({"provider", "day"})
 
 
 def _usage_key(dimension: str) -> Any:
@@ -228,18 +239,35 @@ async def grouped_costs(
 
 
 async def cost_reconciliation(
-    session: AsyncSession, start: datetime, end: datetime, filters: QueryFilters
+    session: AsyncSession,
+    start: datetime,
+    end: datetime,
+    filters: QueryFilters,
+    group_by: str = "provider",
 ) -> list[ReconciliationRow]:
-    """Observed-versus-computed cost drift by provider, where observed is known."""
+    """Observed-versus-computed cost drift where observed cost is known.
+
+    ``group_by`` is ``provider`` (one row per provider) or ``day`` (one row per
+    provider and UTC calendar day). Only active ``computed_costs`` rows carrying
+    an ``observed_cost`` participate (FR-COST-003/005).
+    """
+    if group_by not in RECONCILIATION_DIMENSIONS:
+        raise ValueError(f"unknown reconciliation grouping: {group_by!r}")
     event = models.UsageEventV2
     cost = models.ComputedCost
+    by_day = group_by == "day"
+    day_key = func.substr(cast(event.ts_started, String), 1, 10)
+
+    columns: list[Any] = [
+        event.provider,
+        func.coalesce(func.sum(cost.amount), 0),
+        func.coalesce(func.sum(cost.observed_cost), 0),
+        func.count(),
+    ]
+    if by_day:
+        columns.append(day_key)
     statement = (
-        select(
-            event.provider,
-            func.coalesce(func.sum(cost.amount), 0),
-            func.coalesce(func.sum(cost.observed_cost), 0),
-            func.count(),
-        )
+        select(*columns)
         .select_from(cost)
         .join(event, and_(cost.provider == event.provider, cost.event_id == event.event_id))
         .where(
@@ -248,16 +276,32 @@ async def cost_reconciliation(
         )
     )
     statement = _apply_ledger_filters(statement, filters)
-    statement = statement.group_by(event.provider).order_by(event.provider)
+    if by_day:
+        statement = statement.group_by(event.provider, day_key).order_by(
+            event.provider, day_key
+        )
+    else:
+        statement = statement.group_by(event.provider).order_by(event.provider)
 
     rows = (await session.execute(statement)).all()
-    return [
-        ReconciliationRow(
-            provider=str(r[0]), computed_usd=_dec(r[1]), observed_usd=_dec(r[2]),
-            drift_usd=_dec(r[2]) - _dec(r[1]), event_count=int(r[3] or 0),
-        )
-        for r in rows
-    ]
+    return [_reconciliation_row(row, by_day) for row in rows]
+
+
+def _reconciliation_row(row: Any, by_day: bool) -> ReconciliationRow:
+    """Build a reconciliation row, computing drift and its percentage."""
+    computed = _dec(row[1])
+    observed = _dec(row[2])
+    drift = observed - computed
+    drift_pct = (drift / computed * Decimal("100")) if computed != 0 else None
+    return ReconciliationRow(
+        provider=str(row[0]),
+        computed_usd=computed,
+        observed_usd=observed,
+        drift_usd=drift,
+        event_count=int(row[3] or 0),
+        day=_key_to_str(row[4]) if by_day else None,
+        drift_pct=drift_pct.quantize(Decimal("0.01")) if drift_pct is not None else None,
+    )
 
 
 def _dec(value: object) -> Decimal:

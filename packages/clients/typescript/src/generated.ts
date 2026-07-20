@@ -708,7 +708,7 @@ export interface paths {
         };
         /**
          * Reconciliation Endpoint
-         * @description Observed-versus-computed cost drift by provider over a bounded range.
+         * @description Observed-versus-computed cost drift by provider, optionally by day.
          */
         get: operations["reconciliation_endpoint_api_v2_costs_reconciliation_get"];
         put?: never;
@@ -2443,11 +2443,15 @@ export interface components {
         };
         /**
          * ReconciliationRowOut
-         * @description Observed-versus-computed cost drift for one provider (FR-COST-003/005).
+         * @description Observed-versus-computed cost drift for a provider (and optional day).
          */
         ReconciliationRowOut: {
             /** Computed Usd */
             computed_usd: string;
+            /** Day */
+            day?: string | null;
+            /** Drift Pct */
+            drift_pct?: string | null;
             /** Drift Usd */
             drift_usd: string;
             /** Event Count */
@@ -3182,6 +3186,11 @@ export interface components {
             machine: string | null;
             /** Native Model */
             native_model: string;
+            /**
+             * Observed Cost
+             * @default null
+             */
+            observed_cost: number | string | null;
             /**
              * Outcome
              * @default null
@@ -4578,6 +4587,7 @@ export interface operations {
             query: {
                 from: string;
                 to: string;
+                group_by?: string;
                 provider?: string | null;
                 model?: string | null;
                 source?: string | null;

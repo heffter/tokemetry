@@ -65,6 +65,7 @@ _EXPECTED_PROPERTIES = frozenset(
         "routing",
         "dimensions",
         "billable_units",
+        "observed_cost",
         "extra",
         "trace_id",
         "span_id",
