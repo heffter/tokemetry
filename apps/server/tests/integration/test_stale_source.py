@@ -314,6 +314,7 @@ async def test_engine_resolves_on_recovery(async_session: AsyncSession) -> None:
     assert len(resolved) == 1
     assert resolved[0].finding.severity == "info"
     assert resolved[0].finding.title.startswith("Resolved")
+    assert rule.entity_state is not None
     assert rule.entity_state[str(box.id)]["state"] == "normal"
 
 

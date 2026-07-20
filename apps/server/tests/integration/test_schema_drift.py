@@ -231,6 +231,7 @@ async def test_engine_fires_once_and_resolves(async_session: AsyncSession) -> No
     assert resolved[0].finding.severity == "info"
     assert resolved[0].finding.title.startswith("Resolved")
     assert "supported schema" in resolved[0].finding.body
+    assert rule.entity_state is not None
     assert rule.entity_state[str(proxy.id)]["state"] == "normal"
 
 

@@ -38,9 +38,12 @@ def _bearer(token: str) -> dict[str, str]:
 
 
 def _make_token(client: TestClient, auth: dict[str, str], label: str, scopes: list[str]) -> str:
-    return client.post(
+    response = client.post(
         "/api/v1/tokens", json={"label": label, "scopes": scopes}, headers=auth
-    ).json()["token"]
+    )
+    token = response.json()["token"]
+    assert isinstance(token, str)
+    return token
 
 
 def test_list_sources_with_health(client: TestClient, auth: dict[str, str]) -> None:

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from typing import TypedDict
 
 import sqlalchemy as sa
 from conftest import make_v1_event
@@ -53,6 +54,21 @@ _UNIT_PER_TOKEN = {
     "cache_write_short_token": Decimal("0.00000625"),
     "cache_write_long_token": Decimal("0.00001"),
 }
+
+
+class _TokenCounts(TypedDict, total=False):
+    """Token-count kwargs shared by the v1 ``UsageEvent`` and v2 fixtures below.
+
+    Typed (rather than a plain ``dict[str, int]``) so splatting into either
+    constructor lets mypy match each present key to its own field instead of
+    checking the whole splat against every remaining constructor parameter.
+    """
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_short_tokens: int
+    cache_write_long_tokens: int
 
 
 async def _seed_v2_rates(session: AsyncSession, effective_from: date) -> None:
@@ -150,7 +166,7 @@ async def test_v2_rate_cards_reproduce_v1_legacy_costs(
     await async_session.commit()
 
     ts = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
-    fixtures = [
+    fixtures: list[_TokenCounts] = [
         {"input_tokens": 1000},
         {"input_tokens": 1234, "output_tokens": 567},
         {

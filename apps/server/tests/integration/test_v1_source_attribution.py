@@ -27,7 +27,9 @@ def _v1_event(event_id: str) -> dict[str, Any]:
     }
 
 
-def _ingest(client: TestClient, auth: dict[str, str], machine: str, events: list[dict]) -> None:
+def _ingest(
+    client: TestClient, auth: dict[str, str], machine: str, events: list[dict[str, Any]]
+) -> None:
     response = client.post(
         "/api/v1/ingest/events",
         json={"machine": {"name": machine, "collector_version": "3.1.0"}, "events": events},

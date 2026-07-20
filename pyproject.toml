@@ -77,7 +77,15 @@ warn_unreachable = true
 show_error_codes = true
 # Generated OpenAPI client models are regenerated, not hand-maintained; the
 # datamodel-codegen output types some enum defaults as their raw string value.
-exclude = ['packages/clients/python/src/tokemetry_client/models\.py$']
+# The character class matches either path separator so the exclude holds on
+# both POSIX (CI) and Windows dev checkouts. exclude only stops directory
+# discovery; the per-module override below also silences the file when another
+# checked module imports it (which follow_imports would otherwise pull in).
+exclude = ['[\\/]tokemetry_client[\\/]models\.py$']
+
+[[tool.mypy.overrides]]
+module = "tokemetry_client.models"
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["apps/server/tests", "apps/collector/tests", "packages/core/tests"]

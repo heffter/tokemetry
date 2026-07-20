@@ -50,6 +50,7 @@ async def test_source_reference_resolves_to_source_id_and_dimensions(
     (row,) = await _rows(async_session)
     assert row.source_id is not None  # resolved, not left null
     assert row.provenance == "local_estimate"  # estimated provenance preserved
+    assert row.limit_amount is not None
     assert float(row.limit_amount) == 1000.0
     assert row.unit == "requests"
 

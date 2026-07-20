@@ -42,9 +42,12 @@ def _ingest(client: TestClient, auth: dict[str, str], event_id: str) -> None:
 def _make_token(
     client: TestClient, auth: dict[str, str], label: str, scopes: list[str]
 ) -> str:
-    return client.post(
+    response = client.post(
         "/api/v1/tokens", json={"label": label, "scopes": scopes}, headers=auth
-    ).json()["token"]
+    )
+    token = response.json()["token"]
+    assert isinstance(token, str)
+    return token
 
 
 def test_reprice_then_revert_round_trip(client: TestClient, auth: dict[str, str]) -> None:

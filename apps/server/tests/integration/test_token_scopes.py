@@ -14,7 +14,9 @@ from tokemetry_server.scopes import ALL_SCOPES, INGEST_EVENTS, QUERY_READ
 def _scopes_value(raw: object) -> list[str]:
     """Normalize a JSON scopes column read via raw SQL across dialects."""
     if isinstance(raw, str):
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        assert isinstance(parsed, list)
+        return parsed
     assert isinstance(raw, list)
     return raw
 

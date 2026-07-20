@@ -96,7 +96,9 @@ def test_limits_extended_dimensions_persist_to_columns(
         assert row.provenance == "local_estimate"
         assert row.account == "team-a"
         assert row.organization == "org-x"
+        assert row.remaining is not None
         assert float(row.remaining) == 1000.0
+        assert row.limit_amount is not None
         assert float(row.limit_amount) == 5000.0
         assert row.unit == "tokens"
         assert "v2_dimensions" not in row.raw

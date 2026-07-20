@@ -35,9 +35,12 @@ def _mock_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _make_token(client: TestClient, auth: dict[str, str], label: str, scopes: list[str]) -> str:
-    return client.post(
+    response = client.post(
         "/api/v1/tokens", json={"label": label, "scopes": scopes}, headers=auth
-    ).json()["token"]
+    )
+    token = response.json()["token"]
+    assert isinstance(token, str)
+    return token
 
 
 def test_dry_run_returns_diff_and_digest(client: TestClient, auth: dict[str, str]) -> None:

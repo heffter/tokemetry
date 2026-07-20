@@ -86,7 +86,7 @@ def test_all_provider_and_gateway_streams_flow_through_v2(
 
     # Every stream's snapshots are queryable with their provenance.
     limits = client.get("/api/v2/limits", params=_RANGE, headers=auth).json()["limits"]
-    provenances = {row["provider"]: set() for row in limits}
+    provenances: dict[str, set[str]] = {row["provider"]: set() for row in limits}
     for row in limits:
         provenances[row["provider"]].add(row["provenance"])
     assert {"anthropic", "openai", "zai"} <= set(provenances)

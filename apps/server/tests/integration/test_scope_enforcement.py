@@ -23,7 +23,9 @@ def _make_token(
         headers=auth,
     )
     assert response.status_code == 201
-    return response.json()["token"]
+    token = response.json()["token"]
+    assert isinstance(token, str)
+    return token
 
 
 def _bearer(token: str) -> dict[str, str]:

@@ -36,9 +36,11 @@ def _event(event_id: str = "anthropic:req_1", **overrides: object) -> UsageEvent
     return UsageEventV2.model_validate(defaults)
 
 
-def _service(session: AsyncSession, **kwargs: object) -> IngestV2Service:
+def _service(session: AsyncSession, *, max_returned_ids: int | None = None) -> IngestV2Service:
+    if max_returned_ids is None:
+        return IngestV2Service(session, data_quality=DataQualityService(session))
     return IngestV2Service(
-        session, data_quality=DataQualityService(session), **kwargs
+        session, data_quality=DataQualityService(session), max_returned_ids=max_returned_ids
     )
 
 

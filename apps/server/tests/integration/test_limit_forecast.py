@@ -40,7 +40,9 @@ def _snap(
     )
 
 
-def _series(count: int, span_minutes: float, start: float, end: float) -> list:
+def _series(
+    count: int, span_minutes: float, start: float, end: float
+) -> list[models.LimitSnapshot]:
     step = span_minutes / (count - 1)
     util_step = (end - start) / (count - 1)
     return [_snap(i * step, start + i * util_step) for i in range(count)]

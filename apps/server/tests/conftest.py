@@ -4,6 +4,7 @@ import os
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -50,7 +51,8 @@ def make_v1_event(**fields: object) -> models.UsageEventV2:
     reads project the row exactly as the old v1 row would have.
     """
     data = dict(fields)
-    extra = dict(data.pop("extra", {}) or {})
+    raw_extra = data.pop("extra", None)
+    extra: dict[str, Any] = dict(raw_extra) if isinstance(raw_extra, dict) else {}
     v1_only = {name: data.pop(name, None) for name in _V1_ONLY_FIELDS}
     v1_only.setdefault("source", "collector")
     if v1_only.get("is_sidechain") is None:

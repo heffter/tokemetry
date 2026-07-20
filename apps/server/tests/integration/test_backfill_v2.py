@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import cast
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
@@ -145,7 +146,9 @@ def test_downgrade_removes_only_backfilled(pre_view_engine: sa.Engine) -> None:
         session.commit()
     # Insert the native (non-backfilled) v2 row via an explicit-column core
     # insert so it does not reference columns absent at this pre-view revision.
-    table = models.UsageEventV2.__table__
+    # The declarative base types __table__ as the broader FromClause; it is a
+    # concrete Table at runtime, which sa.insert() and table.c below require.
+    table = cast(sa.Table, models.UsageEventV2.__table__)
     with pre_view_engine.begin() as connection:
         connection.execute(
             sa.insert(table).values(
