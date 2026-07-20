@@ -33,6 +33,8 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Generated OpenAPI client models are regenerated, not hand-maintained.
+extend-exclude = ["packages/clients/python/src/tokemetry_client/models.py"]
 
 [tool.ruff.lint]
 # Broad selection per project quality gates; warnings are errors in CI.
@@ -73,6 +75,9 @@ strict = true
 python_version = "3.12"
 warn_unreachable = true
 show_error_codes = true
+# Generated OpenAPI client models are regenerated, not hand-maintained; the
+# datamodel-codegen output types some enum defaults as their raw string value.
+exclude = ['packages/clients/python/src/tokemetry_client/models\.py$']
 
 [tool.pytest.ini_options]
 testpaths = ["apps/server/tests", "apps/collector/tests", "packages/core/tests"]

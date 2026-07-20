@@ -20,11 +20,11 @@ from typing import Any
 
 os.environ.setdefault("TOKEMETRY_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
-from tokemetry_core.usage_v2 import (  # noqa: E402
+from tokemetry_core.usage_v2 import (
     LimitSnapshotV2,
     usage_event_json_schema,
 )
-from tokemetry_server.app import create_app  # noqa: E402
+from tokemetry_server.app import create_app
 
 _OUT = Path(__file__).with_name("openapi.json")
 

@@ -1,0 +1,17 @@
+# tokemetry-client: Python client for the v2 ingest API (proxy exporters).
+[project]
+name = "tokemetry-client"
+version = "0.1.0"
+description = "Python client for the tokemetry v2 ingest API"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.27",
+  "pydantic>=2.10",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tokemetry_client"]

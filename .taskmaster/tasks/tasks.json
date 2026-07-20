@@ -2844,13 +2844,14 @@
             "id": 3,
             "title": "Python client package generated from OpenAPI",
             "description": "packages/clients/python for SDK exporters and importers.",
-            "details": "Set up packages/clients/python as a uv workspace member: models generated from OpenAPI (openapi-python-client or datamodel-code-generator emitting pydantic v2 models) plus a hand-written TokemetryClient wrapper (httpx-based, sync and async variants) with the same semantics as the TypeScript wrapper: auth, batch splitting, backoff on 429/5xx, pause on 401, structured error surfacing, validate helper (D-012). Full type hints, mypy strict, ruff clean, docstrings per documentation standards. This client is also the internal tool for importers and the OTLP bridge tests. Regeneration script in CI detecting drift. Test strategy: pytest unit tests mirroring the TypeScript suite (respx-mocked transport) plus a round-trip integration test in the subtask-4 harness ingesting a fixture batch and reading it back through the query API; packaging test (uv build) and import-from-wheel smoke.",
-            "status": "pending",
+            "details": "Set up packages/clients/python as a uv workspace member: models generated from OpenAPI (openapi-python-client or datamodel-code-generator emitting pydantic v2 models) plus a hand-written TokemetryClient wrapper (httpx-based, sync and async variants) with the same semantics as the TypeScript wrapper: auth, batch splitting, backoff on 429/5xx, pause on 401, structured error surfacing, validate helper (D-012). Full type hints, mypy strict, ruff clean, docstrings per documentation standards. This client is also the internal tool for importers and the OTLP bridge tests. Regeneration script in CI detecting drift. Test strategy: pytest unit tests mirroring the TypeScript suite (respx-mocked transport) plus a round-trip integration test in the subtask-4 harness ingesting a fixture batch and reading it back through the query API; packaging test (uv build) and import-from-wheel smoke.\n<info added on 2026-07-20T08:48:16.688Z>\nPython client package complete (packages/clients/python, tokemetry-client). Generated pydantic v2 models from openapi.json via datamodel-code-generator (uvx). Hand-written client.py mirrors the TS wrapper (D-012): auth, batching by count+bytes, full-jitter exp backoff on 429/5xx, pause on 401 (IngestAuthError), poison isolation on 400/422 by bisecting a rejected batch. Ships BOTH sync IngestClient (httpx.Client) and async AsyncIngestClient (httpx.AsyncClient); shared pure helpers (_iter_batches/_backoff_ms/_classify/_payload) keep the two in lockstep. 11 tests pass (7 sync + 4 async via asyncio.run, so no pytest-asyncio dep), mypy strict + ruff clean on all hand-written files.\n\nKey decisions/gotchas:\n- --enum-field-as-literal all in the codegen: without it, the generated model types enum fields (e.g. provenance) as enums but defaults them to raw strings, causing PydanticSerializationUnexpectedValue warnings on model_dump AND mypy assignment errors. Literals make defaults round-trip cleanly (warnings gone). A residual Provenance enum still yields 9 mypy errors in generated code only.\n- Generated models.py is excluded from repo-wide ruff (extend-exclude) and mypy (exclude) in pyproject.toml -- it is regenerated, not hand-maintained.\n- codegen.py (Python, not shell -- shellcheck is not installed on this Windows host) is the single regen entrypoint for all 3 artifacts; 'uv run python packages/clients/codegen.py --check' regenerates + git diff --exit-code for CI drift detection. Verified end-to-end: all 3 artifacts regenerate byte-identical.\n- Removed 2 unused '# noqa: E402' from generate_openapi.py (ruff RUF100: E402 does not fire on os.environ.setdefault before imports).\n- Trivy: TS client has zero runtime deps (devDeps only: openapi-typescript/typescript/vitest); dev-dep scan clean (0 HIGH/CRITICAL). uv.lock + dashboard lockfile also 0. packages/clients/README.md documents the pipeline.\n</info added on 2026-07-20T08:48:16.688Z>",
+            "status": "done",
             "dependencies": [
               "65.1"
             ],
             "parentTaskId": 65,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T08:48:49.283Z"
           },
           {
             "id": 4,
@@ -2903,7 +2904,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T08:16:44.819Z"
+        "updatedAt": "2026-07-20T08:48:49.283Z"
       },
       {
         "id": "66",
@@ -3662,7 +3663,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T08:16:44.820Z",
+      "lastModified": "2026-07-20T08:48:49.284Z",
       "taskCount": 76,
       "completedCount": 68,
       "tags": [
