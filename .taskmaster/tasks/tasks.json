@@ -3187,7 +3187,7 @@
         "description": "Operational alerts for reporting and accounting failures: stale sources, unpriced events, unknown models, exporter schema drift, failure rate, latency, and fallback rate, all filterable by provider, model, source, project, and environment, all content-free. PRD-TOK-002 Section 12.15; Epic TOK-9; FR-ALERT-001..010.",
         "details": "Objective: data quality and exporter health become alertable operational signals (PP-012).\n\nDesign: extend the existing rule engine (services/alerting/) with new rule kinds: stale_source (built on source health last-ingest timestamps, replacing machine-only collector_stale semantics while keeping that rule working), unpriced_events (computed_costs cost_status unpriced over a window), unknown_model (v2 data quality events), schema_drift (exporter schema version vs supported versions), failure_rate, latency_p95, and fallback_rate (from attempt outcomes, latency, and routing metadata). All rules gain optional provider, model, source, project, and environment filters (FR-ALERT-002). Existing spend and limit alerts continue to work unchanged (FR-ALERT-001); cooldown and quiet-hours behavior preserved (FR-ALERT-009); alert context stays content-free (FR-ALERT-010); delivery channels ntfy, Telegram, and SMTP unchanged.\n\nAcceptance criteria (PRD Epic TOK-9): stale source alerts work; unknown model and unpriced usage alerts work; failure, latency, and fallback-rate alerts work; alert context content-free; existing delivery channels supported.\n\nTest strategy: unit tests per evaluator with synthetic v2 fixtures covering warning and critical thresholds, filters, cooldown, and quiet hours; integration test firing each new kind end to end into alert_events; regression tests that the four seeded default rules and existing channels behave identically; content-free context assertion tests.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "63",
           "64",
@@ -3262,8 +3262,8 @@
             "id": 6,
             "title": "Alert epic verification, channel regression, and documentation",
             "description": "Prove all new kinds end to end and update alerting docs.",
-            "details": "End-to-end verification: each new alert kind (stale_source, unpriced_events, reworked unknown_model, failure_rate, latency_p95, fallback_rate, schema_drift) fired through the real engine loop into alert_events and delivered through stubbed ntfy, Telegram, and SMTP notifiers proving channel compatibility (FR-ALERT-001 for existing channels); content-free context asserted across every kind by a shared prohibited-content checker (FR-ALERT-010); AlertsView rule editor supports the new kinds and dimension filters (small UI increment coordinated with Task 67 conventions); quiet hours and cooldown verified on one new kind as representative. Update docs/alerting.md with every kind, its thresholds, filters, defaults, and example rules for the three-provider deployment. Epic acceptance walkthrough of PRD Epic TOK-9 in the task log. Test strategy: the integration matrix above plus vitest coverage for the rule-editor additions; docs review against FR-ALERT-001..010; full suite green with coverage held.",
-            "status": "pending",
+            "details": "End-to-end verification: each new alert kind (stale_source, unpriced_events, reworked unknown_model, failure_rate, latency_p95, fallback_rate, schema_drift) fired through the real engine loop into alert_events and delivered through stubbed ntfy, Telegram, and SMTP notifiers proving channel compatibility (FR-ALERT-001 for existing channels); content-free context asserted across every kind by a shared prohibited-content checker (FR-ALERT-010); AlertsView rule editor supports the new kinds and dimension filters (small UI increment coordinated with Task 67 conventions); quiet hours and cooldown verified on one new kind as representative. Update docs/alerting.md with every kind, its thresholds, filters, defaults, and example rules for the three-provider deployment. Epic acceptance walkthrough of PRD Epic TOK-9 in the task log. Test strategy: the integration matrix above plus vitest coverage for the rule-editor additions; docs review against FR-ALERT-001..010; full suite green with coverage held.\n<info added on 2026-07-20T16:44:16.451Z>\nEpic verification complete: backend acceptance matrix (test_alert_epic_acceptance.py, 9 tests) fired all 7 new/reworked kinds (failure_rate, latency_p95, fallback_rate, unpriced_events, unknown_model, stale_source, schema_drift) through real AlertEngine.run loop into alert_events and delivered via REAL ntfy + Telegram + SMTP notifiers (httpx.MockTransport for HTTP, monkeypatched smtplib.SMTP), asserting 2 HTTP calls + 1 SMTP per finding (FR-ALERT-001). Shared assert_content_free() prohibited-content checker walked each fired context recursively (no prompt/response/content keys; primitives only) across all 7 kinds (FR-ALERT-010). Quiet hours suppress and cooldown suppress verified on failure_rate as representative (FR-ALERT-009). Frontend rule-editor increment: extracted kind catalog + filter logic into src/lib/alerts.ts (ALERT_KINDS with all 11 kinds server-synced, parseFilterValues, buildFilters, buildAlertConfig); AlertsView.vue imports it, adds per-dimension filter input row (provider/model/source/project/environment) and sends config via buildAlertConfig; client.ts AlertRuleInput gains typed config (AlertFilters/AlertRuleConfig). vitest src/lib/alerts.test.ts (12) covers catalog completeness/threshold-ordering/window flags and filter parsing/build. Dashboard suite 166 passed; typecheck (vue-tsc), eslint, prettier all clean. Docs docs/alerting.md: full kinds table with thresholds/defaults, per-kind semantics, Dimension filters section (which kinds honor which dims, window_minutes/min_samples), and three example rules for three-provider (Anthropic/OpenAI/Z.ai) deployment. Epic TOK-9 acceptance walkthrough (FR-ALERT-001..010): 001 existing spend/limit alerts + channels unchanged (full alert regression green; unfiltered rules keep exact prior behavior); 002 dimension filters on every rule (68.1 AlertFilters + apply_ledger_filters; honored per kind and documented); 003 stale-source per-source independent firing (68.2 entity_state machine; multiple sources notify/resolve independently); 004 unpriced/partial cost alert (68.3 unpriced_events over computed_costs with top offenders); 005 unknown-model alert reworked onto registry lifecycle not NULL-cost (68.3); 006 exporter schema-drift (68.5 schema_drift version-set + rejection thresholds); 007 failure-rate + latency (68.4 failure_rate, latency_p95 p95, min-sample guard); 008 fallback-rate over logical requests not attempts (68.4 fallback_rate); 009 cooldown + quiet hours preserved (verified on new kind); 010 content-free context (shared checker across every kind; filters record dimension names only). Gates: full backend suite 696 passed / 43 skipped (Postgres-only) / 0 failed (run in chunks: unit+perf 118, integration 578 across 5 chunks + proxy_harness); dashboard 166 passed; ruff + mypy strict clean; frontend typecheck/eslint/prettier clean; trivy fs (repo root, vuln+secret+misconfig) no HIGH/CRITICAL. Closes Epic TOK-9.\n</info added on 2026-07-20T16:44:16.451Z>",
+            "status": "done",
             "dependencies": [
               "68.2",
               "68.3",
@@ -3271,10 +3271,11 @@
               "68.5"
             ],
             "parentTaskId": 68,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T16:44:42.928Z"
           }
         ],
-        "updatedAt": "2026-07-20T16:02:39.023Z"
+        "updatedAt": "2026-07-20T16:44:42.928Z"
       },
       {
         "id": "69",
@@ -3687,9 +3688,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T16:02:39.024Z",
+      "lastModified": "2026-07-20T16:44:42.929Z",
       "taskCount": 77,
-      "completedCount": 69,
+      "completedCount": 70,
       "tags": [
         "master"
       ]

@@ -597,6 +597,22 @@ export interface AlertRule {
   last_fired_at: string | null;
 }
 
+/** Dimension filters scoping a rule's evaluation (empty/absent list = any). */
+export interface AlertFilters {
+  provider?: string[];
+  model?: string[];
+  source?: string[];
+  project?: string[];
+  environment?: string[];
+}
+
+/** An alert rule's config: dimension filters plus sliding-window settings. */
+export interface AlertRuleConfig {
+  filters?: AlertFilters;
+  window_minutes?: number;
+  min_samples?: number;
+}
+
 export interface AlertRuleInput {
   name: string;
   kind: string;
@@ -607,6 +623,7 @@ export interface AlertRuleInput {
   channels: string[];
   cooldown_seconds: number;
   enabled: boolean;
+  config?: AlertRuleConfig;
 }
 
 export interface ChannelField {

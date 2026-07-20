@@ -14,6 +14,12 @@ import {
   timeAgo,
   windowLabel,
 } from '@/lib/format';
+import {
+  ALERT_KINDS,
+  buildAlertConfig,
+  FILTER_DIMENSIONS,
+  type FilterDimension,
+} from '@/lib/alerts';
 import type {
   AlertEvent,
   AlertRule,
@@ -54,42 +60,8 @@ const worstStaleMinutes = computed(() => {
   return worst;
 });
 
-interface KindMeta {
-  label: string;
-  window: boolean;
-  // Dual warn/critical thresholds; null for kinds that fire on a boolean state.
-  threshold: {
-    min?: number;
-    max?: number;
-    suffix: string;
-    warnDef: string;
-    critDef: string;
-  } | null;
-}
-
-const KINDS: Record<string, KindMeta> = {
-  limit_pct: {
-    label: 'Limit %',
-    window: true,
-    threshold: { min: 0, max: 100, suffix: '%', warnDef: '80', critDef: '95' },
-  },
-  burn_rate: {
-    label: 'Burn rate',
-    window: false,
-    threshold: { suffix: 'tok/min', warnDef: '5000', critDef: '10000' },
-  },
-  predicted_exhaustion: {
-    label: 'Predicted exhaustion',
-    window: false,
-    threshold: null,
-  },
-  collector_stale: {
-    label: 'Collector stale',
-    window: false,
-    threshold: { suffix: 'min', warnDef: '30', critDef: '120' },
-  },
-  unknown_model: { label: 'Unpriced usage', window: false, threshold: null },
-};
+// Kind catalog lives in lib/alerts (unit-tested, server-synced).
+const KINDS = ALERT_KINDS;
 const WINDOWS = [
   'five_hour',
   'seven_day',
@@ -97,6 +69,15 @@ const WINDOWS = [
   'seven_day_sonnet',
 ];
 const CHANNELS = ['ntfy', 'telegram', 'smtp'];
+
+// Per-dimension filter text inputs (comma-separated values, empty = unscoped).
+const filterDraft = ref<Record<FilterDimension, string>>({
+  provider: '',
+  model: '',
+  source: '',
+  project: '',
+  environment: '',
+});
 
 const draft = ref({
   name: '',
@@ -287,8 +268,10 @@ async function create(): Promise<void> {
     channels,
     cooldown_seconds: 3600,
     enabled: true,
+    config: buildAlertConfig(filterDraft.value),
   });
   draft.value.name = '';
+  for (const dim of FILTER_DIMENSIONS) filterDraft.value[dim] = '';
   await loadRules();
 }
 
@@ -374,6 +357,16 @@ onMounted(() => {
         </label>
         <input v-model="draft.channels" placeholder="channels" class="narrow" />
         <button @click="create">Add</button>
+      </div>
+      <div class="filters">
+        <span class="muted small">filters:</span>
+        <input
+          v-for="dim in FILTER_DIMENSIONS"
+          :key="dim"
+          v-model="filterDraft[dim]"
+          :placeholder="dim"
+          class="filter-input"
+        />
       </div>
       <p v-if="createError" class="create-error">{{ createError }}</p>
 
@@ -523,6 +516,16 @@ h3 {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.filter-input {
+  width: 120px;
 }
 .thin {
   width: 64px;

@@ -56,6 +56,57 @@ watches.
   threshold warns. It recovers when the source is back on a supported version
   with no recent rejections.
 
+## Dimension filters
+
+Every rule may scope its evaluation with `config.filters`, a set of allow-lists
+by dimension (`provider`, `model`, `source`, `project`, `environment`). An
+absent or empty list leaves that dimension unscoped, so a rule with no filters
+behaves exactly as before. A rule's alert context records only the dimension
+*names* it scoped on (`scoped_dimensions`), never the values, so it stays
+content-free.
+
+Not every kind can honor every dimension: ledger-scanning kinds (`burn_rate`,
+`unpriced_events`, `unknown_model`, `failure_rate`, `latency_p95`) honor all
+five; `fallback_rate` honors `provider` and `model` only; `limit_pct` honors
+`provider` only; `stale_source` and `schema_drift` honor `source` only;
+`predicted_exhaustion` and `collector_stale` are global.
+
+The sliding-window reliability kinds also take `config.window_minutes` (default
+60) and `config.min_samples` (default 20).
+
+## Example rules (three-provider deployment)
+
+For a deployment reporting Anthropic, OpenAI, and Z.ai usage:
+
+```json
+{
+  "name": "OpenAI failure rate",
+  "kind": "failure_rate",
+  "warn_threshold": 10, "crit_threshold": 25,
+  "channels": ["ntfy"],
+  "config": { "filters": { "provider": ["openai"] }, "window_minutes": 30 }
+}
+```
+
+```json
+{
+  "name": "Z.ai gateway stale",
+  "kind": "stale_source",
+  "channels": ["telegram"],
+  "config": { "filters": { "source": ["zai-proxy"] } }
+}
+```
+
+```json
+{
+  "name": "Any unknown model",
+  "kind": "unknown_model",
+  "warn_threshold": 1,
+  "channels": ["smtp"],
+  "config": {}
+}
+```
+
 ## Suppression
 
 - **Cooldown** (`cooldown_seconds`): a rule will not fire again until the
