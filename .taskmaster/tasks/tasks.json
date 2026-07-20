@@ -3249,13 +3249,14 @@
             "id": 5,
             "title": "Exporter schema-drift alert kind",
             "description": "Alert when a source reports an unexpected schema version or malformed batches.",
-            "details": "Add evaluator schema_drift: fires when a source reports a batch schema_version outside the server-supported set or when a source accumulates validation rejections above threshold within the window (FR-ALERT-006, US-012), using source health data from Task 63.2 and schema_drift data quality events from 61.4; context includes source identity, reported versus supported versions, and rejection counts. This catches a proxy or collector upgraded ahead of the server (or lagging behind a deprecation) before data silently degrades. Test strategy: unit tests for version-set comparison, rejection-threshold behavior, and per-source state; integration test simulating a source posting schema_version 3 batches and asserting one alert with correct context; resolve test after the source returns to a supported version.",
-            "status": "pending",
+            "details": "Add evaluator schema_drift: fires when a source reports a batch schema_version outside the server-supported set or when a source accumulates validation rejections above threshold within the window (FR-ALERT-006, US-012), using source health data from Task 63.2 and schema_drift data quality events from 61.4; context includes source identity, reported versus supported versions, and rejection counts. This catches a proxy or collector upgraded ahead of the server (or lagging behind a deprecation) before data silently degrades. Test strategy: unit tests for version-set comparison, rejection-threshold behavior, and per-source state; integration test simulating a source posting schema_version 3 batches and asserting one alert with correct context; resolve test after the source returns to a supported version.\n<info added on 2026-07-20T16:02:17.497Z>\nImplemented the schema_drift alert kind (FR-ALERT-006, US-012) as a per-source grouped evaluator reusing the 68.2 entity-state machine. The evaluate_schema_drift function scans non-revoked sources (honoring config.filters.source name filter) and detects two independent drift conditions: version drift (when reported_schema_version is not None and not in SUPPORTED_SCHEMA_VERSIONS frozenset{2}, mirroring the api/v2/ingest.py schema_version==2 check) triggers critical severity; rejection drift (when recent_error_count from 63.2 source health crosses configurable warn/crit thresholds, defaults 5/20) triggers warn or critical severity, with version drift taking precedence. NULL reported version indicates not-yet-reported and is not considered drift. Context includes source identity, reported_schema_version, supported_schema_versions (sorted list), version_drift boolean, recent_error_count, open schema_drift DQ event count with link, and scoped_dimensions. The evaluator has no own time window since rejection count is already windowed by 63.2's error_window; the now parameter is kept for grouped signature compatibility but unused.\n\nEngine generalization: _evaluate_grouped now dispatches by kind (schema_drift calls evaluate_schema_drift, else evaluate_stale_sources); _resolved_entity produces kind-specific recovery wording (schema_drift: 'back on a supported schema with no recent rejections', stale_source unchanged); GROUPED_EVALUATORS dict replaced with GROUPED_EVALUATOR_KINDS frozenset{stale_source, schema_drift} since values were never invoked through the dict and the two grouped evaluators have different signatures; ALL_EVALUATOR_KINDS and is_grouped_kind updated making schema_drift auto-valid in the CRUD API.\n\nTest coverage (test_schema_drift.py, 12 tests): unsupported version triggers critical; supported version with no rejections remains silent; null version not treated as drift; rejection counts trigger warn/crit at thresholds; below-threshold rejections remain silent; explicit threshold overrides work; per-source isolation verified; revoked sources excluded; source-name filter honored; open DQ event link included in context; engine fires once with correct context then resolves after source returns to supported version with rejections cleared (entity_state normal); API and grouped evaluator guards validated.\n\nQuality gates: schema_drift 12 tests passed; full alert regression suite (stale_source, schema_drift, engine, rules, filters, accounting, reliability, api, seed) 97 tests passed; ruff clean; mypy strict clean (6 files). No dependency, lockfile, or secret changes (trivy scan unchanged; full security scan deferred to 68.6).\n</info added on 2026-07-20T16:02:17.497Z>",
+            "status": "done",
             "dependencies": [
               "68.1"
             ],
             "parentTaskId": 68,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-20T16:02:39.023Z"
           },
           {
             "id": 6,
@@ -3273,7 +3274,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T15:50:19.880Z"
+        "updatedAt": "2026-07-20T16:02:39.023Z"
       },
       {
         "id": "69",
@@ -3686,7 +3687,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T15:50:19.881Z",
+      "lastModified": "2026-07-20T16:02:39.024Z",
       "taskCount": 77,
       "completedCount": 69,
       "tags": [

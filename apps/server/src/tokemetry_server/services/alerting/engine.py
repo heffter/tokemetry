@@ -23,6 +23,7 @@ from tokemetry_server.services.alerting.rules import (
     AlertFinding,
     EntityFinding,
     evaluate_rule,
+    evaluate_schema_drift,
     evaluate_stale_sources,
     is_grouped_kind,
 )
@@ -154,7 +155,7 @@ class AlertEngine:
                 continue
             if key in active_keys:
                 continue
-            resolved = await self._resolved_entity(session, key)
+            resolved = await self._resolved_entity(session, rule, key)
             if resolved is None:
                 del state[key]  # revoked or removed: not a recovery, clear silently
                 continue
@@ -172,6 +173,8 @@ class AlertEngine:
         self, session: AsyncSession, rule: models.AlertRule, now: datetime
     ) -> list[EntityFinding]:
         """Dispatch a grouped rule kind to its per-entity evaluator."""
+        if rule.kind == "schema_drift":
+            return await evaluate_schema_drift(session, rule, now)
         return await evaluate_stale_sources(
             session,
             rule,
@@ -195,13 +198,14 @@ class AlertEngine:
         return (now - last_aware).total_seconds() < rule.cooldown_seconds
 
     async def _resolved_entity(
-        self, session: AsyncSession, key: str
+        self, session: AsyncSession, rule: models.AlertRule, key: str
     ) -> AlertFinding | None:
         """Build the recovery notice for a source, or None to clear state silently.
 
         A source that is gone or revoked is not a recovery -- a deliberate
-        revocation should not read as "ingesting again" -- so its firing state is
-        cleared without a resolved notice.
+        revocation should not read as recovered -- so its firing state is cleared
+        without a resolved notice. The wording is kind-specific (a stale source
+        is "ingesting again"; a drifting source is "back on a supported schema").
         """
         try:
             source_id = int(key)
@@ -210,10 +214,17 @@ class AlertEngine:
         source = await session.get(models.Source, source_id)
         if source is None or source.revoked:
             return None
+        if rule.kind == "schema_drift":
+            body = (
+                f"Source '{source.name}' ({source.type}) is back on a supported "
+                "schema with no recent rejections."
+            )
+        else:
+            body = f"Source '{source.name}' ({source.type}) is ingesting again."
         return AlertFinding(
             severity="info",
             title=f"Resolved: source {source.name}",
-            body=f"Source '{source.name}' ({source.type}) is ingesting again.",
+            body=body,
             context={
                 "resolved": True,
                 "source_id": source.id,

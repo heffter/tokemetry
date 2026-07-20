@@ -18,6 +18,7 @@ default 60) and on demand via the API. Each firing is recorded in
 | `failure_rate` | the failed-attempt share in the window crosses the threshold | percent (warn default 10, crit 25) |
 | `latency_p95` | the p95 of `latency_ms` in the window crosses the threshold | milliseconds (warn default 10000, crit 30000) |
 | `fallback_rate` | the share of logical requests that fell back crosses the threshold | percent (warn default 10, crit 25) |
+| `schema_drift` | a source reports an unsupported schema version, or accumulates validation rejections | rejection count (warn default 5, crit 20); a version mismatch is always critical |
 
 Severity is derived (for example `limit_pct` is `warning`, or `critical` at
 95%+). Rules are stored in `alert_rules`; their logic is selected by `kind`.
@@ -40,13 +41,20 @@ context records the measured value, the sample size, and the scope.
 honors provider and model only (a logical request carries no
 source/project/environment).
 
-`stale_source` fires **one alert per source**, each tracked independently: a
-source re-fires only after its own cooldown and sends its own recovery notice
-when it ingests again, so several stale sources never suppress one another.
-Revoked sources never fire. The rule's `source` dimension filter (a list of
-source names under `config.filters.source`) scopes which sources it watches;
-staleness measures the time since a source's last successful ingest (or its
-first sighting, if it has never ingested successfully).
+`stale_source` and `schema_drift` fire **one alert per source**, each tracked
+independently: a source re-fires only after its own cooldown and sends its own
+recovery notice when it recovers, so several affected sources never suppress one
+another. Revoked sources never fire. The rule's `source` dimension filter (a
+list of source names under `config.filters.source`) scopes which sources each
+watches.
+
+- `stale_source` staleness measures the time since a source's last successful
+  ingest (or its first sighting, if it has never ingested successfully).
+- `schema_drift` reads a source's last reported `schema_version` and its rolling
+  validation-rejection count (source health, Task 63.2): a version outside the
+  server-supported set is critical drift, and a rejection count over the
+  threshold warns. It recovers when the source is back on a supported version
+  with no recent rejections.
 
 ## Suppression
 

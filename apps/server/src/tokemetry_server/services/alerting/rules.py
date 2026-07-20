@@ -489,6 +489,85 @@ async def evaluate_stale_sources(
     return findings
 
 
+#: Schema versions the v2 ingest path accepts (mirrors the ``schema_version == 2``
+#: check in api/v2/ingest.py); a source reporting anything else has drifted.
+SUPPORTED_SCHEMA_VERSIONS: frozenset[int] = frozenset({2})
+
+
+async def evaluate_schema_drift(
+    session: AsyncSession,
+    rule: models.AlertRule,
+    now: datetime | None = None,
+    *,
+    supported_versions: frozenset[int] = SUPPORTED_SCHEMA_VERSIONS,
+) -> list[EntityFinding]:
+    """Return one finding per non-revoked source that has drifted (FR-ALERT-006).
+
+    A source drifts when the batch ``schema_version`` it last reported is outside
+    the server-supported set (a proxy or collector upgraded ahead of, or lagging
+    behind, the server), or when its rolling validation-rejection count (Task
+    63.2 source health) crosses the warn/crit thresholds. A version mismatch is
+    always critical; rejection volume derives its severity from the thresholds.
+    Honors the rule's ``source`` name filter; revoked sources never fire. Context
+    carries source identity, reported versus supported versions, and the rejection
+    count, and links the open ``schema_drift`` data-quality count.
+
+    ``now`` is unused (drift is read from stored source-health state, not a time
+    window) but is part of the grouped-evaluator signature the engine calls.
+    """
+    del now
+    filters = filters_from_config(rule.config)
+    warn, crit = _warn_crit(rule, 5.0, 20.0)
+    scoped = filters.scoped_dimensions()
+    supported = sorted(supported_versions)
+    open_drift = await _open_dq_count(session, "schema_drift")
+
+    statement = select(models.Source).where(models.Source.revoked.is_(False))
+    if filters.source:
+        statement = statement.where(models.Source.name.in_(filters.source))
+    sources = (await session.execute(statement)).scalars().all()
+
+    findings: list[EntityFinding] = []
+    for source in sources:
+        version = source.reported_schema_version
+        rejections = source.recent_error_count or 0
+        version_drift = version is not None and version not in supported_versions
+        rejection_severity = _severity_for(float(rejections), warn, crit)
+        if version_drift:
+            severity = "critical"
+        elif rejection_severity is not None:
+            severity = rejection_severity
+        else:
+            continue
+        reasons: list[str] = []
+        if version_drift:
+            reasons.append(f"reports schema_version {version} (supported: {supported})")
+        if rejection_severity is not None:
+            reasons.append(f"{rejections} recent validation rejections")
+        findings.append(
+            EntityFinding(
+                key=str(source.id),
+                finding=AlertFinding(
+                    severity=severity,
+                    title=f"Schema drift: {source.name}",
+                    body=f"Source '{source.name}' ({source.type}) {'; '.join(reasons)}.",
+                    context={
+                        "source_id": source.id,
+                        "source_type": source.type,
+                        "source_name": source.name,
+                        "reported_schema_version": version,
+                        "supported_schema_versions": supported,
+                        "version_drift": version_drift,
+                        "recent_error_count": rejections,
+                        "open_data_quality_events": open_drift,
+                        "scoped_dimensions": scoped,
+                    },
+                ),
+            )
+        )
+    return findings
+
+
 def _config_int(rule: models.AlertRule, key: str, default: int) -> int:
     """Read a positive integer from a rule's config, or a default.
 
@@ -671,17 +750,18 @@ EVALUATORS = {
 }
 
 #: Rule kinds that fire one finding per entity, tracked with per-entity state.
-GROUPED_EVALUATORS = {
-    "stale_source": evaluate_stale_sources,
-}
+#: These are dispatched by the engine to their own per-entity entrypoints
+#: (``evaluate_stale_sources``, ``evaluate_schema_drift``), never through
+#: :data:`EVALUATORS`.
+GROUPED_EVALUATOR_KINDS = frozenset({"stale_source", "schema_drift"})
 
 #: Every valid rule kind (single-finding and grouped), for API validation.
-ALL_EVALUATOR_KINDS = frozenset(EVALUATORS) | frozenset(GROUPED_EVALUATORS)
+ALL_EVALUATOR_KINDS = frozenset(EVALUATORS) | GROUPED_EVALUATOR_KINDS
 
 
 def is_grouped_kind(kind: str) -> bool:
     """Whether a rule kind fires one finding per entity (grouped state machine)."""
-    return kind in GROUPED_EVALUATORS
+    return kind in GROUPED_EVALUATOR_KINDS
 
 
 async def evaluate_rule(
@@ -689,8 +769,8 @@ async def evaluate_rule(
 ) -> AlertFinding | None:
     """Evaluate a single-finding rule; return a finding or None.
 
-    Grouped kinds (see :data:`GROUPED_EVALUATORS`) are evaluated by their own
-    entrypoint (e.g. :func:`evaluate_stale_sources`), not here.
+    Grouped kinds (see :data:`GROUPED_EVALUATOR_KINDS`) are evaluated by their
+    own entrypoint (e.g. :func:`evaluate_stale_sources`), not here.
 
     Raises:
         ValueError: If the rule's kind has no single-finding evaluator.
