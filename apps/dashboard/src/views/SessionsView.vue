@@ -21,7 +21,12 @@ import {
 } from '@/lib/format';
 import { attemptSummary, latencyValues, percentile } from '@/lib/trace';
 import { agentTreeRows, type AgentTreeRow } from '@/lib/agentTree';
-import { clampRangeDays, presetRange } from '@/lib/filters';
+import {
+  clampRangeDays,
+  dayEndIso,
+  dayStartIso,
+  presetRange,
+} from '@/lib/filters';
 import type { AttemptSummary } from '@/lib/trace';
 import type { AttemptV2, ProviderV2, SessionV2 } from '@/api/types-v2';
 
@@ -34,8 +39,9 @@ function boundedRange(): { from: string; to: string } {
   const all = presetRange('all');
   const clamped = clampRangeDays(all.from, all.to, MAX_RANGE_DAYS);
   return {
-    from: `${clamped.from}T00:00:00Z`,
-    to: `${clamped.to}T00:00:00Z`,
+    from: dayStartIso(clamped.from),
+    // Inclusive end-of-day so sessions active today are in the recent window.
+    to: dayEndIso(clamped.to),
   };
 }
 
