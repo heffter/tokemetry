@@ -118,6 +118,46 @@ export interface LiveOverviewFilters {
   environment?: string;
 }
 
+// v2 heatmap (Task 74). value is a token count.
+export interface HeatmapPunchCellV2 {
+  weekday: number;
+  hour: number;
+  value: number;
+}
+
+export interface HeatmapCalendarCellV2 {
+  date: string;
+  value: number;
+}
+
+export interface HeatmapV2Response {
+  punch_card: HeatmapPunchCellV2[];
+  calendar: HeatmapCalendarCellV2[];
+  metadata: {
+    total_tokens: number;
+    date_from: string;
+    date_to: string;
+    applied_filters: Record<string, string>;
+  };
+}
+
+export interface CacheSavingsResponse {
+  cache_savings_usd: string;
+  date_from: string;
+  date_to: string;
+}
+
+// Range + dimension filters for the v2 heatmap and cache-savings endpoints.
+export interface HeatmapV2Filters {
+  from?: string;
+  to?: string;
+  provider?: string;
+  model?: string;
+  machine?: string;
+  project?: string;
+  environment?: string;
+}
+
 export class ApiClient {
   constructor(
     private readonly token: string,
@@ -303,6 +343,28 @@ export class ApiClient {
     const query = params.toString();
     return this.request<LiveOverviewResponse>(
       `/api/v2/summary/live-overview${query ? `?${query}` : ''}`
+    );
+  }
+
+  private v2FilterParams(filters: HeatmapV2Filters): string {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) params.set(key, value);
+    }
+    return params.toString();
+  }
+
+  heatmapV2(filters: HeatmapV2Filters = {}): Promise<HeatmapV2Response> {
+    const query = this.v2FilterParams(filters);
+    return this.request<HeatmapV2Response>(
+      `/api/v2/heatmap${query ? `?${query}` : ''}`
+    );
+  }
+
+  cacheSavings(filters: HeatmapV2Filters = {}): Promise<CacheSavingsResponse> {
+    const query = this.v2FilterParams(filters);
+    return this.request<CacheSavingsResponse>(
+      `/api/v2/summary/cache-savings${query ? `?${query}` : ''}`
     );
   }
 

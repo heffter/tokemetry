@@ -25,11 +25,11 @@ import {
 import { cacheReadShare, formatCost, formatPct } from '@/lib/format';
 import { aggregateRollups, ROLLUP_DIMENSIONS } from '@/lib/rollups';
 import { knownModelIds, resolveModel } from '@/lib/modelRegistry';
-import { cacheSavingsUsd } from '@/lib/coverage';
+import { v2CalendarBuckets, v2PunchCells } from '@/lib/heatmapV2';
 import { loadSelection, saveSelection } from '@/composables/useSettings';
 import { presetRange } from '@/lib/filters';
 import type { UsageFilter } from '@/lib/filters';
-import type { HeatmapResponse, PricingRow } from '@/api/types';
+import type { HeatmapV2Response } from '@/api/client';
 import type { ModelV2, ProviderV2, RollupV2, UsageRowV2 } from '@/api/types-v2';
 
 const dimLabel = (b: UsageRowV2): string => b.key || '(unattributed)';
@@ -37,9 +37,9 @@ const dimLabel = (b: UsageRowV2): string => b.key || '(unattributed)';
 const { loading, error, run, retry } = useAsync();
 const { provider: globalProvider } = useGlobalFilters();
 const rollupRows = ref<RollupV2[]>([]);
-const heatmap = ref<HeatmapResponse | null>(null);
+const heatmap = ref<HeatmapV2Response | null>(null);
+const cacheSavings = ref<number>(0);
 const machines = ref<string[]>([]);
-const pricing = ref<PricingRow[]>([]);
 const providers = ref<ProviderV2[]>([]);
 const models = ref<ModelV2[]>([]);
 const filter = ref<UsageFilter>(presetRange('30d'));
@@ -86,15 +86,11 @@ const byProject = computed(() =>
   aggregateRollups(scopedRows.value, ROLLUP_DIMENSIONS.project)
 );
 
-const cacheSavings = computed(() =>
-  cacheSavingsUsd(byModel.value, pricing.value)
-);
-
 const punchChart = computed(() =>
-  punchCardOption(heatmap.value?.punch_card ?? [])
+  punchCardOption(heatmap.value ? v2PunchCells(heatmap.value) : [])
 );
 const calendarChart = computed(() =>
-  calendarOption(heatmap.value?.calendar ?? [])
+  calendarOption(heatmap.value ? v2CalendarBuckets(heatmap.value) : [])
 );
 
 /** Sort descending by total tokens so the biggest driver reads leftmost. */
@@ -153,7 +149,18 @@ async function load(): Promise<void> {
     const client = useClient();
     const f = filter.value;
     const fallback = presetRange('30d');
-    const [rollups, heat] = await Promise.all([
+    // The v2 heatmap and cache-savings endpoints honor the global provider
+    // filter server-side (Task 74), so BreakdownsView's punch card, calendar,
+    // and "Caching saved" tile obey it just like the rollup charts.
+    const v2Filters = {
+      from: f.from ?? fallback.from,
+      to: f.to ?? fallback.to,
+      provider: globalProvider.value || f.provider,
+      model: f.model,
+      machine: f.machine,
+      project: f.project,
+    };
+    const [rollups, heat, saved] = await Promise.all([
       client.v2AllRollups({
         from: f.from ?? fallback.from,
         to: f.to ?? fallback.to,
@@ -161,10 +168,12 @@ async function load(): Promise<void> {
         model: f.model,
         machine: f.machine,
       }),
-      client.heatmap(f.from, f.to, f.machine, f.project),
+      client.heatmapV2(v2Filters),
+      client.cacheSavings(v2Filters),
     ]);
     rollupRows.value = rollups;
     heatmap.value = heat;
+    cacheSavings.value = Number(saved.cache_savings_usd);
   });
 }
 
@@ -172,7 +181,6 @@ async function loadOptions(): Promise<void> {
   try {
     const client = useClient();
     machines.value = (await client.machines()).map((m) => m.id);
-    pricing.value = await client.pricing();
     providers.value = await client.v2Providers();
     models.value = await client.v2Models();
     const all = presetRange('all');
