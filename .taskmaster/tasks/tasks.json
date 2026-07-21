@@ -3523,7 +3523,7 @@
         "description": "Align v2 events with OpenTelemetry generative AI semantic conventions: trace and span linkage, a pinned-version mapping document, and a feature-flagged OTLP receiver that converts GenAI spans into v2 attempt events with content attributes stripped. PRD-TOK-002 Section 12.19; Epic TOK-11; FR-OTEL-001..007; decisions D-009, D-013.",
         "details": "Objective: OpenTelemetry interoperability including the receiver bridge, feature-flagged off by default (D-009).\n\nDesign: trace_id, span_id, and parent_span_id on the v2 schema (FR-OTEL-001) including agent parent-child relationships (FR-TRACE-009); a mapping document pinning a specific generative AI semantic-convention version (D-013) covering provider, model, token usage, latency, and outcome mappings (FR-OTEL-002); the pinned semconv version recorded on every mapped event (FR-OTEL-006). OTLP receiver: HTTP protobuf endpoint, disabled by default behind a feature flag, authenticated consistently with ingest tokens, converting GenAI spans into v2 attempt events with provenance imported and source type sdk; content attributes stripped unconditionally (FR-OTEL-007); unknown attributes retained in namespaced extra metadata within bounds. Core v2 ingest never depends on OTLP (FR-OTEL-004); export to external OpenTelemetry backends stays deferred (FR-OTEL-005).\n\nAcceptance criteria (PRD Epic TOK-11): trace and span IDs supported; mapping document exists with pinned semconv version; content attributes remain disabled by default; the feature-flagged OTLP receiver converts generative AI spans into v2 attempt events (AC-021).\n\nTest strategy: unit tests for the span-to-event converter including content stripping and attribute bounding; integration test posting recorded OTLP payloads from an instrumented sample app and asserting correct v2 events and dashboard visibility; feature-flag-off test proving the endpoint is absent by default; privacy fuzz tests on span attributes.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "62",
           "66"
@@ -3597,16 +3597,17 @@
             "id": 6,
             "title": "OTel documentation and epic closure",
             "description": "User-facing OTLP docs and the deferral boundary.",
-            "details": "Write docs/integrations/opentelemetry.md: enabling the receiver (feature flag, token scope, endpoint), supported semconv version and the mapping summary linking to the architecture doc, content-attribute policy (always stripped, FR-OTEL-007), configuration examples for common SDK exporters, limitations (traces only, no metrics or logs; finality always final; no OTLP export from Tokemetry to external backends per FR-OTEL-005 deferral), and troubleshooting (flag off, scope missing, non-GenAI spans skipped). Update the website docs API page reference if applicable. Epic acceptance walkthrough of PRD Epic TOK-11 criteria and AC-021 in the task log; confirm the receiver stays off by default in a fresh deployment test. Test strategy: docs review against FR-OTEL-001..007; fresh-deployment default-off test; full suite green closing the epic and, with all other epics done, the program.",
-            "status": "pending",
+            "details": "Write docs/integrations/opentelemetry.md: enabling the receiver (feature flag, token scope, endpoint), supported semconv version and the mapping summary linking to the architecture doc, content-attribute policy (always stripped, FR-OTEL-007), configuration examples for common SDK exporters, limitations (traces only, no metrics or logs; finality always final; no OTLP export from Tokemetry to external backends per FR-OTEL-005 deferral), and troubleshooting (flag off, scope missing, non-GenAI spans skipped). Update the website docs API page reference if applicable. Epic acceptance walkthrough of PRD Epic TOK-11 criteria and AC-021 in the task log; confirm the receiver stays off by default in a fresh deployment test. Test strategy: docs review against FR-OTEL-001..007; fresh-deployment default-off test; full suite green closing the epic and, with all other epics done, the program.\n<info added on 2026-07-21T03:03:12.907Z>\nCompleted docs/integrations/opentelemetry.md documenting both interoperability modes: trace-context propagation on every v2 event (trace_id, span_id, parent_span_id with trace grouping, parent resolution, and lenient W3C validation) and the opt-in OTLP receiver. Receiver enablement: TOKEMETRY_OTEL_RECEIVER_ENABLED=true environment variable, POST /api/v2/otel/v1/traces endpoint requiring ingest:events token scope, OTLP/HTTP JSON encoding with protobuf-behind-the-boundary implementation note. Mapping documentation references architecture/otel-mapping.md for the pinned semantic convention version and attribute transformations. Privacy guarantees: content attributes unconditionally stripped per FR-OTEL-007, all other attributes backstopped by the existing privacy validator. Documented the deliberate FR-OTEL-005 deferral: no OTel exporter from Tokemetry to external backends. Epic TOK-11 closure confirmed: 71.1 trace/span linkage schema extensions, 71.2 pinned semconv mapping document, 71.3 feature-flagged OTLP receiver and converter implementation, 71.4 exhaustive converter test coverage, 71.5 end-to-end OTLP ingestion to dashboard verification satisfying AC-021, 71.6 user-facing documentation. Documentation-only deliverable with no code or test changes required.\n</info added on 2026-07-21T03:03:12.907Z>",
+            "status": "done",
             "dependencies": [
               "71.5"
             ],
             "parentTaskId": 71,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T03:03:31.231Z"
           }
         ],
-        "updatedAt": "2026-07-21T03:01:32.355Z"
+        "updatedAt": "2026-07-21T03:03:31.231Z"
       },
       {
         "id": "72",
@@ -3719,9 +3720,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T03:01:32.357Z",
+      "lastModified": "2026-07-21T03:03:31.232Z",
       "taskCount": 78,
-      "completedCount": 73,
+      "completedCount": 74,
       "tags": [
         "master"
       ]
