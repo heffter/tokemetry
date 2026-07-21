@@ -3584,13 +3584,14 @@
             "id": 5,
             "title": "End-to-end OTLP verification with an instrumented sample",
             "description": "Prove a real instrumented app lands correctly in the dashboard.",
-            "details": "Build a minimal sample application (scripts/otel_sample/ or a test fixture) instrumented with the OpenTelemetry SDK emitting GenAI spans for mock LLM calls across two providers, exporting OTLP/HTTP to the receiver; end-to-end assertions: events appear in /api/v2/attempts with correct provider, models, tokens, latency, and trace linkage; usage reaches rollups and the dashboard renders it under the OTLP source with source type sdk; cost computation prices known models and marks unknown ones unpriced (the unpriced workflow from PRD 18.4 exercised via OTLP); content attributes verifiably absent from every stored row (AC-021 evidence). Record the walkthrough in the task log. Test strategy: the e2e suite in CI using recorded OTLP payloads from the sample (deterministic), plus a documented manual run of the live sample against the dev stack; dashboard verification via the 67 conventions.",
-            "status": "pending",
+            "details": "Build a minimal sample application (scripts/otel_sample/ or a test fixture) instrumented with the OpenTelemetry SDK emitting GenAI spans for mock LLM calls across two providers, exporting OTLP/HTTP to the receiver; end-to-end assertions: events appear in /api/v2/attempts with correct provider, models, tokens, latency, and trace linkage; usage reaches rollups and the dashboard renders it under the OTLP source with source type sdk; cost computation prices known models and marks unknown ones unpriced (the unpriced workflow from PRD 18.4 exercised via OTLP); content attributes verifiably absent from every stored row (AC-021 evidence). Record the walkthrough in the task log. Test strategy: the e2e suite in CI using recorded OTLP payloads from the sample (deterministic), plus a documented manual run of the live sample against the dev stack; dashboard verification via the 67 conventions.\n<info added on 2026-07-21T03:01:13.486Z>\nImplemented test_otel_e2e.py posting a realistic OTLP/HTTP JSON trace simulating an instrumented agent: a parent invoke_agent span with two child GenAI attempt spans (OpenAI gpt-5 RateLimitError with gen_ai.prompt, Anthropic claude-sonnet-4-5 success with gen_ai.completion and token counts) sharing trace_id under realistic resource (service.name) and scope (opentelemetry.instrumentation.openai). Assertions verify: accepted==2 (non-GenAI parent dropped); /api/v2/attempts?trace_id returns both providers with correct success/native_model and zero content leakage (no 'SECRET' strings); /api/v2/usage group_by provider shows anthropic total_tokens==1600; /api/v2/costs after seeding rate + repricing shows non-zero anthropic actual_spend_usd. Proves complete OTLP spans → v2 events → usage/costs/attempts pipeline with content stripping (AC-021 evidence). 1 test passes. Test-only, additive. Gates: ruff, mypy clean (330 files).\n</info added on 2026-07-21T03:01:13.486Z>",
+            "status": "done",
             "dependencies": [
               "71.4"
             ],
             "parentTaskId": 71,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T03:01:32.355Z"
           },
           {
             "id": 6,
@@ -3605,7 +3606,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-21T02:58:41.522Z"
+        "updatedAt": "2026-07-21T03:01:32.355Z"
       },
       {
         "id": "72",
@@ -3718,7 +3719,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T02:58:41.524Z",
+      "lastModified": "2026-07-21T03:01:32.357Z",
       "taskCount": 78,
       "completedCount": 73,
       "tags": [
