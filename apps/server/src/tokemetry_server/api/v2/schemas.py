@@ -734,6 +734,46 @@ class DeletionResponse(BaseModel):
     rollups_recomputed: int
 
 
+class HeatmapPunchCell(BaseModel):
+    """One weekday-by-hour heatmap cell (Task 74)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    weekday: int
+    hour: int
+    value: int
+
+
+class HeatmapCalendarCell(BaseModel):
+    """One day's token total for the contribution calendar."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    date: date
+    value: int
+
+
+class HeatmapMetadata(BaseModel):
+    """Heatmap range and applied-filter metadata."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_tokens: int
+    date_from: date
+    date_to: date
+    applied_filters: dict[str, str]
+
+
+class HeatmapV2Response(BaseModel):
+    """Provider-neutral activity heatmap (FR-UI-001)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    punch_card: list[HeatmapPunchCell]
+    calendar: list[HeatmapCalendarCell]
+    metadata: HeatmapMetadata
+
+
 class ProviderLimitLiveOut(BaseModel):
     """One provider limit window's live state and exhaustion estimate (Task 73)."""
 

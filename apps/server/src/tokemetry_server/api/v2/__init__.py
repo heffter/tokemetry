@@ -11,6 +11,7 @@ from fastapi import APIRouter
 from tokemetry_server.api.v2.admin_data import router as _admin_data_router
 from tokemetry_server.api.v2.audit import router as _audit_router
 from tokemetry_server.api.v2.costs import router as _costs_router
+from tokemetry_server.api.v2.heatmap import router as _heatmap_router
 from tokemetry_server.api.v2.ingest import router as _ingest_router
 from tokemetry_server.api.v2.pricing import router as _pricing_router
 from tokemetry_server.api.v2.registries import router as _registries_router
@@ -36,3 +37,4 @@ router.include_router(_retention_router)
 router.include_router(_admin_data_router)
 router.include_router(_audit_router)
 router.include_router(_summary_router)
+router.include_router(_heatmap_router)
