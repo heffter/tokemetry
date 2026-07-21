@@ -113,7 +113,6 @@ function saveToken(): void {
 }
 .brand .brand-logo {
   height: 26px;
-  display: block;
 }
 .gate-logo {
   display: flex;

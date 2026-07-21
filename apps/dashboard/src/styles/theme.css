@@ -158,7 +158,13 @@ a {
 }
 
 /* Brand logo variants: show the light-background lockup by default, the
-   dark-background one when the effective theme is dark (system or explicit). */
+   dark-background one when the effective theme is dark (system or explicit).
+   The base rule keeps the shown variant block-level so component styles do not
+   need to set `display` (which would otherwise out-specify these toggles and
+   reveal both lockups at once). */
+.brand-logo {
+  display: block;
+}
 .brand-logo.dark {
   display: none;
 }
