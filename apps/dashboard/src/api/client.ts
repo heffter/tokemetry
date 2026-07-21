@@ -83,6 +83,41 @@ export interface RetentionStatusResponse {
   categories: RetentionCategoryStatus[];
 }
 
+// Provider-neutral live overview for NowView (Task 73).
+export interface ProviderLimitLive {
+  provider: string;
+  window_kind: string;
+  utilization_pct: number;
+  limit_amount: number | null;
+  remaining: number | null;
+  unit: string | null;
+  resets_at: string | null;
+  predicted_exhaustion_at: string | null;
+}
+
+export interface ModelUsageLive {
+  native_model: string;
+  total_tokens: number;
+}
+
+export interface LiveOverviewResponse {
+  now: string;
+  burn_rate_per_min: number;
+  provider_limits: ProviderLimitLive[];
+  today_by_model: ModelUsageLive[];
+}
+
+// Filters accepted by the live-overview endpoint (a subset of the uniform v2
+// filter surface).
+export interface LiveOverviewFilters {
+  provider?: string;
+  model?: string;
+  machine?: string;
+  project?: string;
+  source?: string;
+  environment?: string;
+}
+
 export class ApiClient {
   constructor(
     private readonly token: string,
@@ -255,6 +290,19 @@ export class ApiClient {
   retentionStatus(): Promise<RetentionStatusResponse> {
     return this.request<RetentionStatusResponse>(
       '/api/v2/admin/retention/status'
+    );
+  }
+
+  liveOverview(
+    filters: LiveOverviewFilters = {}
+  ): Promise<LiveOverviewResponse> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) params.set(key, value);
+    }
+    const query = params.toString();
+    return this.request<LiveOverviewResponse>(
+      `/api/v2/summary/live-overview${query ? `?${query}` : ''}`
     );
   }
 

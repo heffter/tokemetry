@@ -18,6 +18,7 @@ import {
 import {
   cacheReadShare,
   formatCost,
+  formatDateTime,
   formatDuration,
   formatPct,
   formatTokens,
@@ -40,6 +41,8 @@ import { loadSelection, saveSelection } from '@/composables/useSettings';
 import { throttle } from '@/lib/throttle';
 import type { CostResponse, StreamMessage } from '@/api/types';
 import type { SummaryNow } from '@/api/types';
+import type { LiveOverviewResponse } from '@/api/client';
+import { limitLabel, summarizeLiveOverview } from '@/lib/liveOverview';
 
 interface FeedRow {
   id: number;
@@ -49,6 +52,10 @@ interface FeedRow {
 const { loading, error, run, retry } = useAsync();
 const summary = ref<SummaryNow | null>(null);
 const cost = ref<CostResponse | null>(null);
+const liveOverview = ref<LiveOverviewResponse | null>(null);
+const liveSummary = computed(() =>
+  liveOverview.value ? summarizeLiveOverview(liveOverview.value) : null
+);
 const histories = ref<Record<string, number[]>>({});
 const feed = ref<FeedRow[]>([]);
 
@@ -178,6 +185,13 @@ async function load(): Promise<void> {
     const client = useClient();
     summary.value = await client.summaryNow();
     cost.value = await client.cost();
+    // Provider-neutral live overview (Task 73); best-effort so an older server
+    // without the v2 endpoint still renders the rest of the page.
+    try {
+      liveOverview.value = await client.liveOverview();
+    } catch {
+      liveOverview.value = null;
+    }
     const hist: Record<string, number[]> = {};
     await Promise.all(
       summary.value.limits.map(async (l) => {
@@ -306,6 +320,29 @@ onBeforeUnmount(() => {
           </li>
           <li v-if="feed.length === 0" class="muted">Waiting for events…</li>
         </ul>
+      </section>
+
+      <section v-if="liveOverview && liveSummary" class="card">
+        <div class="head">
+          <h3>Live limits (all providers)</h3>
+          <span class="muted small">
+            {{ liveSummary.burnRatePerMin.toFixed(0) }} tok/min
+          </span>
+        </div>
+        <ul v-if="liveOverview.provider_limits.length" class="feed">
+          <li
+            v-for="limit in liveOverview.provider_limits"
+            :key="limit.provider + limit.window_kind"
+            class="tabular"
+          >
+            {{ limitLabel(limit) }}
+            <span v-if="limit.predicted_exhaustion_at" class="muted small">
+              — may exhaust
+              {{ formatDateTime(limit.predicted_exhaustion_at) }}
+            </span>
+          </li>
+        </ul>
+        <p v-else class="muted">No provider limits reported.</p>
       </section>
     </template>
   </AsyncState>
