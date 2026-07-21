@@ -8,24 +8,29 @@ with an exhaustion estimate, and today's usage by native model.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.v2.query_deps import query_filters
 from tokemetry_server.api.v2.schemas import (
+    CacheSavingsResponse,
     LiveOverviewResponse,
     ModelUsageLiveOut,
     ProviderLimitLiveOut,
 )
 from tokemetry_server.scopes import QUERY_READ
+from tokemetry_server.services.cache_savings import cache_savings_usd
 from tokemetry_server.services.live_overview import build_live_overview
 from tokemetry_server.services.query_framework import QueryFilters
 
 router = APIRouter(prefix="/api/v2/summary", tags=["summary"])
+
+#: Default range for the cache-savings endpoint (a rolling quarter).
+_DEFAULT_DAYS = 90
 
 
 @router.get("/live-overview", response_model=LiveOverviewResponse)
@@ -58,4 +63,21 @@ async def live_overview_endpoint(
             )
             for item in overview.today_by_model
         ],
+    )
+
+
+@router.get("/cache-savings", response_model=CacheSavingsResponse)
+async def cache_savings_endpoint(
+    date_from: date | None = Query(default=None, alias="from"),
+    date_to: date | None = Query(default=None, alias="to"),
+    filters: QueryFilters = Depends(query_filters),
+    session: AsyncSession = Depends(get_session),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
+) -> CacheSavingsResponse:
+    """Return the authoritative USD saved by cache reads over the range."""
+    end = date_to or datetime.now(UTC).date()
+    start = date_from or (end - timedelta(days=_DEFAULT_DAYS - 1))
+    saved = await cache_savings_usd(session, filters, start, end)
+    return CacheSavingsResponse(
+        cache_savings_usd=saved, date_from=start, date_to=end
     )

@@ -734,6 +734,16 @@ class DeletionResponse(BaseModel):
     rollups_recomputed: int
 
 
+class CacheSavingsResponse(BaseModel):
+    """Authoritative cache-read savings over a range (Task 74, Gap 2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cache_savings_usd: Decimal
+    date_from: date
+    date_to: date
+
+
 class HeatmapPunchCell(BaseModel):
     """One weekday-by-hour heatmap cell (Task 74)."""
 
