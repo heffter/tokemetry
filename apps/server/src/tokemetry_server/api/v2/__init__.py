@@ -19,6 +19,7 @@ from tokemetry_server.api.v2.resources import router as _resources_router
 from tokemetry_server.api.v2.retention import router as _retention_router
 from tokemetry_server.api.v2.sessions import router as _sessions_router
 from tokemetry_server.api.v2.sources import router as _sources_router
+from tokemetry_server.api.v2.summary import router as _summary_router
 from tokemetry_server.api.v2.usage import router as _usage_router
 
 router = APIRouter()
@@ -34,3 +35,4 @@ router.include_router(_resources_router)
 router.include_router(_retention_router)
 router.include_router(_admin_data_router)
 router.include_router(_audit_router)
+router.include_router(_summary_router)

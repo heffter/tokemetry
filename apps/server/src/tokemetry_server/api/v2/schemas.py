@@ -734,6 +734,41 @@ class DeletionResponse(BaseModel):
     rollups_recomputed: int
 
 
+class ProviderLimitLiveOut(BaseModel):
+    """One provider limit window's live state and exhaustion estimate (Task 73)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    window_kind: str
+    utilization_pct: float
+    limit_amount: float | None
+    remaining: float | None
+    unit: str | None
+    resets_at: UtcDatetime | None
+    predicted_exhaustion_at: UtcDatetime | None
+
+
+class ModelUsageLiveOut(BaseModel):
+    """Today's token total for one native model."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    native_model: str
+    total_tokens: int
+
+
+class LiveOverviewResponse(BaseModel):
+    """Provider-neutral live overview for the dashboard front page (FR-UI-001)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    now: UtcDatetime
+    burn_rate_per_min: float
+    provider_limits: list[ProviderLimitLiveOut]
+    today_by_model: list[ModelUsageLiveOut]
+
+
 class AuditEntryOut(BaseModel):
     """One append-only audit entry for review (Task 70.4)."""
 
