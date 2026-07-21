@@ -123,7 +123,9 @@ class PrivacyPolicy:
     #: Maximum tool-name length when the histogram is enabled.
     max_tool_name_length: int = 64
     #: Extra top-level namespaces allowed in addition to the event's provider.
-    extra_namespaces: frozenset[str] = frozenset({"gateway"})
+    #: ``otel`` carries OTLP-imported span metadata and the semconv version
+    #: (Task 71.3), content-stripped like any other extra.
+    extra_namespaces: frozenset[str] = frozenset({"gateway", "otel"})
     #: Maximum serialized event size in bytes (FR-EVENT-028).
     max_event_bytes: int = 32 * 1024
     #: Maximum JSON nesting depth of the whole event (NFR-SEC-004).

@@ -3558,13 +3558,14 @@
             "id": 3,
             "title": "Feature-flagged OTLP receiver service",
             "description": "Authenticated OTLP/HTTP endpoint, off by default.",
-            "details": "Add an OTLP/HTTP receiver to the server (apps/server services/otel_receiver.py plus api/v2/otlp.py): POST /api/v2/otlp/v1/traces accepting protobuf and JSON-encoded OTLP ExportTraceServiceRequest payloads (opentelemetry-proto dependency only, no SDK or collector infrastructure per NG-005 and FR-OTEL-004); entirely behind a feature flag (settings otlp_enabled default false; when disabled the route is not mounted, G-012); authenticated with the standard bearer tokens requiring ingest:events scope; size and depth limits shared with ingest hardening; spans that are not GenAI spans (no gen_ai.system attribute) are acknowledged and skipped with a counter. Partial-success responses follow OTLP semantics. Test strategy: integration tests for flag-off 404, flag-on auth enforcement, protobuf and JSON payload parsing, non-GenAI span skipping, and OTLP partial-success response shape; trivy and dependency review for the proto dependency.",
-            "status": "pending",
+            "details": "Add an OTLP/HTTP receiver to the server (apps/server services/otel_receiver.py plus api/v2/otlp.py): POST /api/v2/otlp/v1/traces accepting protobuf and JSON-encoded OTLP ExportTraceServiceRequest payloads (opentelemetry-proto dependency only, no SDK or collector infrastructure per NG-005 and FR-OTEL-004); entirely behind a feature flag (settings otlp_enabled default false; when disabled the route is not mounted, G-012); authenticated with the standard bearer tokens requiring ingest:events scope; size and depth limits shared with ingest hardening; spans that are not GenAI spans (no gen_ai.system attribute) are acknowledged and skipped with a counter. Partial-success responses follow OTLP semantics. Test strategy: integration tests for flag-off 404, flag-on auth enforcement, protobuf and JSON payload parsing, non-GenAI span skipping, and OTLP partial-success response shape; trivy and dependency review for the proto dependency.\n<info added on 2026-07-21T02:54:33.538Z>\nImplemented with JSON-only OTLP/HTTP receiver (no protobuf dependency). New otel/receiver.py parses ExportTraceServiceRequest JSON (resourceSpans→scopeSpans→spans, typed attribute values stringValue/intValue/boolValue/doubleValue, hex trace/span IDs in W3C form) into OtelSpan objects via parse_otlp_json boundary. New otel/convert.py span_to_event() applies 71.2 semconv mapping: strips content attributes first (FR-OTEL-007), returns None for non-GenAI spans (no gen_ai.system), maps provider (lowercased), requested/native model, token tiers, success/outcome from status+error.type, ts_started/ts_completed with derived latency_ms, trace IDs (71.1), records semconv_version and leftover attributes under extra.otel, defaults event_kind=attempt/finality=final/sequence=1, provenance=imported, source.type=sdk. api/v2/otel.py POST /api/v2/otel/v1/traces requires ingest:events scope, parses+converts+ingests via IngestV2Service, returns OTLP success shape. Router mounted in app.py only when otel_receiver_enabled flag is true (default false, D-009), endpoint absent otherwise (FR-OTEL-004). Added 'otel' as allowed privacy extra-namespace (content still stripped). Tests in test_otel_receiver.py: absent-by-default 404, GenAI span ingestion with correct mapping including latency, content stripping verification, non-GenAI span ignored with accepted=0, ingest-scope 403, malformed payload 400. Protobuf decoder can slot in at parse_otlp_json boundary without touching converter or endpoint. Full suite 807 passed/51 skipped/0 failed; ruff, mypy 328 files, trivy clean.\n</info added on 2026-07-21T02:54:33.538Z>",
+            "status": "done",
             "dependencies": [
               "71.2"
             ],
             "parentTaskId": 71,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T02:54:52.205Z"
           },
           {
             "id": 4,
@@ -3603,7 +3604,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-21T02:22:14.007Z"
+        "updatedAt": "2026-07-21T02:54:52.205Z"
       },
       {
         "id": "72",
@@ -3716,7 +3717,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T02:22:14.008Z",
+      "lastModified": "2026-07-21T02:54:52.207Z",
       "taskCount": 78,
       "completedCount": 73,
       "tags": [

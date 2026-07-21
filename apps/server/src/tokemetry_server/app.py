@@ -334,6 +334,12 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
     app.include_router(alerts.router)
     app.include_router(stream.router)
     app.include_router(v2.router)
+    # The OTLP receiver is feature-flagged off by default (D-009); mount it only
+    # when enabled so the endpoint is absent otherwise (FR-OTEL-004).
+    if resolved.otel_receiver_enabled:
+        from tokemetry_server.api.v2 import otel as otel_api
+
+        app.include_router(otel_api.router)
 
     @app.get("/api/v1/health", tags=["meta"])
     async def health() -> dict[str, str]:

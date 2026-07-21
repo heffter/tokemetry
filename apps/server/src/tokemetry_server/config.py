@@ -142,6 +142,11 @@ class Settings(BaseSettings):
     #: revoked token is disconnected in-flight within this window (NFR-SEC-008).
     ws_reauth_interval_seconds: float = Field(default=30.0, gt=0)
 
+    #: Enable the OTLP/HTTP trace receiver that converts GenAI spans into v2
+    #: attempt events (Epic TOK-11). Disabled by default (D-009); core ingest
+    #: never depends on it (FR-OTEL-004).
+    otel_receiver_enabled: bool = Field(default=False)
+
     @property
     def cors_allow_origin_list(self) -> list[str]:
         """Parse ``cors_allow_origins`` into a trimmed, non-empty origin list."""
