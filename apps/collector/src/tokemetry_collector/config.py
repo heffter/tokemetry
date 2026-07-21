@@ -31,7 +31,9 @@ class CollectorConfig(BaseModel):
 
     server_url: str = Field(min_length=1)
     api_token: str = Field(min_length=1)
-    machine_name: str = Field(min_length=1)
+    # Defaults to this host's network name so an unset config does not produce a
+    # placeholder machine label; set it explicitly to override.
+    machine_name: str = Field(default_factory=platform.node)
     machine_platform: str = Field(default_factory=platform.system)
     poll_interval_seconds: float = Field(default=60.0, gt=0)
     limits_poll_interval_seconds: float = Field(default=120.0, gt=0)

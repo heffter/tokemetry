@@ -131,6 +131,19 @@ class IngestV2Service:
                 ``reject`` mode; nothing is persisted.
         """
         cleaned = self._validate(events)
+        # A single upstream call with no explicit logical-request id is its own
+        # logical request: default the id to the event's own attempt/event id so
+        # sources without fallback routing (e.g. Claude Code) still populate the
+        # requests view instead of being invisible there (they carry no
+        # logical_request_id). Events that do carry one are left untouched.
+        cleaned = [
+            event
+            if event.logical_request_id is not None
+            else event.model_copy(
+                update={"logical_request_id": event.attempt_id or event.event_id}
+            )
+            for event in cleaned
+        ]
 
         counts: Counter[Outcome] = Counter()
         accepted_ids: list[str] = []
