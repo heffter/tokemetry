@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from conftest import BOOTSTRAP_TOKEN
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 from tokemetry_server.app import create_app
@@ -143,9 +144,10 @@ def _stream_client(tmp_path: Path) -> Iterator[TestClient]:
 def test_ws_connection_cap(_stream_client: TestClient) -> None:
     """A token already at its connection cap is refused a new stream."""
     # Pre-fill the counter to the limit for the bootstrap token's key.
-    _stream_client.app.state.ws_connections[BOOTSTRAP_TOKEN] = 1
-    with pytest.raises(WebSocketDisconnect):
-        with _stream_client.websocket_connect(
-            f"/api/v1/stream?token={BOOTSTRAP_TOKEN}"
-        ):
-            pass
+    app = cast(FastAPI, _stream_client.app)
+    app.state.ws_connections[BOOTSTRAP_TOKEN] = 1
+    with (
+        pytest.raises(WebSocketDisconnect),
+        _stream_client.websocket_connect(f"/api/v1/stream?token={BOOTSTRAP_TOKEN}"),
+    ):
+        pass
