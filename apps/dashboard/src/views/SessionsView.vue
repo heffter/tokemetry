@@ -49,7 +49,18 @@ const { loading, error, run, retry } = useAsync();
 const { provider: globalProvider } = useGlobalFilters();
 const sessions = ref<SessionV2[]>([]);
 const providers = ref<ProviderV2[]>([]);
+const projects = ref<string[]>([]);
 const providerFilter = ref<string>('');
+// Project filter is applied server-side (a session touching the project, not
+// only ones whose dominant project matches), so it reloads the list.
+const projectFilter = ref<string>('');
+
+/** Last path segment of a project path, e.g. "…/worktrees/foo" -> "foo". */
+function projectLabel(path: string | null): string {
+  if (!path) return '—';
+  const segments = path.split(/[\\/]/).filter(Boolean);
+  return segments.length ? segments[segments.length - 1] : path;
+}
 
 const providerName = computed(() => {
   const map = new Map(providers.value.map((p) => [p.id, p.display_name]));
@@ -180,11 +191,18 @@ async function load(): Promise<void> {
   await run(async () => {
     const client = useClient();
     const { from, to } = boundedRange();
+    const project = projectFilter.value || undefined;
     const rows: SessionV2[] = [];
     let cursor: string | undefined;
     // Page through (keyset) up to a guard cap so the sortable table has the set.
     for (let page = 0; page < 20; page += 1) {
-      const res = await client.v2Sessions({ from, to, limit: 200, cursor });
+      const res = await client.v2Sessions({
+        from,
+        to,
+        project,
+        limit: 200,
+        cursor,
+      });
       rows.push(...res.sessions);
       if (!res.next_cursor) break;
       cursor = res.next_cursor;
@@ -193,16 +211,32 @@ async function load(): Promise<void> {
   });
 }
 
-async function loadProviders(): Promise<void> {
+async function loadOptions(): Promise<void> {
   try {
     providers.value = await useClient().v2Providers();
   } catch {
     providers.value = [];
   }
+  // Project list for the filter; non-critical, so a failure just leaves it empty.
+  try {
+    const all = presetRange('all');
+    projects.value = (
+      await useClient().usage({ groupBy: 'project', ...all })
+    ).buckets
+      .filter((b) => b.key)
+      .sort((a, b) => b.total_tokens - a.total_tokens)
+      .map((b) => b.key);
+  } catch {
+    projects.value = [];
+  }
+}
+
+function onProjectFilter(): void {
+  void load();
 }
 
 onMounted(() => {
-  void loadProviders();
+  void loadOptions();
   void load();
 });
 </script>
@@ -225,6 +259,16 @@ onMounted(() => {
               {{ providerName(p) }}
             </option>
           </select>
+          <select
+            v-model="projectFilter"
+            title="Sessions that touched this project"
+            @change="onProjectFilter"
+          >
+            <option value="">all projects</option>
+            <option v-for="p in projects" :key="p" :value="p">
+              {{ projectLabel(p) }}
+            </option>
+          </select>
         </div>
       </div>
 
@@ -241,6 +285,7 @@ onMounted(() => {
             <th>Session</th>
             <th>Provider</th>
             <th>Source</th>
+            <th>Project</th>
             <th class="num sortable" @click="sortBy('attempt_count')">
               Attempts{{ arrow('attempt_count') }}
             </th>
@@ -264,6 +309,9 @@ onMounted(() => {
               </td>
               <td>{{ providerName(s.provider) }}</td>
               <td class="muted">{{ s.source }}</td>
+              <td :title="s.primary_project || 'unattributed'">
+                {{ projectLabel(s.primary_project) }}
+              </td>
               <td class="num tabular">{{ s.attempt_count }}</td>
               <td class="num tabular">{{ formatTokens(s.total_tokens) }}</td>
               <td class="num tabular">
@@ -280,7 +328,7 @@ onMounted(() => {
               </td>
             </tr>
             <tr v-if="expandedId === s.scoped_id" class="detail-row">
-              <td :colspan="7">
+              <td :colspan="8">
                 <div v-if="detailLoading" class="muted">loading…</div>
                 <div v-else-if="detail" class="chips">
                   <span class="chip"
@@ -332,7 +380,7 @@ onMounted(() => {
         </tbody>
         <tfoot>
           <tr>
-            <td :colspan="3">{{ totals.count }} sessions</td>
+            <td :colspan="4">{{ totals.count }} sessions</td>
             <td class="num tabular">{{ totals.attempts }}</td>
             <td class="num tabular">{{ formatTokens(totals.tokens) }}</td>
             <td class="num tabular">{{ formatCost(String(totals.cost)) }}</td>

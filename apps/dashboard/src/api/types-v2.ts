@@ -191,6 +191,8 @@ export interface SessionV2 {
   cost_usd: string | null;
   ts_first: string | null;
   ts_last: string | null;
+  /** Dominant project (most tokens) for the session; null when unattributed. */
+  primary_project: string | null;
 }
 
 /** A paginated page of session rollups (SessionsResponse). */

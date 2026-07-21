@@ -360,6 +360,13 @@ onBeforeUnmount(() => {
 
   <section class="card">
     <h3>API tokens</h3>
+    <p class="muted status desc">
+      API tokens authenticate everything that talks to this server. Each
+      machine's collector sends its token as a Bearer credential on every
+      upload, and dashboard or read-only tools use one to query. Mint a separate
+      labelled token per client so you can revoke just that one if it leaks —
+      the token string is shown once, at creation.
+    </p>
     <div v-if="error" class="muted">{{ error }}</div>
     <div v-if="tokenStatus" class="token-error">{{ tokenStatus }}</div>
     <div class="mint">
@@ -382,7 +389,14 @@ onBeforeUnmount(() => {
   </section>
 
   <section v-if="retention && retentionSummary" class="card">
-    <h2>Retention status</h2>
+    <h3>Data retention</h3>
+    <p class="muted status desc">
+      The server decides how long each kind of record is kept and a background
+      worker deletes anything past its window. This is a read-only view of that
+      server-side policy and the worker's last run — it is not a per-device
+      preference. Changing a retention window (or holding deletion) is an admin
+      action that needs a token with the <code>admin:retention</code> scope.
+    </p>
     <p v-if="retentionSummary.legalHold" class="warn">
       Legal hold active — all deletion is suspended.
     </p>
@@ -513,6 +527,14 @@ input.wide {
 }
 .status {
   font-size: 0.85rem;
+}
+.desc {
+  max-width: 72ch;
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+.desc code {
+  font-size: 0.8rem;
 }
 .small {
   font-size: 0.8rem;

@@ -15,6 +15,7 @@ import { useClient } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
 import { useGlobalFilters } from '@/composables/useGlobalFilters';
 import {
+  barOption,
   calendarOption,
   componentTableRows,
   punchCardOption,
@@ -27,8 +28,12 @@ import { aggregateRollups, ROLLUP_DIMENSIONS } from '@/lib/rollups';
 import { knownModelIds, resolveModel } from '@/lib/modelRegistry';
 import { v2CalendarBuckets, v2PunchCells } from '@/lib/heatmapV2';
 import { loadSelection, saveSelection } from '@/composables/useSettings';
-import { presetRange } from '@/lib/filters';
+import { clampRangeDays, presetRange } from '@/lib/filters';
 import type { UsageFilter } from '@/lib/filters';
+
+// The v2 heatmap and cache-savings endpoints reject a span wider than the
+// server's 366-day maximum, so the "All" preset must be clamped or it 400s.
+const MAX_RANGE_DAYS = 365;
 import type { HeatmapV2Response } from '@/api/client';
 import type { ModelV2, ProviderV2, RollupV2, UsageRowV2 } from '@/api/types-v2';
 
@@ -43,6 +48,8 @@ const machines = ref<string[]>([]);
 const providers = ref<ProviderV2[]>([]);
 const models = ref<ModelV2[]>([]);
 const filter = ref<UsageFilter>(presetRange('30d'));
+// Set when a long selection (e.g. "All") is clamped to the most recent window.
+const clampedFrom = ref<string | null>(null);
 // Absolute magnitude vs normalized composition (100% bars); the latter keeps
 // small components legible under cache-read dominance.
 const mode = ref<'absolute' | 'percent'>('absolute');
@@ -91,6 +98,23 @@ const punchChart = computed(() =>
 );
 const calendarChart = computed(() =>
   calendarOption(heatmap.value ? v2CalendarBuckets(heatmap.value) : [])
+);
+
+// Tokens by hour of day (0-23), summed across every weekday in the range, so
+// the shape of a working day is visible at a glance -- when the heavy hours are.
+const hourlyChart = computed(() => {
+  const byHour = new Array(24).fill(0) as number[];
+  for (const cell of heatmap.value?.punch_card ?? []) {
+    byHour[cell.hour] += cell.value;
+  }
+  return barOption(
+    byHour.map((_, hour) => String(hour).padStart(2, '0')),
+    byHour,
+    'tokens'
+  );
+});
+const hasHourly = computed(() =>
+  (heatmap.value?.punch_card ?? []).some((c) => c.value > 0)
 );
 
 /** Sort descending by total tokens so the biggest driver reads leftmost. */
@@ -149,12 +173,22 @@ async function load(): Promise<void> {
     const client = useClient();
     const f = filter.value;
     const fallback = presetRange('30d');
+    // Clamp the span so the bounded heatmap/cache-savings endpoints accept it
+    // (the "All" preset spans years and would 400); flag when it happens.
+    const clamped = clampRangeDays(
+      f.from ?? fallback.from,
+      f.to ?? fallback.to,
+      MAX_RANGE_DAYS
+    );
+    clampedFrom.value = clamped.clamped ? clamped.from : null;
+    const from = clamped.from;
+    const to = clamped.to;
     // The v2 heatmap and cache-savings endpoints honor the global provider
     // filter server-side (Task 74), so BreakdownsView's punch card, calendar,
     // and "Caching saved" tile obey it just like the rollup charts.
     const v2Filters = {
-      from: f.from ?? fallback.from,
-      to: f.to ?? fallback.to,
+      from,
+      to,
       provider: globalProvider.value || f.provider,
       model: f.model,
       machine: f.machine,
@@ -162,8 +196,8 @@ async function load(): Promise<void> {
     };
     const [rollups, heat, saved] = await Promise.all([
       client.v2AllRollups({
-        from: f.from ?? fallback.from,
-        to: f.to ?? fallback.to,
+        from,
+        to,
         provider: f.provider,
         model: f.model,
         machine: f.machine,
@@ -232,6 +266,11 @@ onMounted(() => {
         </button>
       </div>
     </div>
+
+    <p v-if="clampedFrom" class="muted note clamp">
+      Range clamped to the most recent {{ MAX_RANGE_DAYS }} days (from
+      {{ clampedFrom }}) — the heatmap and cache metrics are bounded.
+    </p>
 
     <AsyncState
       :loading="loading && byModel.length === 0"
@@ -316,6 +355,14 @@ onMounted(() => {
           "
         />
       </section>
+      <section v-if="hasHourly" class="card">
+        <h3>Tokens by hour of day</h3>
+        <EChart :option="hourlyChart" height="240px" />
+        <p class="muted note">
+          Total tokens per hour (UTC), summed across every day in the range —
+          the shape of your working day.
+        </p>
+      </section>
       <section class="card">
         <h3>When you burn tokens (weekday × hour)</h3>
         <EChart :option="punchChart" height="260px" />
@@ -366,5 +413,8 @@ h3 {
 .note {
   font-size: 0.85rem;
   margin-bottom: 0;
+}
+.clamp {
+  margin: 0 0 1rem;
 }
 </style>
