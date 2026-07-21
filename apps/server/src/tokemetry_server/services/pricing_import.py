@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_core.pricing.sources.rate_card import RateCardRow
 
 from tokemetry_server.db import models
+from tokemetry_server.services import audit
 
 #: Diff actions for a single incoming rate-card row.
 ACTION_NEW = "new"
@@ -261,22 +262,21 @@ async def apply_import(
         else:  # conflict: never rewrite the stored period silently
             conflicts += 1
 
-    session.add(
-        models.AuditLog(
-            actor=actor,
-            action="pricing_import",
-            subject=source_label,
-            detail={
-                "source": source_label,
-                "digest": diff.digest,
-                "effective_from": effective_from.isoformat(),
-                "new": applied_new,
-                "superseded": applied_superseded,
-                "conflicts": conflicts,
-                "unchanged": unchanged,
-            },
-            ts=stamp,
-        )
+    audit.record(
+        session,
+        actor=actor,
+        action="pricing_import",
+        subject=source_label,
+        detail={
+            "source": source_label,
+            "digest": diff.digest,
+            "effective_from": effective_from.isoformat(),
+            "new": applied_new,
+            "superseded": applied_superseded,
+            "conflicts": conflicts,
+            "unchanged": unchanged,
+        },
+        ts=stamp,
     )
     return ImportResult(
         applied_new=applied_new,

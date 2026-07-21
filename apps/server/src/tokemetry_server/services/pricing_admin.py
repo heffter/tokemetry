@@ -18,6 +18,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
+from tokemetry_server.services import audit
 from tokemetry_server.services.pricing_v2 import check_overlap
 
 #: Cost statuses that mean an event still lacks a full price.
@@ -81,10 +82,8 @@ def _audit(
     now: datetime,
 ) -> None:
     """Write an audit_log entry for a pricing-admin mutation."""
-    session.add(
-        models.AuditLog(
-            actor=actor, action=action, subject=subject, detail=detail, ts=now
-        )
+    audit.record(
+        session, actor=actor, action=action, subject=subject, detail=detail, ts=now
     )
 
 

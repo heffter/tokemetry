@@ -6,6 +6,8 @@ plaintext token is returned only once, at creation.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,7 @@ from tokemetry_server.api.schemas_query import (
     TokenInfoOut,
 )
 from tokemetry_server.scopes import ADMIN_TOKENS, UnknownScopeError
+from tokemetry_server.services import audit
 from tokemetry_server.services import tokens as token_service
 
 router = APIRouter(prefix="/api/v1/tokens", tags=["tokens"])
@@ -26,7 +29,7 @@ router = APIRouter(prefix="/api/v1/tokens", tags=["tokens"])
 async def create_token(
     payload: TokenCreateRequest,
     session: AsyncSession = Depends(get_session),
-    _: Principal = Depends(require_scopes(ADMIN_TOKENS)),
+    principal: Principal = Depends(require_scopes(ADMIN_TOKENS)),
 ) -> TokenCreatedOut:
     """Mint a new API token; the secret is returned only in this response."""
     try:
@@ -41,6 +44,15 @@ async def create_token(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
+    # Audit the mint with metadata only -- never the plaintext token (NFR-SEC-005).
+    audit.record(
+        session,
+        actor=principal.label,
+        action="token_create",
+        subject=payload.label,
+        detail={"scopes": created.scopes, "source_allowlist": payload.source_allowlist},
+        ts=datetime.now(UTC),
+    )
     return TokenCreatedOut(
         label=created.label,
         token=created.token,
@@ -72,10 +84,17 @@ async def list_tokens(
 async def revoke_token(
     label: str,
     session: AsyncSession = Depends(get_session),
-    _: Principal = Depends(require_scopes(ADMIN_TOKENS)),
+    principal: Principal = Depends(require_scopes(ADMIN_TOKENS)),
 ) -> Response:
     """Revoke a token by label."""
     revoked = await token_service.revoke_token(session, label)
     if not revoked:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown label")
+    audit.record(
+        session,
+        actor=principal.label,
+        action="token_revoke",
+        subject=label,
+        ts=datetime.now(UTC),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

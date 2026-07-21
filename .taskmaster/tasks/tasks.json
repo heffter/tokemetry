@@ -3445,11 +3445,12 @@
             "id": 4,
             "title": "audit_log table wired to every administrative action",
             "description": "One auditable trail for corrections, repricing, imports, tokens, retention, deletions.",
-            "details": "Alembic migration creating audit_log (id, ts, actor token label or bootstrap, action, subject, detail JSONType, request_id) indexed on ts and action; services/audit.py record() helper called from every administrative path: correction ingest (62.4), repricing and revert (64.6), price imports and rate mutations (64.9/64.10), token create, revoke, rotate (63.5), source revocation and edits (63.5), retention policy changes (70.1), administrative deletions (70.3), and rollup rebuilds; entries are append-only with no delete API and 400-day default retention as a policy category; secrets never appear in detail payloads (NFR-SEC-005, FR-PRIV-009/011). GET /api/v2/admin/audit with filters for review, admin scope. Test strategy: per-action integration assertions that exactly one audit row with correct fields is written (folded into each surface test via a shared fixture); redaction test injecting token-like strings into action paths; migration tests; append-only API test.",
-            "status": "pending",
+            "details": "Alembic migration creating audit_log (id, ts, actor token label or bootstrap, action, subject, detail JSONType, request_id) indexed on ts and action; services/audit.py record() helper called from every administrative path: correction ingest (62.4), repricing and revert (64.6), price imports and rate mutations (64.9/64.10), token create, revoke, rotate (63.5), source revocation and edits (63.5), retention policy changes (70.1), administrative deletions (70.3), and rollup rebuilds; entries are append-only with no delete API and 400-day default retention as a policy category; secrets never appear in detail payloads (NFR-SEC-005, FR-PRIV-009/011). GET /api/v2/admin/audit with filters for review, admin scope. Test strategy: per-action integration assertions that exactly one audit row with correct fields is written (folded into each surface test via a shared fixture); redaction test injecting token-like strings into action paths; migration tests; append-only API test.\n<info added on 2026-07-20T23:33:02.569Z>\nConsolidated audit into one shared writer. New services/audit.py: record(session, *, actor, action, ts, subject, detail, request_id) is the single AuditLog constructor (content-free detail only, never secrets), and list_audit(session, *, action, actor, limit) reads newest-first. Refactored all five existing write sites to delegate to record(): pricing_admin._audit, repricing._audit, pricing_import inline, retention.save_retention_policy, admin_deletion.execute_deletion. Wired NEW coverage: token create/revoke now audited at the API layer (api/tokens.py) with actor=principal.label, action token_create/token_revoke, detail={scopes, source_allowlist} -- the plaintext token is never in the entry (NFR-SEC-005 redaction). Added a nullable audit_log.request_id column (migration 0027) to correlate an entry with the HTTP response request_id (FR-INGEST-016); NULL for background actions. Read API GET /api/v2/admin/audit (api/v2/audit.py, AuditEntryOut schema) requires admin:retention, filters by action/actor, limit 1..1000; append-only (no delete route -> 405), ages out only under the audit_records retention category (400d). Registered audit router. Docs: added the Audit trail section to retention.md. Tests: test_audit.py (record writes all fields incl request_id, empty-detail default, list filter+order+limit) and test_audit_api.py (scope 403, token create+revoke audited with redaction assertion that the secret never appears, retention change audited+filterable, append-only 405, newest-first+limit); re-ran pricing_admin_api/repricing/retention_api/admin_data_api to confirm the refactor is behavior-preserving (37 passed together). Migration 0027 drift clean on SQLite and Postgres 16. Gates: ruff, mypy . (304 files), trivy clean.\n</info added on 2026-07-20T23:33:02.569Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 70,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T00:12:31.859Z"
           },
           {
             "id": 5,
@@ -3509,7 +3510,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-20T23:00:08.600Z"
+        "updatedAt": "2026-07-21T00:12:31.859Z"
       },
       {
         "id": "71",
@@ -3707,7 +3708,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-20T23:00:08.601Z",
+      "lastModified": "2026-07-21T00:12:31.860Z",
       "taskCount": 78,
       "completedCount": 72,
       "tags": [

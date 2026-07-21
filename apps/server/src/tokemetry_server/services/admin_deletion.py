@@ -24,6 +24,7 @@ from sqlalchemy import ColumnElement, Select, and_, delete, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
+from tokemetry_server.services import audit
 from tokemetry_server.services.rollups import refresh_rollups_for_days
 
 # Table keys reported in the per-table counts (stable order).
@@ -243,20 +244,19 @@ async def execute_deletion(
             session, dialect_name, preview.affected_days
         )
 
-    session.add(
-        models.AuditLog(
-            actor=actor,
-            action="admin_data_delete",
-            subject=_subject(criteria),
-            detail={
-                "criteria": criteria.as_dict(),
-                "digest": preview.digest,
-                "counts": preview.counts,
-                "affected_days": [d.isoformat() for d in preview.affected_days],
-                "rollups_recomputed": recomputed,
-            },
-            ts=now,
-        )
+    audit.record(
+        session,
+        actor=actor,
+        action="admin_data_delete",
+        subject=_subject(criteria),
+        detail={
+            "criteria": criteria.as_dict(),
+            "digest": preview.digest,
+            "counts": preview.counts,
+            "affected_days": [d.isoformat() for d in preview.affected_days],
+            "rollups_recomputed": recomputed,
+        },
+        ts=now,
     )
     return DeletionResult(
         counts=preview.counts,

@@ -20,6 +20,7 @@ from sqlalchemy import Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
+from tokemetry_server.services import audit
 from tokemetry_server.services.cost_v2 import CostEngineV2
 from tokemetry_server.services.cost_worker import billable_units_for
 from tokemetry_server.services.pricing_v2 import bump_pricing_version
@@ -153,12 +154,11 @@ def _audit(
     detail: dict[str, object],
 ) -> None:
     """Write an audit_log entry for a pricing operation."""
-    session.add(
-        models.AuditLog(
-            actor=actor,
-            action=action,
-            subject=f"{provider or '*'}/{native_model or '*'}",
-            detail=detail,
-            ts=datetime.now(UTC),
-        )
+    audit.record(
+        session,
+        actor=actor,
+        action=action,
+        subject=f"{provider or '*'}/{native_model or '*'}",
+        detail=detail,
+        ts=datetime.now(UTC),
     )

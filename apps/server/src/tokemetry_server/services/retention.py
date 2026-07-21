@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokemetry_server.db import models
+from tokemetry_server.services import audit
 
 #: Prefix for retention keys in the ``app_settings`` KV table.
 KEY_PREFIX = "retention."
@@ -266,13 +267,12 @@ async def save_retention_policy(
         "true" if policy.legal_hold else "false",
         now,
     )
-    session.add(
-        models.AuditLog(
-            actor=actor,
-            action="retention_policy_update",
-            subject="retention",
-            detail=_policy_detail(policy),
-            ts=now,
-        )
+    audit.record(
+        session,
+        actor=actor,
+        action="retention_policy_update",
+        subject="retention",
+        detail=_policy_detail(policy),
+        ts=now,
     )
     return policy

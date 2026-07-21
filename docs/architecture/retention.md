@@ -100,6 +100,21 @@ It is a two-step dry-run/confirm flow, mirroring the pricing import:
    (`action = admin_data_delete`) with the actor, criteria, digest, and
    per-table counts (FR-PRIV-009).
 
+## Audit trail
+
+Every administrative mutation is recorded through one shared writer
+(`services/audit.py` `record()`) into the append-only `audit_log`: repricing and
+reverts, price imports and rate-card changes, retention-policy edits, targeted
+deletions, and token create/revoke. Each entry holds the actor (token label or
+bootstrap), action, subject, a content-free JSON `detail` (filters, counts,
+versions -- never secrets or usage content, NFR-SEC-005), the timestamp, and the
+correlating `request_id` when the action came through HTTP.
+
+The log is append-only: there is no delete API, and it ages out only under the
+`audit_records` retention category (400-day default). `GET /api/v2/admin/audit`
+(scope `admin:retention`) reviews it, newest first, filterable by `action` and
+`actor`.
+
 ## Deletions that already exist (unchanged)
 
 None of these are part of the retention policy:

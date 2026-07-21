@@ -701,6 +701,9 @@ class AuditLog(Base):
     subject: Mapped[str | None] = mapped_column(String(500))
     detail: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # Correlates the entry with the response's request_id (FR-INGEST-016) when
+    # the action came through an HTTP request; NULL for background actions.
+    request_id: Mapped[str | None] = mapped_column(String(64))
 
 
 class AppSetting(Base):

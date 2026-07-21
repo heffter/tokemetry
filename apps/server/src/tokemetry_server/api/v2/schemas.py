@@ -726,3 +726,17 @@ class DeletionResponse(BaseModel):
     affected_days: list[str]
     digest: str
     rollups_recomputed: int
+
+
+class AuditEntryOut(BaseModel):
+    """One append-only audit entry for review (Task 70.4)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    ts: UtcDatetime
+    actor: str | None
+    action: str
+    subject: str | None
+    detail: dict[str, Any]
+    request_id: str | None
