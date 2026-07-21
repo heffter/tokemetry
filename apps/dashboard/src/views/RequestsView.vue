@@ -251,93 +251,100 @@ onMounted(() => {
       @retry="retry"
     >
       <section v-if="tab === 'requests'" class="card">
-        <table class="data">
-          <thead>
-            <tr>
-              <th>Request</th>
-              <th>Provider</th>
-              <th>Requested model</th>
-              <th class="num">Attempts</th>
-              <th class="num">Fallbacks</th>
-              <th class="num">Tokens</th>
-              <th class="num">Cost</th>
-              <th>Started</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="req in requests" :key="req.logical_request_id">
-              <tr class="row" @click="toggleExpand(req)">
-                <td class="tabular">
-                  <span class="caret">{{
-                    expanded === req.logical_request_id ? '▾' : '▸'
-                  }}</span>
-                  {{ req.logical_request_id.slice(0, 12) }}
-                </td>
-                <td>{{ providerName(req.provider) }}</td>
-                <td>{{ modelDisplay(req.requested_model) }}</td>
-                <td class="num tabular">{{ req.attempt_count }}</td>
-                <td class="num tabular">
-                  <span
-                    v-if="req.fallback_count > 0"
-                    class="badge fallback-badge"
-                  >
-                    {{ req.fallback_count }}
-                  </span>
-                  <span v-else class="muted">0</span>
-                </td>
-                <td class="num tabular">
-                  {{ formatTokens(req.total_tokens) }}
-                </td>
-                <td class="num tabular">{{ formatCost(req.cost_usd) }}</td>
-                <td>{{ formatDateTime(req.ts_first) }}</td>
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Request</th>
+                <th>Provider</th>
+                <th>Requested model</th>
+                <th class="num">Attempts</th>
+                <th class="num">Fallbacks</th>
+                <th class="num">Tokens</th>
+                <th class="num">Cost</th>
+                <th>Started</th>
               </tr>
-              <tr v-if="expanded === req.logical_request_id" class="chain-row">
-                <td colspan="8">
-                  <ol class="chain">
-                    <li
-                      v-for="(a, i) in chain"
-                      :key="a.event_id"
-                      class="attempt"
-                      :class="{ won: a.event_id === req.winning_attempt_id }"
+            </thead>
+            <tbody>
+              <template v-for="req in requests" :key="req.logical_request_id">
+                <tr class="row" @click="toggleExpand(req)">
+                  <td class="tabular">
+                    <span class="caret">{{
+                      expanded === req.logical_request_id ? '▾' : '▸'
+                    }}</span>
+                    {{ req.logical_request_id.slice(0, 12) }}
+                  </td>
+                  <td>{{ providerName(req.provider) }}</td>
+                  <td>{{ modelDisplay(req.requested_model) }}</td>
+                  <td class="num tabular">{{ req.attempt_count }}</td>
+                  <td class="num tabular">
+                    <span
+                      v-if="req.fallback_count > 0"
+                      class="badge fallback-badge"
                     >
-                      <span class="seq">#{{ i + 1 }}</span>
-                      <span
-                        class="dot"
-                        :class="a.success ? 'ok' : 'fail'"
-                        :title="a.success ? 'succeeded' : 'failed'"
-                      ></span>
-                      <span class="prov">{{ providerName(a.provider) }}</span>
-                      <span class="model">
-                        {{ modelDisplay(a.requested_model) }}
-                        <template v-if="a.routed_model !== a.requested_model">
-                          → {{ modelDisplay(a.routed_model) }}
-                        </template>
-                      </span>
-                      <span class="muted">{{ latencyText(a.latency_ms) }}</span>
-                      <span class="muted"
-                        >{{
-                          formatTokens(a.input_tokens + a.output_tokens)
-                        }}
-                        tok</span
+                      {{ req.fallback_count }}
+                    </span>
+                    <span v-else class="muted">0</span>
+                  </td>
+                  <td class="num tabular">
+                    {{ formatTokens(req.total_tokens) }}
+                  </td>
+                  <td class="num tabular">{{ formatCost(req.cost_usd) }}</td>
+                  <td>{{ formatDateTime(req.ts_first) }}</td>
+                </tr>
+                <tr
+                  v-if="expanded === req.logical_request_id"
+                  class="chain-row"
+                >
+                  <td colspan="8">
+                    <ol class="chain">
+                      <li
+                        v-for="(a, i) in chain"
+                        :key="a.event_id"
+                        class="attempt"
+                        :class="{ won: a.event_id === req.winning_attempt_id }"
                       >
-                      <span
-                        v-if="a.event_id === req.winning_attempt_id"
-                        class="badge won-badge"
-                        >winner</span
-                      >
-                    </li>
-                    <li v-if="chain.length === 0" class="muted">
-                      Loading chain…
-                    </li>
-                  </ol>
-                </td>
+                        <span class="seq">#{{ i + 1 }}</span>
+                        <span
+                          class="dot"
+                          :class="a.success ? 'ok' : 'fail'"
+                          :title="a.success ? 'succeeded' : 'failed'"
+                        ></span>
+                        <span class="prov">{{ providerName(a.provider) }}</span>
+                        <span class="model">
+                          {{ modelDisplay(a.requested_model) }}
+                          <template v-if="a.routed_model !== a.requested_model">
+                            → {{ modelDisplay(a.routed_model) }}
+                          </template>
+                        </span>
+                        <span class="muted">{{
+                          latencyText(a.latency_ms)
+                        }}</span>
+                        <span class="muted"
+                          >{{
+                            formatTokens(a.input_tokens + a.output_tokens)
+                          }}
+                          tok</span
+                        >
+                        <span
+                          v-if="a.event_id === req.winning_attempt_id"
+                          class="badge won-badge"
+                          >winner</span
+                        >
+                      </li>
+                      <li v-if="chain.length === 0" class="muted">
+                        Loading chain…
+                      </li>
+                    </ol>
+                  </td>
+                </tr>
+              </template>
+              <tr v-if="requests.length === 0">
+                <td colspan="8" class="muted">No requests in this range.</td>
               </tr>
-            </template>
-            <tr v-if="requests.length === 0">
-              <td colspan="8" class="muted">No requests in this range.</td>
-            </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
         <button
           v-if="requestsCursor"
           class="more"
@@ -348,38 +355,40 @@ onMounted(() => {
       </section>
 
       <section v-else class="card">
-        <table class="data">
-          <thead>
-            <tr>
-              <th>Started</th>
-              <th>Provider</th>
-              <th>Model</th>
-              <th>Outcome</th>
-              <th class="num">Latency</th>
-              <th class="num">Tokens</th>
-              <th class="num">Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="a in attempts" :key="a.event_id">
-              <td>{{ formatDateTime(a.ts_started) }}</td>
-              <td>{{ providerName(a.provider) }}</td>
-              <td>{{ modelDisplay(a.native_model) }}</td>
-              <td>
-                <span class="dot" :class="a.success ? 'ok' : 'fail'"></span>
-                {{ a.success ? 'ok' : 'failed' }}
-              </td>
-              <td class="num tabular">{{ latencyText(a.latency_ms) }}</td>
-              <td class="num tabular">
-                {{ formatTokens(a.input_tokens + a.output_tokens) }}
-              </td>
-              <td class="num tabular">{{ formatCost(a.cost_usd) }}</td>
-            </tr>
-            <tr v-if="attempts.length === 0">
-              <td colspan="7" class="muted">No attempts in this range.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Started</th>
+                <th>Provider</th>
+                <th>Model</th>
+                <th>Outcome</th>
+                <th class="num">Latency</th>
+                <th class="num">Tokens</th>
+                <th class="num">Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in attempts" :key="a.event_id">
+                <td>{{ formatDateTime(a.ts_started) }}</td>
+                <td>{{ providerName(a.provider) }}</td>
+                <td>{{ modelDisplay(a.native_model) }}</td>
+                <td>
+                  <span class="dot" :class="a.success ? 'ok' : 'fail'"></span>
+                  {{ a.success ? 'ok' : 'failed' }}
+                </td>
+                <td class="num tabular">{{ latencyText(a.latency_ms) }}</td>
+                <td class="num tabular">
+                  {{ formatTokens(a.input_tokens + a.output_tokens) }}
+                </td>
+                <td class="num tabular">{{ formatCost(a.cost_usd) }}</td>
+              </tr>
+              <tr v-if="attempts.length === 0">
+                <td colspan="7" class="muted">No attempts in this range.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <button
           v-if="attemptsCursor"
           class="more"
@@ -446,6 +455,7 @@ h3 {
 }
 .data {
   width: 100%;
+  min-width: 680px;
   border-collapse: collapse;
   font-size: 0.9rem;
 }

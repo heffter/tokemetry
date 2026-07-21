@@ -365,11 +365,15 @@ onMounted(() => {
       </section>
       <section class="card">
         <h3>When you burn tokens (weekday × hour)</h3>
-        <EChart :option="punchChart" height="260px" />
+        <div class="chart-scroll">
+          <EChart :option="punchChart" height="260px" />
+        </div>
       </section>
       <section class="card">
         <h3>Daily activity</h3>
-        <EChart :option="calendarChart" height="200px" />
+        <div class="chart-scroll">
+          <EChart :option="calendarChart" height="200px" />
+        </div>
       </section>
     </AsyncState>
   </div>
@@ -416,5 +420,21 @@ h3 {
 }
 .clamp {
   margin: 0 0 1rem;
+}
+
+.chart-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.35rem;
+}
+
+@media (max-width: 760px) {
+  .chart-scroll {
+    margin-inline: -0.15rem;
+  }
+
+  .chart-scroll :deep(.echart) {
+    min-width: 500px !important;
+  }
 }
 </style>

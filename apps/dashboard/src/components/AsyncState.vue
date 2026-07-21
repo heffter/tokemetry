@@ -31,10 +31,14 @@ defineEmits<{ retry: [] }>();
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  min-height: 112px;
+  justify-content: center;
 }
 .msg {
   margin: 0;
   color: var(--status-critical);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 .retry {
   align-self: flex-start;

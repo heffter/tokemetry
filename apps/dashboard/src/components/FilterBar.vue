@@ -128,29 +128,38 @@ watch(filter, (value) => emit('change', value), { immediate: true });
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 1rem;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-elevated) 86%, transparent);
+  box-shadow: var(--shadow-sm);
 }
 .presets,
 .custom {
   display: flex;
   gap: 0.25rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 button,
 select,
 input {
   font: inherit;
-  padding: 0.3rem 0.7rem;
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--page);
+  background: var(--input-bg);
   color: var(--text-secondary);
   cursor: pointer;
 }
 button.active {
-  background: var(--gridline);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--nav-active);
   color: var(--text-primary);
 }
 select {
   color: var(--text-primary);
+  min-width: 148px;
 }
 </style>

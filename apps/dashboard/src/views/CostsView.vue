@@ -245,69 +245,104 @@ onMounted(() => {
 
       <section class="card">
         <h3>By provider</h3>
-        <table class="data">
-          <thead>
-            <tr>
-              <th>Provider</th>
-              <th class="num">API spend</th>
-              <th class="num">Subscription value</th>
-              <th>Status</th>
-              <th>Pricing</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in providerRows" :key="row.key">
-              <td>{{ providerName(row.key) }}</td>
-              <td class="num tabular">
-                {{ formatCost(row.actual_spend_usd) }}
-              </td>
-              <td class="num tabular">
-                {{ formatCost(row.subscription_value_usd) }}
-              </td>
-              <td>
-                <span
-                  class="badge"
-                  :class="`status-${costStatusOf(row)}`"
-                  :title="
-                    row.unpriced_event_count > 0
-                      ? `${row.unpriced_event_count} unpriced event(s)`
-                      : ''
-                  "
-                >
-                  {{ STATUS_LABEL[costStatusOf(row)] }}
-                </span>
-              </td>
-              <td class="muted">{{ row.pricing_version }}</td>
-            </tr>
-            <tr v-if="providerRows.length === 0">
-              <td colspan="5" class="muted">No cost data in this range.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="provider-list">
+          <article
+            v-for="row in providerRows"
+            :key="row.key"
+            class="provider-card"
+          >
+            <div class="provider-card-head">
+              <strong>{{ providerName(row.key) }}</strong>
+              <span class="badge" :class="`status-${costStatusOf(row)}`">
+                {{ STATUS_LABEL[costStatusOf(row)] }}
+              </span>
+            </div>
+            <dl class="provider-values">
+              <div>
+                <dt>API spend</dt>
+                <dd>{{ formatCost(row.actual_spend_usd) }}</dd>
+              </div>
+              <div>
+                <dt>Subscription value</dt>
+                <dd>{{ formatCost(row.subscription_value_usd) }}</dd>
+              </div>
+              <div>
+                <dt>Pricing</dt>
+                <dd class="muted">{{ row.pricing_version }}</dd>
+              </div>
+            </dl>
+          </article>
+          <p v-if="providerRows.length === 0" class="muted">
+            No cost data in this range.
+          </p>
+        </div>
+        <div class="table-scroll provider-table">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th class="num">API spend</th>
+                <th class="num">Subscription value</th>
+                <th>Status</th>
+                <th>Pricing</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in providerRows" :key="row.key">
+                <td>{{ providerName(row.key) }}</td>
+                <td class="num tabular">
+                  {{ formatCost(row.actual_spend_usd) }}
+                </td>
+                <td class="num tabular">
+                  {{ formatCost(row.subscription_value_usd) }}
+                </td>
+                <td>
+                  <span
+                    class="badge"
+                    :class="`status-${costStatusOf(row)}`"
+                    :title="
+                      row.unpriced_event_count > 0
+                        ? `${row.unpriced_event_count} unpriced event(s)`
+                        : ''
+                    "
+                  >
+                    {{ STATUS_LABEL[costStatusOf(row)] }}
+                  </span>
+                </td>
+                <td class="muted">{{ row.pricing_version }}</td>
+              </tr>
+              <tr v-if="providerRows.length === 0">
+                <td colspan="5" class="muted">No cost data in this range.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section class="card">
         <h3>Cost reconciliation (observed vs computed)</h3>
-        <table v-if="reconciliation.length" class="data">
-          <thead>
-            <tr>
-              <th>Provider</th>
-              <th class="num">Computed</th>
-              <th class="num">Observed</th>
-              <th class="num">Drift</th>
-              <th class="num">Events</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in reconciliation" :key="row.provider">
-              <td>{{ providerName(row.provider) }}</td>
-              <td class="num tabular">{{ formatCost(row.computed_usd) }}</td>
-              <td class="num tabular">{{ formatCost(row.observed_usd) }}</td>
-              <td class="num tabular">{{ formatCost(row.drift_usd) }}</td>
-              <td class="num tabular">{{ row.event_count }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-if="reconciliation.length" class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th class="num">Computed</th>
+                <th class="num">Observed</th>
+                <th class="num">Drift</th>
+                <th class="num">Events</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in reconciliation" :key="row.provider">
+                <td>{{ providerName(row.provider) }}</td>
+                <td class="num tabular">{{ formatCost(row.computed_usd) }}</td>
+                <td class="num tabular">{{ formatCost(row.observed_usd) }}</td>
+                <td class="num tabular">{{ formatCost(row.drift_usd) }}</td>
+                <td class="num tabular">{{ row.event_count }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p v-else class="muted">
           No observed costs to reconcile yet — populated once exporters report
           provider-billed costs.
@@ -332,9 +367,13 @@ h3 {
   margin: 0 0 1rem;
 }
 .data {
+  min-width: 560px;
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+}
+.provider-list {
+  display: none;
 }
 .data th,
 .data td {
@@ -369,5 +408,50 @@ h3 {
 }
 .banner.warn {
   background: color-mix(in srgb, var(--status-warning) 14%, transparent);
+}
+
+@media (max-width: 760px) {
+  .provider-list {
+    display: grid;
+    gap: 0.65rem;
+  }
+  .provider-list > p {
+    margin: 0;
+  }
+  .provider-table {
+    display: none;
+  }
+  .provider-card {
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-muted);
+  }
+  .provider-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .provider-values {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem 1rem;
+    margin: 0.75rem 0 0;
+  }
+  .provider-values div:last-child {
+    grid-column: 1 / -1;
+  }
+  .provider-values dt {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .provider-values dd {
+    margin: 0.18rem 0 0;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
 }
 </style>

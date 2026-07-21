@@ -1,104 +1,220 @@
-/* Theme tokens from the dataviz reference palette. The chart body and UI are
-   written against roles; light/dark swap in one place. Dark is a selected set
-   of steps, not an automatic inversion. */
+/* Dashboard design tokens. The palette stays restrained for dense operational
+   screens, while semantic roles keep charts, status, and chrome consistent. */
 
 :root {
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --gridline: #e1e0d9;
-  --baseline: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
+  color-scheme: light;
 
-  /* Status colors are darkened for light mode so status TEXT (badges, chips,
-     flags) clears WCAG AA (4.5:1) on the light surface; the bright variants
-     that only work on dark are set in the dark blocks below. */
-  --status-good: #0a7a0a;
+  --page: #f4f6f8;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-muted: #eef2f6;
+  --input-bg: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --gridline: #e5e7eb;
+  --baseline: #cbd5e1;
+  --border: rgba(17, 24, 39, 0.11);
+  --border-strong: rgba(17, 24, 39, 0.18);
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.1);
+  --focus-ring: rgba(37, 99, 235, 0.22);
+  --nav-active: rgba(37, 99, 235, 0.11);
+
+  --status-good: #047857;
   --status-warning: #b45309;
-  --status-critical: #c62828;
+  --status-critical: #dc2626;
 
-  /* Categorical series colors, mirrored from lib/palette.ts so CSS-styled
-     marks (magnitude bars, sparklines) match the ECharts series. */
   --series-1: #2a78d6;
   --series-2: #1baf7a;
   --series-3: #eda100;
   --series-4: #008300;
   --series-5: #4a3aa7;
 
-  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --radius: 10px;
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius: 8px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.14);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #0d0d0d;
-    --surface: #1a1a19;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --gridline: #2c2c2a;
-    --baseline: #383835;
-    --border: rgba(255, 255, 255, 0.1);
-    --status-good: #14c414;
-    --status-warning: #fab219;
-    --status-critical: #f16d6d;
+    color-scheme: dark;
+
+    --page: #0f141b;
+    --surface: #151b24;
+    --surface-elevated: #1a2230;
+    --surface-muted: #1f2937;
+    --input-bg: #111827;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --gridline: #293241;
+    --baseline: #475569;
+    --border: rgba(226, 232, 240, 0.12);
+    --border-strong: rgba(226, 232, 240, 0.22);
+    --accent: #60a5fa;
+    --accent-strong: #93c5fd;
+    --accent-soft: rgba(96, 165, 250, 0.14);
+    --focus-ring: rgba(96, 165, 250, 0.28);
+    --nav-active: rgba(96, 165, 250, 0.14);
+    --status-good: #34d399;
+    --status-warning: #fbbf24;
+    --status-critical: #fb7185;
     --series-1: #3987e5;
     --series-2: #199e70;
     --series-3: #c98500;
     --series-4: #008300;
     --series-5: #9085e9;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
+    --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.36);
   }
 }
 
 :root[data-theme='dark'] {
-  --page: #0d0d0d;
-  --surface: #1a1a19;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
-  --gridline: #2c2c2a;
-  --baseline: #383835;
-  --border: rgba(255, 255, 255, 0.1);
-  --status-good: #14c414;
-  --status-warning: #fab219;
-  --status-critical: #f16d6d;
+  color-scheme: dark;
+
+  --page: #0f141b;
+  --surface: #151b24;
+  --surface-elevated: #1a2230;
+  --surface-muted: #1f2937;
+  --input-bg: #111827;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --gridline: #293241;
+  --baseline: #475569;
+  --border: rgba(226, 232, 240, 0.12);
+  --border-strong: rgba(226, 232, 240, 0.22);
+  --accent: #60a5fa;
+  --accent-strong: #93c5fd;
+  --accent-soft: rgba(96, 165, 250, 0.14);
+  --focus-ring: rgba(96, 165, 250, 0.28);
+  --nav-active: rgba(96, 165, 250, 0.14);
+  --status-good: #34d399;
+  --status-warning: #fbbf24;
+  --status-critical: #fb7185;
   --series-1: #3987e5;
   --series-2: #199e70;
   --series-3: #c98500;
   --series-4: #008300;
   --series-5: #9085e9;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.36);
 }
 
 :root[data-theme='light'] {
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --gridline: #e1e0d9;
-  --baseline: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
-  --status-good: #0a7a0a;
+  color-scheme: light;
+
+  --page: #f4f6f8;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-muted: #eef2f6;
+  --input-bg: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --gridline: #e5e7eb;
+  --baseline: #cbd5e1;
+  --border: rgba(17, 24, 39, 0.11);
+  --border-strong: rgba(17, 24, 39, 0.18);
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.1);
+  --focus-ring: rgba(37, 99, 235, 0.22);
+  --nav-active: rgba(37, 99, 235, 0.11);
+  --status-good: #047857;
   --status-warning: #b45309;
-  --status-critical: #c62828;
+  --status-critical: #dc2626;
   --series-1: #2a78d6;
   --series-2: #1baf7a;
   --series-3: #eda100;
   --series-4: #008300;
   --series-5: #4a3aa7;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.14);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+}
+
 body {
+  min-height: 100%;
   margin: 0;
+  overflow-x: clip;
   font-family: var(--font);
-  background: var(--page);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 4%, transparent), transparent 260px),
+    var(--page);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+input,
+select,
+textarea,
+a {
+  outline: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+button {
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+button:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+input,
+select,
+textarea {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+
+select {
+  cursor: pointer;
 }
 
 a {
@@ -106,11 +222,33 @@ a {
   text-decoration: none;
 }
 
+h1,
+h2,
+h3 {
+  color: var(--text-primary);
+  letter-spacing: 0;
+}
+
 .card {
-  background: var(--surface);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 760px) {
+  .card {
+    padding: 0.85rem;
+  }
+}
+
+.head,
+.toolbar,
+.tabs,
+.toggle {
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .grid {
@@ -126,65 +264,138 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-/* Filled status badges: a tinted pill plus a colored, accessible label, so a
-   state reads as a badge and never as color-alone plain text. */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.1rem 0.45rem;
+  padding: 0.12rem 0.45rem;
   border-radius: 6px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
+
 .badge-good {
   color: var(--status-good);
   background: color-mix(in srgb, var(--status-good) 14%, transparent);
 }
+
 .badge-warning {
   color: var(--status-warning);
   background: color-mix(in srgb, var(--status-warning) 16%, transparent);
 }
+
 .badge-critical {
   color: var(--status-critical);
   background: color-mix(in srgb, var(--status-critical) 16%, transparent);
 }
+
 .badge-muted {
   color: var(--text-muted);
   background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 }
 
-/* Brand logo variants: show the light-background lockup by default, the
-   dark-background one when the effective theme is dark (system or explicit).
-   The base rule keeps the shown variant block-level so component styles do not
-   need to set `display` (which would otherwise out-specify these toggles and
-   reveal both lockups at once). */
+table:not(.sr-only) {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-scroll,
+.scroll {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  overflow-x: auto;
+  contain: inline-size;
+  overscroll-behavior-inline: contain;
+}
+
+.sr-only {
+  width: 1px !important;
+  height: 1px !important;
+}
+
+thead th {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--surface-muted) 68%, transparent);
+}
+
+tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+th:first-child,
+td:first-child {
+  border-left: 0;
+}
+
+th:last-child,
+td:last-child {
+  border-right: 0;
+}
+
+code {
+  padding: 0.08rem 0.25rem;
+  border-radius: 5px;
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Brand logo variants: show the light-background lockup by default, then swap
+   when the effective theme is dark. */
 .brand-logo {
   display: block;
 }
+
 .brand-logo.dark {
   display: none;
 }
+
 @media (prefers-color-scheme: dark) {
   .brand-logo.light {
     display: none;
   }
+
   .brand-logo.dark {
     display: block;
   }
 }
+
 :root[data-theme='dark'] .brand-logo.light {
   display: none;
 }
+
 :root[data-theme='dark'] .brand-logo.dark {
   display: block;
 }
+
 :root[data-theme='light'] .brand-logo.light {
   display: block;
 }
+
 :root[data-theme='light'] .brand-logo.dark {
   display: none;
 }

@@ -7,6 +7,7 @@ import * as echarts from 'echarts';
 const props = defineProps<{
   option: echarts.EChartsCoreOption;
   height?: string;
+  minWidth?: string;
 }>();
 
 // Surfaces a legend toggle so the parent view can persist the selection; the
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 
 const container = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
+let resizeObserver: ResizeObserver | null = null;
 
 function render(): void {
   if (chart && props.option) {
@@ -38,6 +40,10 @@ onMounted(() => {
       if (selected) emit('legend-select', { ...selected });
     });
     render();
+    // A chart can change width when its parent reflows (for example, on a
+    // sidebar breakpoint) without a window resize event.
+    resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(container.value);
     window.addEventListener('resize', resize);
   }
 });
@@ -50,6 +56,8 @@ watch(
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize);
+  resizeObserver?.disconnect();
+  resizeObserver = null;
   chart?.dispose();
   chart = null;
 });
@@ -58,6 +66,17 @@ onBeforeUnmount(() => {
 <template>
   <div
     ref="container"
-    :style="{ height: height ?? '320px', width: '100%' }"
+    class="echart"
+    :style="{
+      height: height ?? '320px',
+      minWidth: minWidth,
+      width: '100%',
+    }"
   ></div>
 </template>
+
+<style scoped>
+.echart {
+  min-width: 0;
+}
+</style>

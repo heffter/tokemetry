@@ -250,6 +250,24 @@ function ink(): ThemeInk {
   };
 }
 
+/** A compact, wrapping legend keeps every series visible on handsets. The
+ * grid reserves room for its additional row rather than covering the plot. */
+function horizontalLegend(
+  theme: ThemeInk,
+  selected?: Record<string, boolean>
+): Record<string, unknown> {
+  return {
+    top: 0,
+    left: 0,
+    right: 0,
+    itemWidth: 9,
+    itemHeight: 9,
+    itemGap: 8,
+    textStyle: { color: theme.text, fontSize: 10 },
+    selected,
+  };
+}
+
 /** Options shared by the composition (stacked) builders. */
 export interface StackOptions {
   /** Render each category as a 0-100% composition instead of absolute tokens. */
@@ -380,9 +398,9 @@ export function groupedBarOption(
   const { axis, bottom } = categoryAxis(categories, theme);
   const fmt = opts.valueFormatter ?? tokenValue;
   return {
-    grid: { top: 28, right: 16, bottom, left: 72 },
+    grid: { top: 72, right: 16, bottom, left: 72 },
     tooltip: { trigger: 'axis', valueFormatter: fmt },
-    legend: { top: 0, textStyle: { color: theme.text } },
+    legend: horizontalLegend(theme),
     xAxis: axis,
     yAxis: {
       type: 'value',
@@ -464,13 +482,9 @@ export function stackedComponentBarOption<T>(
   );
   const pct = (value: unknown): string => `${Number(value).toFixed(1)}%`;
   return {
-    grid: { top: 28, right: 16, bottom, left: 64 },
+    grid: { top: 72, right: 16, bottom, left: 64 },
     tooltip: { trigger: 'axis', valueFormatter: norm ? pct : tokenValue },
-    legend: {
-      top: 0,
-      textStyle: { color: theme.text },
-      selected: opts.selected,
-    },
+    legend: horizontalLegend(theme, opts.selected),
     xAxis: axis,
     yAxis: {
       type: 'value',
@@ -528,13 +542,9 @@ export function stackedAreaOption(
   );
   const pct = (value: unknown): string => `${Number(value).toFixed(1)}%`;
   return {
-    grid: { top: 24, right: 16, bottom: 48, left: 64 },
+    grid: { top: 72, right: 16, bottom: 48, left: 64 },
     tooltip: { trigger: 'axis', valueFormatter: norm ? pct : tokenValue },
-    legend: {
-      top: 0,
-      textStyle: { color: theme.text },
-      selected: opts.selected,
-    },
+    legend: horizontalLegend(theme, opts.selected),
     xAxis: {
       type: 'category',
       boundaryGap: false,

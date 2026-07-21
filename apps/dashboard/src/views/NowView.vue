@@ -39,9 +39,9 @@ import { costIsTrustworthy, pricedCoverage } from '@/lib/coverage';
 import { resolveMoneyState, resolveValueState } from '@/lib/valueState';
 import { loadSelection, saveSelection } from '@/composables/useSettings';
 import { throttle } from '@/lib/throttle';
-import type { CostResponse, StreamMessage } from '@/api/types';
+import type { CostResponse, Limit, StreamMessage } from '@/api/types';
 import type { SummaryNow } from '@/api/types';
-import type { LiveOverviewResponse } from '@/api/client';
+import type { LiveOverviewResponse, ProviderLimitLive } from '@/api/client';
 import { limitLabel, summarizeLiveOverview } from '@/lib/liveOverview';
 
 interface FeedRow {
@@ -59,11 +59,53 @@ const liveSummary = computed(() =>
 const histories = ref<Record<string, number[]>>({});
 const feed = ref<FeedRow[]>([]);
 
+const providerLiveLimits = computed<ProviderLimitLive[]>(() => {
+  const limits = liveOverview.value?.provider_limits ?? [];
+  const grouped = new Map<string, ProviderLimitLive>();
+  for (const limit of limits) {
+    const key = `${limit.provider}-${limit.window_kind}`;
+    const existing = grouped.get(key);
+    if (!existing || limit.utilization_pct > existing.utilization_pct) {
+      grouped.set(key, limit);
+    }
+  }
+  return [...grouped.values()].sort((a, b) =>
+    `${a.provider}-${a.window_kind}`.localeCompare(
+      `${b.provider}-${b.window_kind}`
+    )
+  );
+});
+
+// Limit percentages describe the same provider quota, so repeated reports are
+// not additive. Collapse them to one cautious provider/window reading: the
+// highest current utilization is the actionable shared-quota state.
+const providerLimits = computed<Limit[]>(() => {
+  if (!summary.value) return [];
+  const grouped = new Map<string, Limit>();
+  for (const limit of summary.value.limits) {
+    const key = `${limit.provider}-${limit.window_kind}`;
+    const existing = grouped.get(key);
+    if (
+      !existing ||
+      limit.utilization_pct > existing.utilization_pct ||
+      (limit.utilization_pct === existing.utilization_pct &&
+        limit.ts > existing.ts)
+    ) {
+      grouped.set(key, limit);
+    }
+  }
+  return [...grouped.values()].sort((a, b) =>
+    `${a.provider}-${a.window_kind}`.localeCompare(
+      `${b.provider}-${b.window_kind}`
+    )
+  );
+});
+
 // The single most-at-risk window, promoted to a headline banner. Stale limit
 // data is called out as stale rather than asserted as current risk.
 const atRisk = computed(() => {
   const s = summary.value;
-  if (!s || s.limits.length === 0) return null;
+  if (!s || providerLimits.value.length === 0) return null;
   const p = s.prediction;
   if (p && p.predicted_exhaustion_at) {
     return {
@@ -72,7 +114,7 @@ const atRisk = computed(() => {
       text: `You will hit your ${windowLabel(p.window_kind)} in ${timeUntil(p.predicted_exhaustion_at)} — ${p.utilization_pct.toFixed(0)}%, climbing ${p.slope_pct_per_min.toFixed(1)}%/min`,
     };
   }
-  const top = [...s.limits].sort(
+  const top = [...providerLimits.value].sort(
     (a, b) => b.utilization_pct - a.utilization_pct
   )[0];
   if (top.age_seconds >= STALE_SECONDS) {
@@ -257,13 +299,13 @@ onBeforeUnmount(() => {
 
       <section class="grid gauges">
         <GaugeCard
-          v-for="limit in summary.limits"
-          :key="limit.window_kind"
+          v-for="limit in providerLimits"
+          :key="`${limit.provider}-${limit.window_kind}`"
           :limit="limit"
           :history="histories[limit.window_kind] ?? []"
           :projected="projectedFor(limit.window_kind)"
         />
-        <div v-if="summary.limits.length === 0" class="card muted">
+        <div v-if="providerLimits.length === 0" class="card muted">
           No limit data yet — the collector reports these once it polls.
         </div>
       </section>
@@ -355,10 +397,10 @@ onBeforeUnmount(() => {
             {{ liveSummary.burnRatePerMin.toFixed(0) }} tok/min
           </span>
         </div>
-        <ul v-if="liveOverview.provider_limits.length" class="feed">
+        <ul v-if="providerLiveLimits.length" class="feed">
           <li
-            v-for="limit in liveOverview.provider_limits"
-            :key="limit.provider + limit.window_kind"
+            v-for="limit in providerLiveLimits"
+            :key="`${limit.provider}-${limit.window_kind}`"
             class="tabular"
           >
             {{ limitLabel(limit) }}

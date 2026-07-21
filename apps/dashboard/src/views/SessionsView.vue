@@ -279,115 +279,119 @@ onMounted(() => {
 
       <EChart :option="topChart" height="220px" />
 
-      <table>
-        <thead>
-          <tr>
-            <th>Session</th>
-            <th>Provider</th>
-            <th>Source</th>
-            <th>Project</th>
-            <th class="num sortable" @click="sortBy('attempt_count')">
-              Attempts{{ arrow('attempt_count') }}
-            </th>
-            <th class="num sortable" @click="sortBy('total_tokens')">
-              Tokens{{ arrow('total_tokens') }}
-            </th>
-            <th class="num sortable" @click="sortBy('cost_usd')">
-              Cost{{ arrow('cost_usd') }}
-            </th>
-            <th class="sortable" @click="sortBy('ts_last')">
-              Last active{{ arrow('ts_last') }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <template v-for="s in sorted" :key="s.scoped_id">
-            <tr class="clickable" @click="toggleDetail(s)">
-              <td class="mono" :title="s.session_id || '(no session id)'">
-                {{ expandedId === s.scoped_id ? '▾' : '▸' }}
-                {{ s.session_id ? s.session_id.slice(0, 8) : '(no id)' }}
-              </td>
-              <td>{{ providerName(s.provider) }}</td>
-              <td class="muted">{{ s.source }}</td>
-              <td :title="s.primary_project || 'unattributed'">
-                {{ projectLabel(s.primary_project) }}
-              </td>
-              <td class="num tabular">{{ s.attempt_count }}</td>
-              <td class="num tabular">{{ formatTokens(s.total_tokens) }}</td>
-              <td class="num tabular">
-                <span
-                  v-if="s.cost_usd === null"
-                  class="unpriced"
-                  title="No price for this model"
-                  >unpriced</span
-                >
-                <template v-else>{{ formatCost(s.cost_usd) }}</template>
-              </td>
-              <td :title="s.ts_last ? formatDateTime(s.ts_last) : ''">
-                {{ s.ts_last ? timeAgo(s.ts_last) : '—' }}
-              </td>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>Provider</th>
+              <th>Source</th>
+              <th>Project</th>
+              <th class="num sortable" @click="sortBy('attempt_count')">
+                Attempts{{ arrow('attempt_count') }}
+              </th>
+              <th class="num sortable" @click="sortBy('total_tokens')">
+                Tokens{{ arrow('total_tokens') }}
+              </th>
+              <th class="num sortable" @click="sortBy('cost_usd')">
+                Cost{{ arrow('cost_usd') }}
+              </th>
+              <th class="sortable" @click="sortBy('ts_last')">
+                Last active{{ arrow('ts_last') }}
+              </th>
             </tr>
-            <tr v-if="expandedId === s.scoped_id" class="detail-row">
-              <td :colspan="8">
-                <div v-if="detailLoading" class="muted">loading…</div>
-                <div v-else-if="detail" class="chips">
-                  <span class="chip"
-                    >{{ detail.summary.attempts }} attempts</span
-                  >
+          </thead>
+          <tbody>
+            <template v-for="s in sorted" :key="s.scoped_id">
+              <tr class="clickable" @click="toggleDetail(s)">
+                <td class="mono" :title="s.session_id || '(no session id)'">
+                  {{ expandedId === s.scoped_id ? '▾' : '▸' }}
+                  {{ s.session_id ? s.session_id.slice(0, 8) : '(no id)' }}
+                </td>
+                <td>{{ providerName(s.provider) }}</td>
+                <td class="muted">{{ s.source }}</td>
+                <td :title="s.primary_project || 'unattributed'">
+                  {{ projectLabel(s.primary_project) }}
+                </td>
+                <td class="num tabular">{{ s.attempt_count }}</td>
+                <td class="num tabular">{{ formatTokens(s.total_tokens) }}</td>
+                <td class="num tabular">
                   <span
-                    class="chip"
-                    :class="{ warn: detail.summary.fallbacks > 0 }"
+                    v-if="s.cost_usd === null"
+                    class="unpriced"
+                    title="No price for this model"
+                    >unpriced</span
                   >
-                    {{ detail.summary.fallbacks }} fallback(s)
-                  </span>
-                  <span class="chip">
-                    {{
-                      formatPct(
-                        detail.summary.attempts === 0
-                          ? 0
-                          : (detail.summary.successes /
-                              detail.summary.attempts) *
-                              100
-                      )
-                    }}
-                    success
-                  </span>
-                  <span class="chip">
-                    {{ formatPct(detail.summary.cacheRatio * 100) }} cache
-                  </span>
-                  <span class="chip">p50 {{ latencyText(detail.p50) }}</span>
-                  <span class="chip">p95 {{ latencyText(detail.p95) }}</span>
-                  <span class="chip">
-                    {{ detail.summary.logicalRequests }} logical request(s)
-                  </span>
-                </div>
-                <ul v-if="detail && detail.agents.length" class="agent-tree">
-                  <li
-                    v-for="agent in detail.agents"
-                    :key="agent.agentId"
-                    :style="{ paddingLeft: `${agent.depth * 16}px` }"
-                  >
-                    <span aria-hidden="true">{{
-                      agent.depth > 0 ? '└ ' : ''
-                    }}</span>
-                    {{ agent.agentId }}
-                    <span class="muted small">({{ agent.attemptCount }})</span>
-                  </li>
-                </ul>
-              </td>
+                  <template v-else>{{ formatCost(s.cost_usd) }}</template>
+                </td>
+                <td :title="s.ts_last ? formatDateTime(s.ts_last) : ''">
+                  {{ s.ts_last ? timeAgo(s.ts_last) : '—' }}
+                </td>
+              </tr>
+              <tr v-if="expandedId === s.scoped_id" class="detail-row">
+                <td :colspan="8">
+                  <div v-if="detailLoading" class="muted">loading…</div>
+                  <div v-else-if="detail" class="chips">
+                    <span class="chip"
+                      >{{ detail.summary.attempts }} attempts</span
+                    >
+                    <span
+                      class="chip"
+                      :class="{ warn: detail.summary.fallbacks > 0 }"
+                    >
+                      {{ detail.summary.fallbacks }} fallback(s)
+                    </span>
+                    <span class="chip">
+                      {{
+                        formatPct(
+                          detail.summary.attempts === 0
+                            ? 0
+                            : (detail.summary.successes /
+                                detail.summary.attempts) *
+                                100
+                        )
+                      }}
+                      success
+                    </span>
+                    <span class="chip">
+                      {{ formatPct(detail.summary.cacheRatio * 100) }} cache
+                    </span>
+                    <span class="chip">p50 {{ latencyText(detail.p50) }}</span>
+                    <span class="chip">p95 {{ latencyText(detail.p95) }}</span>
+                    <span class="chip">
+                      {{ detail.summary.logicalRequests }} logical request(s)
+                    </span>
+                  </div>
+                  <ul v-if="detail && detail.agents.length" class="agent-tree">
+                    <li
+                      v-for="agent in detail.agents"
+                      :key="agent.agentId"
+                      :style="{ paddingLeft: `${agent.depth * 16}px` }"
+                    >
+                      <span aria-hidden="true">{{
+                        agent.depth > 0 ? '└ ' : ''
+                      }}</span>
+                      {{ agent.agentId }}
+                      <span class="muted small"
+                        >({{ agent.attemptCount }})</span
+                      >
+                    </li>
+                  </ul>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td :colspan="4">{{ totals.count }} sessions</td>
+              <td class="num tabular">{{ totals.attempts }}</td>
+              <td class="num tabular">{{ formatTokens(totals.tokens) }}</td>
+              <td class="num tabular">{{ formatCost(String(totals.cost)) }}</td>
+              <td></td>
             </tr>
-          </template>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td :colspan="4">{{ totals.count }} sessions</td>
-            <td class="num tabular">{{ totals.attempts }}</td>
-            <td class="num tabular">{{ formatTokens(totals.tokens) }}</td>
-            <td class="num tabular">{{ formatCost(String(totals.cost)) }}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
+          </tfoot>
+        </table>
+      </div>
     </section>
   </AsyncState>
 </template>
@@ -419,6 +423,7 @@ select {
 }
 table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
   font-size: 0.9rem;
   margin-top: 1rem;
