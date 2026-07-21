@@ -207,6 +207,7 @@ class QueryFilters:
     agent: str | None = None
     environment: str | None = None
     outcome: str | None = None
+    trace_id: str | None = None
     unknown_provider: bool = False
     unknown_model: bool = False
 

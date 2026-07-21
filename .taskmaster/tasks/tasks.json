@@ -3523,7 +3523,7 @@
         "description": "Align v2 events with OpenTelemetry generative AI semantic conventions: trace and span linkage, a pinned-version mapping document, and a feature-flagged OTLP receiver that converts GenAI spans into v2 attempt events with content attributes stripped. PRD-TOK-002 Section 12.19; Epic TOK-11; FR-OTEL-001..007; decisions D-009, D-013.",
         "details": "Objective: OpenTelemetry interoperability including the receiver bridge, feature-flagged off by default (D-009).\n\nDesign: trace_id, span_id, and parent_span_id on the v2 schema (FR-OTEL-001) including agent parent-child relationships (FR-TRACE-009); a mapping document pinning a specific generative AI semantic-convention version (D-013) covering provider, model, token usage, latency, and outcome mappings (FR-OTEL-002); the pinned semconv version recorded on every mapped event (FR-OTEL-006). OTLP receiver: HTTP protobuf endpoint, disabled by default behind a feature flag, authenticated consistently with ingest tokens, converting GenAI spans into v2 attempt events with provenance imported and source type sdk; content attributes stripped unconditionally (FR-OTEL-007); unknown attributes retained in namespaced extra metadata within bounds. Core v2 ingest never depends on OTLP (FR-OTEL-004); export to external OpenTelemetry backends stays deferred (FR-OTEL-005).\n\nAcceptance criteria (PRD Epic TOK-11): trace and span IDs supported; mapping document exists with pinned semconv version; content attributes remain disabled by default; the feature-flagged OTLP receiver converts generative AI spans into v2 attempt events (AC-021).\n\nTest strategy: unit tests for the span-to-event converter including content stripping and attribute bounding; integration test posting recorded OTLP payloads from an instrumented sample app and asserting correct v2 events and dashboard visibility; feature-flag-off test proving the endpoint is absent by default; privacy fuzz tests on span attributes.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "62",
           "66"
@@ -3534,11 +3534,12 @@
             "id": 1,
             "title": "Trace and span linkage with agent hierarchies",
             "description": "Verify and complete trace_id, span_id, parent_span_id support end to end.",
-            "details": "Complete the OTel identity plumbing started in the 62.1 schema: trace_id, span_id, and parent_span_id validated as W3C trace-context format when present (lenient passthrough for non-conforming ids with a data quality note), indexed for lookup, exposed through attempt query responses, and usable to reconstruct agent parent-child relationships (FR-OTEL-001, FR-TRACE-008/009): attempts sharing a trace_id form a trace group; parent_span_id links subagent attempts to their parent attempt for the sessions and agents display (67.6 consumer). Add trace_id filtering to /api/v2/attempts. Test strategy: unit tests for format validation and lenient fallback; integration test ingesting a parent-child attempt pair via the proxy wire and asserting trace grouping and parent resolution in query responses; index presence check.",
-            "status": "pending",
+            "details": "Complete the OTel identity plumbing started in the 62.1 schema: trace_id, span_id, and parent_span_id validated as W3C trace-context format when present (lenient passthrough for non-conforming ids with a data quality note), indexed for lookup, exposed through attempt query responses, and usable to reconstruct agent parent-child relationships (FR-OTEL-001, FR-TRACE-008/009): attempts sharing a trace_id form a trace group; parent_span_id links subagent attempts to their parent attempt for the sessions and agents display (67.6 consumer). Add trace_id filtering to /api/v2/attempts. Test strategy: unit tests for format validation and lenient fallback; integration test ingesting a parent-child attempt pair via the proxy wire and asserting trace grouping and parent resolution in query responses; index presence check.\n<info added on 2026-07-21T02:17:10.685Z>\nCompleted trace/span linkage end to end. New services/trace_context.py validates trace_id (32 lowercase hex, non-zero) and span_id/parent_span_id (16 hex) against W3C trace-context; malformed_trace_fields() names present-but-non-conforming fields. Validation is LENIENT (FR-OTEL-001): ingest_v2 stores the ids as-is and records a new trace_context_malformed data-quality event (deduped by event_id) so nothing is dropped. Exposed trace_id/span_id/parent_span_id through the attempt query surface: added them to AttemptRow, _attempt_row, and the AttemptOut schema. Added a trace_id filter to /api/v2/attempts (QueryFilters.trace_id + the query_filters dep + _apply_attempt_filters), so attempts sharing a trace_id form a trace group and parent_span_id links a subagent attempt to its parent attempt's span_id (FR-TRACE-008/009, for the 67.6 consumer). No migration needed -- the columns and their indexes (ix_usage_events_v2_trace_id/span_id/parent_span_id) shipped in the 62.1 schema. Tests: test_trace_context.py (4 unit: valid/zero/length+case/malformed-field-reporting) and test_trace_linkage.py (4 integration: fields exposed + trace grouping + parent resolution; trace_id filter scopes; malformed id passes through with a DQ note; the three indexes present). Gates: full suite 798 passed/51 skipped/0 failed; ruff, mypy . (321 files), trivy clean.\n</info added on 2026-07-21T02:17:10.685Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 71,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T02:17:37.312Z"
           },
           {
             "id": 2,
@@ -3600,7 +3601,8 @@
             "parentTaskId": 71,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-07-21T02:17:37.312Z"
       },
       {
         "id": "72",
@@ -3713,7 +3715,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T01:44:13.274Z",
+      "lastModified": "2026-07-21T02:17:37.313Z",
       "taskCount": 78,
       "completedCount": 73,
       "tags": [

@@ -434,6 +434,12 @@ class AttemptOut(BaseModel):
     cache_write_long_tokens: int
     reasoning_tokens: int
     cost_usd: Decimal | None
+    # OpenTelemetry trace-context linkage (FR-OTEL-001). Attempts sharing a
+    # trace_id form a trace group; parent_span_id links a subagent attempt to
+    # its parent attempt's span_id.
+    trace_id: str | None
+    span_id: str | None
+    parent_span_id: str | None
 
 
 class AttemptsResponse(BaseModel):

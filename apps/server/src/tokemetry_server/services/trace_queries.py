@@ -58,6 +58,9 @@ class AttemptRow:
     cache_write_long_tokens: int
     reasoning_tokens: int
     cost_usd: Decimal | None
+    trace_id: str | None
+    span_id: str | None
+    parent_span_id: str | None
 
 
 @dataclass(frozen=True)
@@ -126,6 +129,7 @@ def _apply_attempt_filters(statement: Any, filters: QueryFilters) -> Any:
         event.native_model: filters.native_model,
         event.machine: filters.machine,
         event.session_id: filters.session_id,
+        event.trace_id: filters.trace_id,
     }
     for column, value in pairs.items():
         if value is not None:
@@ -182,6 +186,8 @@ def _attempt_row(event: models.UsageEventV2, source: str) -> AttemptRow:
         cache_write_short_tokens=event.cache_write_short_tokens,
         cache_write_long_tokens=event.cache_write_long_tokens,
         reasoning_tokens=event.reasoning_tokens, cost_usd=event.cost_usd,
+        trace_id=event.trace_id, span_id=event.span_id,
+        parent_span_id=event.parent_span_id,
     )
 
 

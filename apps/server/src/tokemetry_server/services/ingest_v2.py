@@ -42,6 +42,7 @@ from tokemetry_server.services.sources import (
     SourceHealthService,
     SourceRegistryService,
 )
+from tokemetry_server.services.trace_context import malformed_trace_fields
 
 #: Default cap on the number of ids echoed back per list (FR-INGEST-009).
 DEFAULT_MAX_RETURNED_IDS = 1000
@@ -101,10 +102,11 @@ class IngestV2Service:
         """
         self._session = session
         self._privacy = privacy or PrivacyValidator()
-        self._engine = RevisionEngine(session, data_quality)
+        self._data_quality = data_quality or DataQualityService(session)
+        self._engine = RevisionEngine(session, self._data_quality)
         self._logical_requests = LogicalRequestService(session)
         self._sources = SourceRegistryService(session)
-        self._health = SourceHealthService(session, data_quality)
+        self._health = SourceHealthService(session, self._data_quality)
         self._max_returned_ids = max_returned_ids
 
     async def ingest(
@@ -135,10 +137,12 @@ class IngestV2Service:
         updated_ids: list[str] = []
         source_cache: dict[tuple[str, str, str | None], int] = {}
         batch_source_id: int | None = None
+        now = datetime.now(UTC)
         for event in cleaned:
             source_id = await self._resolve_source(event, token_label, source_cache)
             if batch_source_id is None:
                 batch_source_id = source_id
+            await self._note_malformed_trace(event, now)
             outcome = await self._engine.apply(
                 event,
                 mode=mode,
@@ -203,6 +207,23 @@ class IngestV2Service:
             updated_ids=capped_updated,
             ids_truncated=truncated_a or truncated_u,
         )
+
+    async def _note_malformed_trace(self, event: UsageEventV2, now: datetime) -> None:
+        """Record a data-quality note for non-conforming trace-context ids.
+
+        Validation is lenient (FR-OTEL-001): the ids are still stored as-is, but
+        a malformed one surfaces so the operator can see it.
+        """
+        malformed = malformed_trace_fields(
+            event.trace_id, event.span_id, event.parent_span_id
+        )
+        if malformed:
+            await self._data_quality.record(
+                "trace_context_malformed",
+                event.event_id,
+                now,
+                detail={"fields": malformed},
+            )
 
     async def _resolve_source(
         self,

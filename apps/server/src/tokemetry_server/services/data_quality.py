@@ -33,6 +33,7 @@ DATA_QUALITY_KINDS = (
     "limit_source_failure",
     "clock_skew",
     "retention_rollup_mismatch",
+    "trace_context_malformed",
 )
 
 

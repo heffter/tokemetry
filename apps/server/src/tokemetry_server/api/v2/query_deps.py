@@ -23,6 +23,7 @@ def query_filters(
     session_id: str | None = Query(default=None, alias="session"),
     environment: str | None = Query(default=None),
     outcome: str | None = Query(default=None),
+    trace_id: str | None = Query(default=None),
     unknown_provider: bool = Query(default=False),
     unknown_model: bool = Query(default=False),
 ) -> QueryFilters:
@@ -36,6 +37,7 @@ def query_filters(
         session_id=session_id,
         environment=environment,
         outcome=outcome,
+        trace_id=trace_id,
         unknown_provider=unknown_provider,
         unknown_model=unknown_model,
     )
