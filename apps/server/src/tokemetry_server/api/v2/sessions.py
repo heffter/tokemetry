@@ -17,9 +17,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tokemetry_server.api.auth import Principal, require_scopes
 from tokemetry_server.api.deps import get_session
 from tokemetry_server.api.v2.query_deps import query_filters, to_utc
-from tokemetry_server.api.v2.schemas import SessionOut, SessionsResponse
+from tokemetry_server.api.v2.schemas import (
+    AgentNodeOut,
+    SessionAgentsResponse,
+    SessionOut,
+    SessionsResponse,
+)
 from tokemetry_server.config import Settings
 from tokemetry_server.scopes import QUERY_READ
+from tokemetry_server.services.agent_hierarchy import session_agents
 from tokemetry_server.services.query_framework import (
     QueryFilters,
     QueryParamError,
@@ -74,3 +80,21 @@ async def session_detail_endpoint(
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown session")
     return SessionOut(**dataclasses.asdict(row))
+
+
+@router.get("/sessions/{scoped_id}/agents", response_model=SessionAgentsResponse)
+async def session_agents_endpoint(
+    scoped_id: str,
+    session: AsyncSession = Depends(get_session),
+    _: Principal = Depends(require_scopes(QUERY_READ)),
+) -> SessionAgentsResponse:
+    """The agent hierarchy of one session (FR-TRACE-009)."""
+    try:
+        provider, source, session_id = decode_scoped_session_id(scoped_id)
+    except QueryParamError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    nodes = await session_agents(session, provider, source, session_id)
+    return SessionAgentsResponse(
+        scoped_id=scoped_id,
+        agents=[AgentNodeOut(**dataclasses.asdict(node)) for node in nodes],
+    )

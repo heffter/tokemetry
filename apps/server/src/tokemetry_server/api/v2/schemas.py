@@ -440,6 +440,9 @@ class AttemptOut(BaseModel):
     trace_id: str | None
     span_id: str | None
     parent_span_id: str | None
+    # The agent that made this call, for multi-agent hierarchy display
+    # (FR-TRACE-009). Parent-agent linkage is derived from the span tree.
+    agent_id: str | None
 
 
 class AttemptsResponse(BaseModel):
@@ -732,6 +735,26 @@ class DeletionResponse(BaseModel):
     affected_days: list[str]
     digest: str
     rollups_recomputed: int
+
+
+class AgentNodeOut(BaseModel):
+    """One agent in a session's hierarchy (Task 75, FR-TRACE-009)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: str
+    parent_agent_id: str | None
+    depth: int
+    attempt_count: int
+
+
+class SessionAgentsResponse(BaseModel):
+    """The agent hierarchy of one session, roots first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scoped_id: str
+    agents: list[AgentNodeOut]
 
 
 class CacheSavingsResponse(BaseModel):

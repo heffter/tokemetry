@@ -61,6 +61,7 @@ class AttemptRow:
     trace_id: str | None
     span_id: str | None
     parent_span_id: str | None
+    agent_id: str | None
 
 
 @dataclass(frozen=True)
@@ -187,7 +188,7 @@ def _attempt_row(event: models.UsageEventV2, source: str) -> AttemptRow:
         cache_write_long_tokens=event.cache_write_long_tokens,
         reasoning_tokens=event.reasoning_tokens, cost_usd=event.cost_usd,
         trace_id=event.trace_id, span_id=event.span_id,
-        parent_span_id=event.parent_span_id,
+        parent_span_id=event.parent_span_id, agent_id=event.agent_id,
     )
 
 
