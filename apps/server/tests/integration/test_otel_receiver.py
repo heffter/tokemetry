@@ -129,3 +129,25 @@ def test_malformed_payload_rejected(tmp_path: Path) -> None:
     with _build(tmp_path, otel_receiver_enabled=True) as client:
         response = client.post(_TRACES, json={"not": "otlp"}, headers=_AUTH)
         assert response.status_code == 400
+
+
+def test_content_bearing_span_attribute_is_rejected(tmp_path: Path) -> None:
+    """A non-gen_ai attribute whose key looks like content is refused (422).
+
+    The converter strips only the semconv content attributes; any other
+    content-looking key ends up in extra.otel and is caught by the privacy
+    validator on ingest (privacy fuzz, FR-PRIV-012).
+    """
+    with _build(tmp_path, otel_receiver_enabled=True) as client:
+        payload = _otlp(
+            [
+                _attr("gen_ai.system", stringValue="openai"),
+                _attr("gen_ai.response.model", stringValue="gpt-5"),
+                # "user_message" normalizes to contain the "message" content
+                # token, so it must not be stored.
+                _attr("user_message", stringValue="hello there"),
+            ]
+        )
+        response = client.post(_TRACES, json=payload, headers=_AUTH)
+        assert response.status_code == 422
+        assert "hello there" not in response.text

@@ -3571,13 +3571,14 @@
             "id": 4,
             "title": "Span-to-v2 converter with content stripping",
             "description": "GenAI spans become v2 attempt events, privacy enforced.",
-            "details": "Implement the converter from GenAI spans to v2 attempt events per the 71.2 mapping: event_id derived deterministically from trace_id plus span_id (stable replay identity, FR-IDEMP-001), event_kind attempt, finality final (spans arrive complete), provenance imported, source type sdk with the OTLP client identity, semconv_version recorded; provider resolved through alias normalization with unknown providers following registry policy; token counters from usage attributes with absent values as zero and unknown usage attributes preserved in extra.otel within bounds; content attributes stripped unconditionally before any persistence and covered by the privacy validator as a second layer (FR-OTEL-007, defense in depth); converted events flow through the standard ingest service gaining privacy validation, revision semantics, source registration, cost computation, and rollups like any other source. Test strategy: one test per mapping-table row; property fuzz test embedding gen_ai.prompt and completion content asserting nothing content-like reaches storage; replay test (same span batch twice is a no-op); unknown-provider span policy test.",
-            "status": "pending",
+            "details": "Implement the converter from GenAI spans to v2 attempt events per the 71.2 mapping: event_id derived deterministically from trace_id plus span_id (stable replay identity, FR-IDEMP-001), event_kind attempt, finality final (spans arrive complete), provenance imported, source type sdk with the OTLP client identity, semconv_version recorded; provider resolved through alias normalization with unknown providers following registry policy; token counters from usage attributes with absent values as zero and unknown usage attributes preserved in extra.otel within bounds; content attributes stripped unconditionally before any persistence and covered by the privacy validator as a second layer (FR-OTEL-007, defense in depth); converted events flow through the standard ingest service gaining privacy validation, revision semantics, source registration, cost computation, and rollups like any other source. Test strategy: one test per mapping-table row; property fuzz test embedding gen_ai.prompt and completion content asserting nothing content-like reaches storage; replay test (same span batch twice is a no-op); unknown-provider span policy test.\n<info added on 2026-07-21T02:58:22.842Z>\nExhaustive span-to-v2 converter coverage delivered in test_otel_convert.py (15 unit tests, pure-function): one case per semconv mapping-table row covering provider lowercase-normalization, requested/response model mapping with fallback to request-model then 'unknown', all four token tiers (input/output/cache_read/reasoning), span-derived defaults (event_kind=attempt/finality=final/sequence=1, source.type=sdk, provenance=imported), trace-context carried through with event_id=span_id, latency_ms derived from end-start (None when no end, ts_completed None too), status STATUS_CODE_ERROR and error.type attribute both mapping to success=false/outcome=error while STATUS_CODE_OK maps to success, content stripping (gen_ai.prompt/completion/prefixed bodies/input.messages absent from extra), semconv_version+operation+system recorded under extra.otel, unmapped attributes retained in extra.otel.attributes, non-GenAI spans (no or empty gen_ai.system) returning None, and spans_to_events dropping non-GenAI spans. Privacy-fuzz test added to test_otel_receiver.py: a non-gen_ai content-looking span attribute (user_message) ends up in extra.otel and is caught by the privacy validator on ingest (422, value not echoed), confirming the converter strips known semconv content attrs and the privacy validator backstops everything else (FR-PRIV-012). 22 tests pass. Test-only change with no src modification since 71.3's green full suite. Ruff and mypy clean.\n</info added on 2026-07-21T02:58:22.842Z>",
+            "status": "done",
             "dependencies": [
               "71.3"
             ],
             "parentTaskId": 71,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T02:58:41.522Z"
           },
           {
             "id": 5,
@@ -3604,7 +3605,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-21T02:54:52.205Z"
+        "updatedAt": "2026-07-21T02:58:41.522Z"
       },
       {
         "id": "72",
@@ -3717,7 +3718,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T02:54:52.207Z",
+      "lastModified": "2026-07-21T02:58:41.524Z",
       "taskCount": 78,
       "completedCount": 73,
       "tags": [
