@@ -10,7 +10,7 @@ import { computed, onMounted, ref } from 'vue';
 import AsyncState from '@/components/AsyncState.vue';
 import { useClient } from '@/composables/useApi';
 import { useAsync } from '@/composables/useAsync';
-import { formatDateTime, timeAgo } from '@/lib/format';
+import { formatDateTime, formatDuration, timeAgo } from '@/lib/format';
 import { sourceFlags, supportedSchemaVersion } from '@/lib/sources';
 import type { SourceV2 } from '@/api/types-v2';
 
@@ -41,10 +41,15 @@ function cancelEdit(): void {
   editingId.value = null;
 }
 
+// Humanize the clock skew: raw seconds are unreadable at scale (a multi-day
+// skew shows as e.g. "-266054s"). Show a signed coarse duration ("-3d", "+2m")
+// and keep the exact seconds in the cell's title for the curious.
 function skewText(seconds: number | null): string {
   if (seconds === null) return '—';
   const rounded = Math.round(seconds);
-  return `${rounded >= 0 ? '+' : ''}${rounded}s`;
+  const sign = rounded < 0 ? '−' : '+';
+  if (Math.abs(rounded) < 60) return `${sign}${Math.abs(rounded)}s`;
+  return `${sign}${formatDuration(Math.abs(rounded))}`;
 }
 
 async function saveEdit(source: SourceV2): Promise<void> {
@@ -173,7 +178,11 @@ onMounted(() => {
             <td
               class="tabular"
               :class="{ warn: flagsFor(s).clockSkew }"
-              :title="`staleness threshold ${s.health.staleness_threshold_seconds}s`"
+              :title="
+                s.health.clock_skew_seconds === null
+                  ? `staleness threshold ${s.health.staleness_threshold_seconds}s`
+                  : `${Math.round(s.health.clock_skew_seconds)}s skew · staleness threshold ${s.health.staleness_threshold_seconds}s`
+              "
             >
               {{ skewText(s.health.clock_skew_seconds) }}
             </td>

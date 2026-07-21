@@ -24,7 +24,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import RequestResponseEndpoint
+from starlette.types import Scope
 from tokemetry_core.models import UsageEvent
 
 from tokemetry_server.api import alerts, ingest, pricing, query, stream, tokens, v2
@@ -56,6 +58,37 @@ from tokemetry_server.services.retention_worker import run_retention_sweep
 
 #: Type of the per-event cost function stored on app state.
 CostFn = Callable[[UsageEvent], "Decimal | None"]
+
+
+class SpaStaticFiles(StaticFiles):
+    """Static file server with single-page-app history fallback.
+
+    The dashboard routes with HTML5 history mode (``createWebHistory``), so a
+    deep link such as ``/trends`` has no matching file on disk. Starlette's
+    ``html=True`` only maps *directories* to ``index.html``; it still 404s for
+    unknown paths, which means a refresh or bookmark of any non-root route
+    returns ``{"detail":"Not Found"}`` instead of the app. This serves
+    ``index.html`` for those paths so the client router can resolve them.
+
+    Two path prefixes are excluded from the fallback so they keep their real
+    404s instead of masquerading as the app: ``assets/*`` (a missing build
+    chunk must surface as an error, not silently return HTML) and ``api/*`` (an
+    unknown API route must stay a JSON 404; this mount is last in the route
+    table, so unmatched ``/api`` paths reach it).
+    """
+
+    #: Path prefixes that must keep their genuine 404 instead of the SPA shell.
+    _NO_FALLBACK_PREFIXES = ("assets", "api")
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and not path.startswith(
+                self._NO_FALLBACK_PREFIXES
+            ):
+                return await super().get_response("index.html", scope)
+            raise
 
 
 async def _build_cost_engine(
@@ -347,11 +380,13 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         return {"status": "ok"}
 
     # Serve the built dashboard SPA when configured. Mounted last so API and
-    # WebSocket routes take precedence; html=True gives SPA-route fallback.
+    # WebSocket routes take precedence. SpaStaticFiles adds the history
+    # fallback that ``html=True`` alone does not provide, so deep-link refreshes
+    # (e.g. ``/trends``) resolve to ``index.html`` instead of 404ing.
     if resolved.static_dir is not None and resolved.static_dir.is_dir():
         app.mount(
             "/",
-            StaticFiles(directory=resolved.static_dir, html=True),
+            SpaStaticFiles(directory=resolved.static_dir, html=True),
             name="spa",
         )
 

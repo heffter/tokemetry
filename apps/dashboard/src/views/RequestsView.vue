@@ -22,7 +22,7 @@ import {
   orderAttempts,
   percentile,
 } from '@/lib/trace';
-import { presetRange } from '@/lib/filters';
+import { dayEndIso, dayStartIso, presetRange } from '@/lib/filters';
 import type { UsageFilter } from '@/lib/filters';
 import type { AttemptV2, ModelV2, ProviderV2, RequestV2 } from '@/api/types-v2';
 
@@ -101,8 +101,9 @@ const latency = computed(() => {
 function rangeParams(): { from: string; to: string } {
   const fallback = presetRange('30d');
   return {
-    from: `${filter.value.from ?? fallback.from}T00:00:00Z`,
-    to: `${filter.value.to ?? fallback.to}T00:00:00Z`,
+    from: dayStartIso(filter.value.from ?? fallback.from),
+    // Inclusive end-of-day so today's attempts are in range, not truncated.
+    to: dayEndIso(filter.value.to ?? fallback.to),
   };
 }
 

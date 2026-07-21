@@ -20,7 +20,13 @@ import { resolveMoneyState } from '@/lib/valueState';
 import { sumCostRows, costStatusOf } from '@/lib/costs';
 import type { CostStatus } from '@/lib/costs';
 import { knownModelIds, resolveModel } from '@/lib/modelRegistry';
-import { clampRangeDays, enumerateDays, presetRange } from '@/lib/filters';
+import {
+  clampRangeDays,
+  dayEndIso,
+  dayStartIso,
+  enumerateDays,
+  presetRange,
+} from '@/lib/filters';
 import type { UsageFilter } from '@/lib/filters';
 import type {
   CostRowV2,
@@ -133,8 +139,9 @@ async function load(): Promise<void> {
       MAX_RANGE_DAYS
     );
     clampedFrom.value = clamped.clamped ? clamped.from : null;
-    const from = `${clamped.from}T00:00:00Z`;
-    const to = `${clamped.to}T00:00:00Z`;
+    const from = dayStartIso(clamped.from);
+    // Inclusive end-of-day so the current day's costs are counted, not dropped.
+    const to = dayEndIso(clamped.to);
     const q = {
       from,
       to,

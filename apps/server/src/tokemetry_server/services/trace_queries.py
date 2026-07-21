@@ -104,6 +104,9 @@ class SessionRow:
     cost_usd: Decimal | None
     ts_first: datetime | None
     ts_last: datetime | None
+    #: The project that contributed the most tokens to this session (a session
+    #: may span several projects); ``None`` when unattributed.
+    primary_project: str | None
 
 
 def scoped_session_id(provider: str, source: str, session_id: str) -> str:
@@ -123,18 +126,26 @@ def decode_scoped_session_id(scoped_id: str) -> tuple[str, str, str]:
 
 
 def _apply_attempt_filters(statement: Any, filters: QueryFilters) -> Any:
-    """Apply dimension filters common to attempt-backed queries."""
+    """Apply dimension filters common to attempt-backed queries.
+
+    Callers that filter by ``source`` must have joined :class:`models.Source`
+    (both :func:`list_attempts` and :func:`list_sessions` do); ``project`` and
+    the rest are plain event columns.
+    """
     event = models.UsageEventV2
     pairs = {
         event.provider: filters.provider,
         event.native_model: filters.native_model,
         event.machine: filters.machine,
+        event.project: filters.project,
         event.session_id: filters.session_id,
         event.trace_id: filters.trace_id,
     }
     for column, value in pairs.items():
         if value is not None:
             statement = statement.where(column == value)
+    if filters.source is not None:
+        statement = statement.where(models.Source.name == filters.source)
     if filters.outcome is not None:
         statement = statement.where(event.success.is_(filters.outcome == "success"))
     return statement
@@ -320,6 +331,10 @@ async def list_sessions(
         .offset(offset)
         .limit(limit + 1)
     )
+    raw = (await session.execute(statement)).all()
+    primary = await _primary_projects(
+        session, start, end, filters, [str(r[2]) for r in raw if str(r[2])], total
+    )
     rows = [
         SessionRow(
             scoped_id=scoped_session_id(str(r[0]), str(r[1]), str(r[2])),
@@ -327,10 +342,56 @@ async def list_sessions(
             attempt_count=int(r[3] or 0), total_tokens=int(r[4] or 0),
             cost_usd=None if r[5] is None else Decimal(str(r[5])),
             ts_first=r[6], ts_last=r[7],
+            primary_project=primary.get((str(r[0]), str(r[1]), str(r[2]))),
         )
-        for r in (await session.execute(statement)).all()
+        for r in raw
     ]
     return build_page(rows, limit, lambda r: encode_cursor("", offset + limit))
+
+
+async def _primary_projects(
+    session: AsyncSession,
+    start: datetime,
+    end: datetime,
+    filters: QueryFilters,
+    session_ids: list[str],
+    total: Any,
+) -> dict[tuple[str, str, str], str | None]:
+    """Map each session on the page to its dominant project (most tokens).
+
+    Scoped to the page's ``session_ids`` so it costs one small aggregate per
+    page. A session with no attributed project maps to ``None``.
+    """
+    if not session_ids:
+        return {}
+    event = models.UsageEventV2
+    src = models.Source
+    source_name = func.coalesce(src.name, "").label("source")
+    session_key = func.coalesce(event.session_id, "").label("session")
+    statement = (
+        select(
+            event.provider, source_name, session_key,
+            event.project, func.coalesce(func.sum(total), 0),
+        )
+        .join(src, src.id == event.source_id, isouter=True)
+        .where(
+            *_ATTEMPT, event.ts_started >= start, event.ts_started <= end,
+            event.session_id.in_(session_ids),
+        )
+    )
+    statement = _apply_attempt_filters(statement, filters)
+    statement = statement.group_by(
+        event.provider, source_name, session_key, event.project
+    )
+    best: dict[tuple[str, str, str], int] = {}
+    top: dict[tuple[str, str, str], str | None] = {}
+    for row in (await session.execute(statement)).all():
+        key = (str(row[0]), str(row[1]), str(row[2]))
+        tokens = int(row[4] or 0)
+        if key not in best or tokens > best[key]:
+            best[key] = tokens
+            top[key] = row[3] or None
+    return top
 
 
 def _cursor_offset(cursor: str | None) -> int:
@@ -368,10 +429,25 @@ async def session_detail(
     ).one()
     if not row[0]:
         return None
+    proj = (
+        await session.execute(
+            select(event.project, func.coalesce(func.sum(total), 0))
+            .join(src, src.id == event.source_id, isouter=True)
+            .where(
+                *_ATTEMPT, event.provider == provider,
+                func.coalesce(event.session_id, "") == session_id,
+                func.coalesce(src.name, "") == source,
+            )
+            .group_by(event.project)
+            .order_by(func.coalesce(func.sum(total), 0).desc())
+            .limit(1)
+        )
+    ).first()
     return SessionRow(
         scoped_id=scoped_session_id(provider, source, session_id),
         provider=provider, source=source, session_id=session_id,
         attempt_count=int(row[0]), total_tokens=int(row[1] or 0),
         cost_usd=None if row[2] is None else Decimal(str(row[2])),
         ts_first=row[3], ts_last=row[4],
+        primary_project=(proj[0] or None) if proj else None,
     )

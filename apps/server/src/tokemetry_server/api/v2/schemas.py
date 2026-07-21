@@ -506,6 +506,7 @@ class SessionOut(BaseModel):
     cost_usd: Decimal | None
     ts_first: UtcDatetime | None
     ts_last: UtcDatetime | None
+    primary_project: str | None = None
 
 
 class SessionsResponse(BaseModel):

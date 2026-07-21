@@ -1,5 +1,6 @@
 """Unit tests for collector configuration loading."""
 
+import platform
 from pathlib import Path
 
 import pytest
@@ -46,9 +47,18 @@ def test_machine_platform_defaults_to_system(tmp_path: Path) -> None:
     assert config.machine_platform  # non-empty platform string
 
 
+def test_machine_name_defaults_to_host(tmp_path: Path) -> None:
+    """An unset machine_name falls back to this host's name, not a placeholder."""
+    path = tmp_path / "c.toml"
+    path.write_text('server_url="u"\napi_token="t"\n', encoding="utf-8")
+    config = load_config(path)
+    assert config.machine_name == platform.node()
+
+
 def test_missing_required_field_rejected() -> None:
+    # api_token is still required (machine_name now defaults to the host name).
     with pytest.raises(ValidationError):
-        CollectorConfig.model_validate({"server_url": "u", "api_token": "t"})
+        CollectorConfig.model_validate({"server_url": "u", "machine_name": "m"})
 
 
 def test_unknown_top_level_key_rejected() -> None:

@@ -96,3 +96,23 @@ export function clampRangeDays(
   clampedStart.setUTCDate(clampedStart.getUTCDate() - maxDays);
   return { from: isoDay(clampedStart), to, clamped: true };
 }
+
+/** Start instant of a YYYY-MM-DD day, for the ``from`` bound of a v2 query. */
+export function dayStartIso(day: string): string {
+  return `${day}T00:00:00Z`;
+}
+
+/** End instant of a YYYY-MM-DD day, for the ``to`` bound of a v2 query.
+ *
+ * The v2 range endpoints treat ``to`` as an inclusive instant (``ts <= to``),
+ * while ``presetRange`` returns an inclusive end *day*. Mapping that day to its
+ * start (``T00:00:00Z``) would drop everything that happened on the end day --
+ * silently truncating the current day from every range, and blanking a
+ * snapshot view (e.g. limits) whose only rows are from today. Mapping to the
+ * end of the day includes it. The 23:59:59.999 upper bound keeps the ISO span
+ * just under a whole extra day, so a 365-day clamped range stays within the
+ * server's 366-day maximum.
+ */
+export function dayEndIso(day: string): string {
+  return `${day}T23:59:59.999Z`;
+}

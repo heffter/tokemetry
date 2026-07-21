@@ -112,8 +112,7 @@ function saveToken(): void {
   align-items: center;
 }
 .brand .brand-logo {
-  height: 26px;
-  display: block;
+  height: 40px;
 }
 .gate-logo {
   display: flex;

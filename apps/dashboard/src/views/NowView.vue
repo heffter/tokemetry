@@ -118,12 +118,16 @@ function onLegend(sel: Record<string, boolean>): void {
   selection.value = sel;
   saveSelection('now-model', sel);
 }
+// Absolute magnitudes vs normalized composition. Default to absolute so the
+// models are directly comparable (normalized scales every model to 100%, which
+// hides that one model did far more work than another).
+const modelMode = ref<'absolute' | 'percent'>('absolute');
 const modelChart = computed(() => {
   const models = summary.value?.today.by_model ?? [];
   return stackedTokenBarOption(
     models.map((m) => modelLabel(m.key)),
     models,
-    { normalized: true, selected: selection.value }
+    { normalized: modelMode.value === 'percent', selected: selection.value }
   );
 });
 
@@ -290,14 +294,36 @@ onBeforeUnmount(() => {
       </section>
 
       <section class="card">
-        <h3>Today by model (token composition)</h3>
+        <div class="head">
+          <h3>Today by model</h3>
+          <div v-if="summary.today.by_model.length" class="toggle">
+            <button
+              :class="{ active: modelMode === 'absolute' }"
+              @click="modelMode = 'absolute'"
+            >
+              Absolute
+            </button>
+            <button
+              :class="{ active: modelMode === 'percent' }"
+              @click="modelMode = 'percent'"
+            >
+              Composition %
+            </button>
+          </div>
+        </div>
         <template v-if="summary.today.by_model.length">
           <EChart
             :option="modelChart"
             height="320px"
             @legend-select="onLegend"
           />
-          <p class="muted small">Bars show composition (each model = 100%).</p>
+          <p class="muted small">
+            {{
+              modelMode === 'percent'
+                ? 'Each bar is normalized to 100% — compare composition, not size.'
+                : 'Absolute token counts — compare how much each model was used.'
+            }}
+          </p>
           <ChartTable
             caption="Today's tokens by model and token type"
             :columns="['Model', ...TOKEN_TABLE_HEADERS]"
@@ -389,6 +415,23 @@ h3 {
 }
 .head h3 {
   margin: 0 0 0.75rem;
+}
+.toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+.toggle button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.toggle button.active {
+  background: var(--gridline);
+  color: var(--text-primary);
 }
 .small {
   font-size: 0.8rem;

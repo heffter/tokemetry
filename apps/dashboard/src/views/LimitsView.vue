@@ -17,7 +17,12 @@ import {
   utilizationStatus,
   windowLabel,
 } from '@/lib/format';
-import { clampRangeDays, presetRange } from '@/lib/filters';
+import {
+  clampRangeDays,
+  dayEndIso,
+  dayStartIso,
+  presetRange,
+} from '@/lib/filters';
 import { windowLabelsFrom } from '@/lib/windows';
 import type { LimitSnapshotV2, ProviderV2 } from '@/api/types-v2';
 
@@ -73,8 +78,10 @@ async function load(): Promise<void> {
     const client = useClient();
     const all = presetRange('all');
     const clamped = clampRangeDays(all.from, all.to, MAX_RANGE_DAYS);
-    const from = clamped.from + 'T00:00:00Z';
-    const to = clamped.to + 'T00:00:00Z';
+    const from = dayStartIso(clamped.from);
+    // Inclusive end-of-day so today's snapshots (the only ones a freshly wired
+    // limit source has) are not excluded by a start-of-day bound.
+    const to = dayEndIso(clamped.to);
     const rows: LimitSnapshotV2[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < 20; page += 1) {
