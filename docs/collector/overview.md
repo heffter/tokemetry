@@ -90,6 +90,12 @@ machine; every failure (missing credentials, expired auth, endpoint change,
 network, malformed body) raises `LimitsUnavailableError`, so a broken source is
 skipped and the others keep uploading.
 
+Limit snapshots are uploaded to `POST /api/v2/ingest/limits` (Task 76), which
+carries the `account`, `organization`, `source`, `limit_amount`, `remaining`,
+and `unit` dimensions so they land in their dedicated `limit_snapshots` columns
+rather than in `raw`. The server keeps the v1 limits endpoint for older
+collectors.
+
 ### Z.ai coding-plan limits (`[limits.zai_coding_plan]`, off by default)
 
 `ZaiCodingLimitsSource` reads the Z.ai `api_key` and account from `config.json`

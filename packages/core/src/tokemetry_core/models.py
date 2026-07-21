@@ -158,6 +158,15 @@ class LimitSnapshot(_FrozenModel):
     utilization_pct: float = Field(ge=0.0)
     resets_at: datetime | None = None
     provenance: Provenance = Provenance.OFFICIAL
+    # v2 dimensions (Task 76): the account/organization the window belongs to and
+    # the absolute limit/remaining amount, so a source like Codex can store its
+    # account label in the proper column instead of raw JSON. Optional so v1-only
+    # sources leave them unset.
+    account: str | None = None
+    organization: str | None = None
+    limit_amount: float | None = Field(default=None, ge=0.0)
+    remaining: float | None = Field(default=None, ge=0.0)
+    unit: str | None = None
     raw: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("ts")

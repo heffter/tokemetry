@@ -69,8 +69,8 @@ class TestPoll:
         assert kinds["primary"].resets_at is not None
         assert kinds["secondary"].resets_at is not None  # epoch parsed
         assert all(s.provider == "openai" for s in snapshots)
-        # The local account label rides in raw.
-        assert kinds["primary"].raw["account"] == "acct_xyz"
+        # The local account label lands in the dedicated field (Task 76).
+        assert kinds["primary"].account == "acct_xyz"
 
     def test_missing_credentials_raises_unavailable(self, tmp_path: Path) -> None:
         def handler(_: httpx.Request) -> httpx.Response:

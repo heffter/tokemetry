@@ -24,6 +24,47 @@ def machine_info(config: CollectorConfig) -> dict[str, Any]:
     }
 
 
+def collector_source(config: CollectorConfig) -> dict[str, Any]:
+    """The collector's ``SourceRef`` identity for v2 ingest (Task 76).
+
+    A collector-type source named for this machine, so the server resolves it to
+    a stable ``source_id`` and the v2 limit dimensions land in their columns.
+    """
+    return {
+        "type": "collector",
+        "name": config.machine_name,
+        "version": __version__,
+        "instance_id": config.machine_name,
+    }
+
+
+def limit_to_wire_v2(
+    snapshot: LimitSnapshot, machine: str, source: dict[str, Any]
+) -> dict[str, Any]:
+    """Serialize a limit snapshot to the v2 ``LimitSnapshotV2`` wire shape.
+
+    Carries the account/organization/limit_amount/remaining/unit dimensions so
+    they populate the dedicated ``limit_snapshots`` columns (Task 69.2) instead
+    of riding in ``raw``. ``machine`` and ``source`` are per-snapshot in v2.
+    """
+    return {
+        "schema_version": 2,
+        "provider": snapshot.provider,
+        "window_kind": snapshot.window_kind,
+        "ts": snapshot.ts.isoformat(),
+        "utilization_pct": snapshot.utilization_pct,
+        "machine": snapshot.machine or machine,
+        "source": source,
+        "account": snapshot.account,
+        "organization": snapshot.organization,
+        "limit_amount": snapshot.limit_amount,
+        "remaining": snapshot.remaining,
+        "unit": snapshot.unit,
+        "resets_at": snapshot.resets_at.isoformat() if snapshot.resets_at else None,
+        "provenance": str(snapshot.provenance),
+    }
+
+
 def event_to_wire(event: UsageEvent) -> dict[str, Any]:
     """Serialize a usage event (machine omitted; batch carries it)."""
     return {

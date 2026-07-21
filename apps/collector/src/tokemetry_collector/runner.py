@@ -25,8 +25,9 @@ from tokemetry_collector.state import CollectorState
 from tokemetry_collector.uploader import Uploader
 from tokemetry_collector.wire import (
     aggregate_to_wire,
+    collector_source,
     event_to_wire,
-    limit_to_wire,
+    limit_to_wire_v2,
     machine_info,
 )
 
@@ -181,7 +182,8 @@ class Collector:
 
     def _poll_limits(self, stats: CollectStats) -> None:
         """Poll each limit source; degrade silently when unavailable."""
-        machine = machine_info(self._config)
+        machine_name = self._config.machine_name
+        source_ref = collector_source(self._config)
         for source in self._limit_sources:
             try:
                 snapshots = source.poll()
@@ -190,9 +192,13 @@ class Collector:
                 continue
             stats.limits_found += len(snapshots)
             if snapshots and not self._dry_run:
+                # v2 limits batch: dimensions ride on each snapshot (Task 76).
                 payload = {
-                    "machine": machine,
-                    "snapshots": [limit_to_wire(snapshot) for snapshot in snapshots],
+                    "schema_version": 2,
+                    "snapshots": [
+                        limit_to_wire_v2(snapshot, machine_name, source_ref)
+                        for snapshot in snapshots
+                    ],
                 }
                 self._state.enqueue("limits", payload)
                 stats.batches_enqueued += 1

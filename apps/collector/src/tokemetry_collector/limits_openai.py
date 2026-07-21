@@ -177,11 +177,8 @@ class OpenAICodexLimitsSource(LimitsSource):
             used = window.get("used_percent")
             if not isinstance(used, int | float):
                 continue
-            # The account label rides in raw until the collector adopts the v2
-            # limits upload; the LimitSnapshot core model has no account field.
-            raw = dict(window)
-            if account is not None:
-                raw["account"] = account
+            # The account label now lands in the dedicated column via the v2
+            # limits upload (Task 76); raw keeps the untouched window payload.
             snapshots.append(
                 LimitSnapshot(
                     provider=self.provider,
@@ -191,7 +188,8 @@ class OpenAICodexLimitsSource(LimitsSource):
                     utilization_pct=float(used),
                     resets_at=_parse_reset(window.get("resets_at")),
                     provenance=Provenance.OFFICIAL,
-                    raw=raw,
+                    account=account,
+                    raw=dict(window),
                 )
             )
         if not snapshots:

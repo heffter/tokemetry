@@ -47,6 +47,6 @@ def test_endpoint_paths() -> None:
     uploader.send("bootstrap", {})
     assert seen == [
         "/api/v1/ingest/events",
-        "/api/v1/ingest/limits",
+        "/api/v2/ingest/limits",
         "/api/v1/ingest/bootstrap",
     ]

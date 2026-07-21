@@ -12,10 +12,12 @@ from __future__ import annotations
 import httpx
 from loguru import logger
 
-#: Batch kind to ingest endpoint path.
+#: Batch kind to ingest endpoint path. Limits use the v2 endpoint (Task 76) to
+#: carry the account/organization/source/limit dimensions; the server keeps the
+#: v1 limits endpoint for older collectors.
 _ENDPOINTS = {
     "events": "/api/v1/ingest/events",
-    "limits": "/api/v1/ingest/limits",
+    "limits": "/api/v2/ingest/limits",
     "bootstrap": "/api/v1/ingest/bootstrap",
 }
 
