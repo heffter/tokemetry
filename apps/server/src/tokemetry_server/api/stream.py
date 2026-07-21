@@ -8,6 +8,7 @@ batch).
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -65,13 +66,24 @@ async def stream(websocket: WebSocket) -> None:
         return
     connections[key] = connections.get(key, 0) + 1
 
+    reauth_interval = app.state.settings.ws_reauth_interval_seconds
     try:
         await websocket.accept()
         broadcaster = app.state.broadcaster
         async with broadcaster.subscribe() as queue:
             try:
                 while True:
-                    message = await queue.get()
+                    try:
+                        message = await asyncio.wait_for(
+                            queue.get(), timeout=reauth_interval
+                        )
+                    except TimeoutError:
+                        # Periodically re-check the token so a revocation drops
+                        # the live connection in-flight (NFR-SEC-008).
+                        if not await _authorize(app, token):
+                            await websocket.close(code=1008)
+                            return
+                        continue
                     await websocket.send_json(message)
             except WebSocketDisconnect:
                 return

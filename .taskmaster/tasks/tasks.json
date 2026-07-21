@@ -3492,13 +3492,14 @@
             "id": 8,
             "title": "Security and privacy test suite",
             "description": "The full adversarial suite from PRD 18.6.",
-            "details": "Consolidate and extend the adversarial tests into a dedicated suite (apps/server/tests/security/): prohibited content keys across every metadata extension point (reusing and extending the 62.2 fuzz corpus); oversized metadata and deeply nested JSON on all ingest endpoints; token scope bypass attempts (each scope against each endpoint class, forged and truncated tokens); revoked token behavior including in-flight WebSocket disconnection; WebSocket authorization edge cases; secret redaction in logs and API responses (grep-based log scanning in tests, FR-INGEST-017, FR-PRIV-011); pseudonymized identifier operation (exporter-side hashed machine and project names flow end to end, FR-PRIV-004); SQL and filter injection attempts through every query filter parameter (PRD 18.6). Document all stored fields for privacy review in docs/architecture/ (FR-PRIV-005). Test strategy: the suite itself is the deliverable; it runs in the standard CI gate; any finding is fixed or tracked with a high-priority follow-up before this subtask closes per the quality-gate rule; coverage of every 18.6 bullet demonstrated by a checklist mapping tests to requirements.",
-            "status": "pending",
+            "details": "Consolidate and extend the adversarial tests into a dedicated suite (apps/server/tests/security/): prohibited content keys across every metadata extension point (reusing and extending the 62.2 fuzz corpus); oversized metadata and deeply nested JSON on all ingest endpoints; token scope bypass attempts (each scope against each endpoint class, forged and truncated tokens); revoked token behavior including in-flight WebSocket disconnection; WebSocket authorization edge cases; secret redaction in logs and API responses (grep-based log scanning in tests, FR-INGEST-017, FR-PRIV-011); pseudonymized identifier operation (exporter-side hashed machine and project names flow end to end, FR-PRIV-004); SQL and filter injection attempts through every query filter parameter (PRD 18.6). Document all stored fields for privacy review in docs/architecture/ (FR-PRIV-005). Test strategy: the suite itself is the deliverable; it runs in the standard CI gate; any finding is fixed or tracked with a high-priority follow-up before this subtask closes per the quality-gate rule; coverage of every 18.6 bullet demonstrated by a checklist mapping tests to requirements.\n<info added on 2026-07-21T01:37:44.665Z>\nDelivered: 19-test security suite in tests/security/ covering all PRD 18.6 requirements. test_scope_and_token_bypass.py validates missing/forged/truncated tokens return 401, scope mismatches return 403, correct scopes return 200. test_revoked_token.py confirms revoked tokens fail REST with 401, are refused at WebSocket connect, and trigger in-flight disconnection. test_injection.py verifies SQL/filter injection attempts (DROP/UNION/OR/wildcard payloads) via machine filter match nothing and leave data intact, group_by injection returns 400. test_content_and_limits.py checks prohibited content keys in extra and dimensions return 422, deeply nested extra returns 422, oversized payloads return 413. test_redaction_and_pseudonymity.py ensures minted token secrets never appear in audit trail or token list, hashed machine/project names flow through opaquely per FR-PRIV-004.\n\nFixed one spec-identified gap: in-flight WebSocket disconnection on revocation was not implemented. Stream handler now re-authorizes every ws_reauth_interval_seconds (new config, default 30) via asyncio.wait_for on the queue, closing with 1008 when token is revoked mid-connection per NFR-SEC-008.\n\nDocumentation: tests/security/README.md maps every PRD 18.6 bullet to its test; docs/architecture/stored-fields.md catalogues every stored field for privacy review per FR-PRIV-005 (only metadata/counts/catalogue ids, hashed tokens, never content). Existing coverage in test_privacy.py fuzz corpus, test_scope_enforcement.py, test_hardening_api.py, test_audit_api.py is referenced not duplicated.\n\nGates passed: full suite including tests/security 789 passed/51 skipped/0 failed; ruff, mypy . (317 files), trivy clean.\n</info added on 2026-07-21T01:37:44.665Z>",
+            "status": "done",
             "dependencies": [
               "70.5"
             ],
             "parentTaskId": 70,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T01:38:15.756Z"
           },
           {
             "id": 9,
@@ -3513,7 +3514,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-21T01:06:06.095Z"
+        "updatedAt": "2026-07-21T01:38:15.756Z"
       },
       {
         "id": "71",
@@ -3711,7 +3712,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T01:06:06.097Z",
+      "lastModified": "2026-07-21T01:38:15.757Z",
       "taskCount": 78,
       "completedCount": 72,
       "tags": [

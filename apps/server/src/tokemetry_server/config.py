@@ -138,6 +138,9 @@ class Settings(BaseSettings):
     enable_hsts: bool = Field(default=False)
     #: Maximum concurrent WebSocket connections per token (NFR-SEC-003).
     ws_max_connections_per_token: int = Field(default=8, ge=1)
+    #: How often an open WebSocket re-checks that its token is still valid, so a
+    #: revoked token is disconnected in-flight within this window (NFR-SEC-008).
+    ws_reauth_interval_seconds: float = Field(default=30.0, gt=0)
 
     @property
     def cors_allow_origin_list(self) -> list[str]:
