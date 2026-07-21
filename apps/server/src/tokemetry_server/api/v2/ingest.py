@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import math
 from collections.abc import Awaitable, Callable
 from typing import Any, NoReturn
 
@@ -175,9 +176,12 @@ def ingest_rate_guard(
         request: Request, principal: Principal = Depends(require_scopes(scope))
     ) -> Principal:
         limiter = request.app.state.ingest_rate_limiter
-        if not limiter.allow(principal.label):
+        retry_after = limiter.check(principal.label)
+        if retry_after is not None:
             raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS, "ingest rate limit exceeded"
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "ingest rate limit exceeded",
+                headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
             )
         return principal
 

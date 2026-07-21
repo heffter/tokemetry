@@ -125,6 +125,25 @@ class Settings(BaseSettings):
     query_rate_capacity: float = Field(default=240.0, gt=0)
     query_rate_per_second: float = Field(default=120.0, gt=0)
 
+    #: Transport hardening (Task 70.5). ``cors_allow_origins`` is a
+    #: comma-separated allowlist of browser origins permitted cross-origin
+    #: requests; empty means same-origin only (the dashboard is served from the
+    #: same origin, so no cross-origin access is granted by default, NFR-SEC-007).
+    cors_allow_origins: str = Field(default="")
+    #: Reject any request whose body exceeds this many bytes with 413, across
+    #: every endpoint (NFR-SEC-004). Default 4 MiB comfortably covers max batches.
+    max_request_bytes: int = Field(default=4 * 1024 * 1024, ge=1)
+    #: Emit a Strict-Transport-Security header (enable only behind TLS,
+    #: NFR-SEC-006). Other secure headers are always sent.
+    enable_hsts: bool = Field(default=False)
+    #: Maximum concurrent WebSocket connections per token (NFR-SEC-003).
+    ws_max_connections_per_token: int = Field(default=8, ge=1)
+
+    @property
+    def cors_allow_origin_list(self) -> list[str]:
+        """Parse ``cors_allow_origins`` into a trimmed, non-empty origin list."""
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
     #: Source-health thresholds (task 63.2, FR-SOURCE-005/006). A source is
     #: stale when its last successful ingest is older than the per-type
     #: threshold; the error window bounds the recent-error rolling count; a

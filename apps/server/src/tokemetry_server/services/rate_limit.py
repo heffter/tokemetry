@@ -35,18 +35,25 @@ class RateLimiter:
         self._clock = clock
         self._state: dict[str, tuple[float, float]] = {}
 
-    def allow(self, key: str, cost: float = 1.0) -> bool:
-        """Consume ``cost`` tokens for ``key``; return whether it was allowed.
+    def check(self, key: str, cost: float = 1.0) -> float | None:
+        """Consume ``cost`` tokens for ``key``.
 
-        A key first seen starts full. Tokens accrue at the refill rate since the
-        last call, capped at capacity; the request is allowed only if enough
-        tokens remain, in which case they are deducted.
+        Returns ``None`` when the request is allowed. When it is denied, returns
+        the number of seconds until enough tokens will have refilled -- the
+        ``Retry-After`` the caller should wait (matching the client backoff
+        contract). A key first seen starts full; tokens accrue at the refill
+        rate since the last call, capped at capacity.
         """
         now = self._clock()
         tokens, last = self._state.get(key, (self._capacity, now))
         tokens = min(self._capacity, tokens + (now - last) * self._refill)
         if tokens < cost:
             self._state[key] = (tokens, now)
-            return False
+            deficit = cost - tokens
+            return deficit / self._refill if self._refill > 0 else 1.0
         self._state[key] = (tokens - cost, now)
-        return True
+        return None
+
+    def allow(self, key: str, cost: float = 1.0) -> bool:
+        """Consume ``cost`` tokens for ``key``; return whether it was allowed."""
+        return self.check(key, cost) is None

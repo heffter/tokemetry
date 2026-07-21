@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import math
 import uuid
 from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
@@ -19,12 +20,22 @@ from decimal import Decimal
 
 import httpx
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.middleware.base import RequestResponseEndpoint
 from tokemetry_core.models import UsageEvent
 
 from tokemetry_server.api import alerts, ingest, pricing, query, stream, tokens, v2
+from tokemetry_server.api.security import (
+    HSTS_VALUE,
+    SECURE_HEADERS,
+    is_api_path,
+    is_health_path,
+    is_ingest_path,
+    rate_key,
+)
 from tokemetry_server.config import Settings, get_settings
 from tokemetry_server.db.migrate import upgrade_to_head
 from tokemetry_server.db.session import create_engine, create_session_factory
@@ -185,6 +196,9 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         app.state.query_rate_limiter = RateLimiter(
             resolved.query_rate_capacity, resolved.query_rate_per_second
         )
+        # Live count of open WebSocket connections per token, for the per-token
+        # connection cap (NFR-SEC-003).
+        app.state.ws_connections = {}
 
         alert_task: asyncio.Task[None] | None = None
         if resolved.alerts_enabled:
@@ -246,6 +260,57 @@ def create_app(settings: Settings | None = None, cost_fn: CostFn | None = None) 
         ),
         lifespan=lifespan,
     )
+
+    # Restrictive CORS: no cross-origin access unless an allowlist is set. The
+    # dashboard is served same-origin, so the default grants nothing (NFR-SEC-007).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved.cors_allow_origin_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.middleware("http")
+    async def _security_guard(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        """Enforce request-size and query rate limits, and add secure headers.
+
+        Request bodies over ``max_request_bytes`` are refused with 413
+        (NFR-SEC-004). Non-ingest API traffic is rate-limited by the query
+        bucket keyed per credential (ingest has its own per-endpoint bucket), so
+        an ingest burst never starves query reads (FR-INGEST-015); a denied
+        request gets 429 with ``Retry-After``. Every response carries the static
+        secure headers (NFR-SEC-006).
+        """
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                too_large = int(content_length) > resolved.max_request_bytes
+            except ValueError:
+                too_large = False
+            if too_large:
+                return JSONResponse(
+                    {"detail": "request body too large"}, status_code=413
+                )
+
+        path = request.url.path
+        if is_api_path(path) and not is_ingest_path(path) and not is_health_path(path):
+            retry_after = request.app.state.query_rate_limiter.check(rate_key(request))
+            if retry_after is not None:
+                return JSONResponse(
+                    {"detail": "query rate limit exceeded"},
+                    status_code=429,
+                    headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+                )
+
+        response = await call_next(request)
+        for header, value in SECURE_HEADERS.items():
+            response.headers.setdefault(header, value)
+        if resolved.enable_hsts:
+            response.headers.setdefault("Strict-Transport-Security", HSTS_VALUE)
+        return response
 
     @app.middleware("http")
     async def _stamp_request_id(

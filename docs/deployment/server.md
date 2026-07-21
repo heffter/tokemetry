@@ -47,6 +47,35 @@ All settings are `TOKEMETRY_`-prefixed environment variables (see
 - Alert channels — `TOKEMETRY_NTFY_TOPIC`, `TOKEMETRY_TELEGRAM_*`,
   `TOKEMETRY_SMTP_*` (see [alerting](../alerting.md)).
 
+## Transport hardening
+
+The API is designed to run behind WireGuard (bound to the WireGuard address,
+never the public interface). The app also enforces, in-process (Task 70.5):
+
+- **Rate limiting** — separate token buckets for ingest and query traffic so an
+  ingest burst never starves query reads. A limited request gets `429` with a
+  `Retry-After` header. Tune with `TOKEMETRY_INGEST_RATE_CAPACITY` /
+  `_INGEST_RATE_PER_SECOND` and `TOKEMETRY_QUERY_RATE_CAPACITY` /
+  `_QUERY_RATE_PER_SECOND`.
+- **Request-size cap** — bodies over `TOKEMETRY_MAX_REQUEST_BYTES` (default
+  4 MiB) are refused with `413`. JSON nesting depth is bounded on v2 events
+  (`TOKEMETRY_PRIVACY_MAX_JSON_DEPTH`); every other endpoint uses strict
+  fixed-shape request schemas, so arbitrarily nested payloads are rejected by
+  validation.
+- **CORS** — no cross-origin browser access by default (the dashboard is served
+  same-origin). Grant specific origins with `TOKEMETRY_CORS_ALLOW_ORIGINS` (a
+  comma-separated allowlist).
+- **Secure headers** — every response carries `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, and `Cross-Origin-Opener-Policy`.
+- **WebSocket cap** — at most `TOKEMETRY_WS_MAX_CONNECTIONS_PER_TOKEN` (default
+  8) concurrent stream connections per token.
+
+**TLS**: terminate TLS in front of the app for any deployment reachable beyond
+WireGuard (a reverse proxy such as Caddy or nginx). When TLS is in place, set
+`TOKEMETRY_ENABLE_HSTS=true` so responses advertise `Strict-Transport-Security`.
+Never expose the app over plaintext on a public interface; bearer tokens must
+only travel over an encrypted channel.
+
 ## Restore a backup
 
 ```bash

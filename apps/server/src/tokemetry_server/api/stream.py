@@ -54,12 +54,28 @@ async def stream(websocket: WebSocket) -> None:
         await websocket.close(code=1008)  # policy violation
         return
 
-    await websocket.accept()
-    broadcaster = websocket.app.state.broadcaster
-    async with broadcaster.subscribe() as queue:
-        try:
-            while True:
-                message = await queue.get()
-                await websocket.send_json(message)
-        except WebSocketDisconnect:
-            return
+    # Cap concurrent connections per token so one credential cannot exhaust the
+    # server's sockets (NFR-SEC-003).
+    app = websocket.app
+    key = token or "bootstrap"
+    limit = app.state.settings.ws_max_connections_per_token
+    connections: dict[str, int] = app.state.ws_connections
+    if connections.get(key, 0) >= limit:
+        await websocket.close(code=1013)  # try again later
+        return
+    connections[key] = connections.get(key, 0) + 1
+
+    try:
+        await websocket.accept()
+        broadcaster = app.state.broadcaster
+        async with broadcaster.subscribe() as queue:
+            try:
+                while True:
+                    message = await queue.get()
+                    await websocket.send_json(message)
+            except WebSocketDisconnect:
+                return
+    finally:
+        connections[key] = connections.get(key, 1) - 1
+        if connections[key] <= 0:
+            connections.pop(key, None)

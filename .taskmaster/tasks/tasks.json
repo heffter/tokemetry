@@ -3456,11 +3456,12 @@
             "id": 5,
             "title": "Rate limiting, request bounds, and transport hardening",
             "description": "Ingest and query rate classes, size and depth limits, CORS and TLS posture.",
-            "details": "Harden the API surface: finalize the rate limiter started in 62.6 into configurable per-token-class limits distinguishing ingest and query traffic (FR-INGEST-015, NFR-SEC-003) with 429 plus Retry-After responses matching the client backoff contract; global request-size middleware and JSON depth enforcement across all endpoints, not only v2 ingest (NFR-SEC-004); restrictive CORS defaults (same-origin dashboard only, configurable allowlist, NFR-SEC-007); TLS-required guidance and secure-headers middleware for public deployment documented in docs/deployment/server.md (NFR-SEC-006); WebSocket connection limits per token. Configuration through Settings with env and app_settings override, secrets stay secret-managed (NFR-SEC-002). Test strategy: integration tests for both rate classes with Retry-After correctness, oversized and over-deep request rejection on representative v1 and v2 endpoints, CORS preflight behavior for allowed and denied origins, and WS connection capping; load-shaped test that ingest limiting does not affect query availability.",
-            "status": "pending",
+            "details": "Harden the API surface: finalize the rate limiter started in 62.6 into configurable per-token-class limits distinguishing ingest and query traffic (FR-INGEST-015, NFR-SEC-003) with 429 plus Retry-After responses matching the client backoff contract; global request-size middleware and JSON depth enforcement across all endpoints, not only v2 ingest (NFR-SEC-004); restrictive CORS defaults (same-origin dashboard only, configurable allowlist, NFR-SEC-007); TLS-required guidance and secure-headers middleware for public deployment documented in docs/deployment/server.md (NFR-SEC-006); WebSocket connection limits per token. Configuration through Settings with env and app_settings override, secrets stay secret-managed (NFR-SEC-002). Test strategy: integration tests for both rate classes with Retry-After correctness, oversized and over-deep request rejection on representative v1 and v2 endpoints, CORS preflight behavior for allowed and denied origins, and WS connection capping; load-shaped test that ingest limiting does not affect query availability.\n<info added on 2026-07-21T00:46:32.335Z>\nImplementation complete. RateLimiter.check() now returns None (allowed) or Retry-After seconds (denied); allow() delegates to check(). Ingest 429 responses carry Retry-After headers. New api/security.py module provides testable helpers: SECURE_HEADERS dict, path classifiers (is_api_path, is_ingest_path, is_health_path), and rate_key function (bearer token or client host). app.py wired two security layers: CORSMiddleware reading cors_allow_origins config (empty list enforces same-origin only per NFR-SEC-007), and _security_guard HTTP middleware (positioned before request-id middleware to stamp early rejections) that enforces max_request_bytes (default 4 MiB, 413 on violation per NFR-SEC-004), applies query-bucket rate limiting to non-ingest /api paths keyed per credential (ingest retains separate per-endpoint buckets ensuring ingest bursts never starve query reads per FR-INGEST-015), returns 429 with Retry-After on limit breach, and attaches secure headers to every response plus HSTS when enable_hsts flag set. JSON depth: v2 events already depth-checked; remaining endpoints use strict extra=forbid Pydantic schemas rejecting arbitrary nesting, so no body-reading depth middleware added. WebSocket connection cap: ws_max_connections_per_token (default 8) enforced via app.state.ws_connections counter in stream handler; closes with 1013 when exceeded, decrements in finally block. New Settings fields: cors_allow_origins (with cors_allow_origin_list property), max_request_bytes, enable_hsts, ws_max_connections_per_token. Documentation: added Transport hardening section to docs/deployment/server.md covering rate limits, size cap, CORS, secure headers, WS cap, and TLS/HSTS guidance. Test coverage: test_rate_limit_and_security.py (6 unit tests: check() Retry-After + refill, allow() delegation, path classification, rate_key logic) and test_hardening_api.py (9 integration tests: secure headers presence, HSTS toggle, oversized body 413, query 429 with Retry-After, ingest 429 with Retry-After, ingest-does-not-starve-query isolation, CORS allow/deny preflight, WS connection cap enforcement). Gates passed: full SQLite suite 767 passed/48 skipped/0 failed; ruff clean; mypy . (307 files) clean; trivy clean.\n</info added on 2026-07-21T00:46:32.335Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 70,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T00:46:58.751Z"
           },
           {
             "id": 6,
@@ -3510,7 +3511,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-21T00:12:31.859Z"
+        "updatedAt": "2026-07-21T00:46:58.751Z"
       },
       {
         "id": "71",
@@ -3708,7 +3709,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T00:12:31.860Z",
+      "lastModified": "2026-07-21T00:46:58.752Z",
       "taskCount": 78,
       "completedCount": 72,
       "tags": [
