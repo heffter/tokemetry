@@ -3545,13 +3545,14 @@
             "id": 2,
             "title": "Semantic-convention mapping document with pinned version",
             "description": "The normative GenAI semconv mapping (decision D-013).",
-            "details": "Write docs/architecture/otel-mapping.md: pin the exact OpenTelemetry generative AI semantic-convention version implemented (verify the current stable release at implementation time against opentelemetry.io semconv docs; record it as a constant in code); mapping table from semconv attributes to v2 fields (gen_ai.system to provider via alias normalization, gen_ai.request.model to requested_model, gen_ai.response.model to native_model, gen_ai.usage.input_tokens and output_tokens to counters, cache and reasoning token attributes where conventions define them with provider-extension fallback to extra.otel, error.type and span status to outcome and success, span start and end to ts_started and ts_completed, server latency derivation, gen_ai.operation.name handling); document unmapped v2 concepts (finality, sequence, billing modes) and their defaults for span-derived events; content attributes (gen_ai.prompt, gen_ai.completion and event bodies) are listed as unconditionally stripped (FR-OTEL-002/006/007). The semconv_version is recorded on every mapped event in extra.otel.semconv_version. Test strategy: documentation review against the pinned semconv release notes; the mapping table drives the 71.4 converter tests one to one (each row becomes a test case).",
-            "status": "pending",
+            "details": "Write docs/architecture/otel-mapping.md: pin the exact OpenTelemetry generative AI semantic-convention version implemented (verify the current stable release at implementation time against opentelemetry.io semconv docs; record it as a constant in code); mapping table from semconv attributes to v2 fields (gen_ai.system to provider via alias normalization, gen_ai.request.model to requested_model, gen_ai.response.model to native_model, gen_ai.usage.input_tokens and output_tokens to counters, cache and reasoning token attributes where conventions define them with provider-extension fallback to extra.otel, error.type and span status to outcome and success, span start and end to ts_started and ts_completed, server latency derivation, gen_ai.operation.name handling); document unmapped v2 concepts (finality, sequence, billing modes) and their defaults for span-derived events; content attributes (gen_ai.prompt, gen_ai.completion and event bodies) are listed as unconditionally stripped (FR-OTEL-002/006/007). The semconv_version is recorded on every mapped event in extra.otel.semconv_version. Test strategy: documentation review against the pinned semconv release notes; the mapping table drives the 71.4 converter tests one to one (each row becomes a test case).\n<info added on 2026-07-21T02:21:55.482Z>\nImplemented: otel/semconv.py module pins SEMCONV_VERSION='1.30.0' (OpenTelemetry semantic-conventions release 1.30.0; GenAI conventions remain in development upstream, bridge lenient on unknown attributes) as single source of truth for converter (71.4) and tests. Module defines PROVIDER/REQUESTED_MODEL/RESPONSE_MODEL/OPERATION/ERROR_TYPE attribute constants, TOKEN_ATTR_TO_FIELD dictionary mapping input/output tokens plus cache_read/reasoning provider-extension tiers, CONTENT_ATTRS and CONTENT_ATTR_PREFIXES lists with is_content_attr() helper for unconditional stripping (gen_ai.prompt, gen_ai.completion, gen_ai.input.messages, gen_ai.output.messages and prompt./completion. prefixed bodies per FR-OTEL-002/006/007), EXTRA_NAMESPACE='otel' for retained-but-unmapped attributes plus recorded semconv_version (FR-OTEL-006), and SPAN_DERIVED_DEFAULTS dictionary (event_kind=attempt, finality=final, sequence=1, billing_mode=api_billed, provenance=imported, source.type=sdk). docs/architecture/otel-mapping.md written as prose companion documenting full attribute-to-v2-field mapping table (gen_ai.system to provider via alias normalization, gen_ai.request.model to requested_model, gen_ai.response.model to native_model, gen_ai.usage.input_tokens and output_tokens to token counters, cache and reasoning token attributes with provider-extension fallback, error.type and span status to outcome and success, span start and end timestamps to ts_started and ts_completed with derived latency_ms, trace ids from 71.1), stripped content attribute list, and v2 concepts absent from spans with their span-derived defaults. test_otel_semconv.py added with three tests: version pinned in code AND present in documentation for doc/code consistency, token map covers input/output attributes, content-attr stripping including prefixed bodies versus non-content attributes. Gates passed: mypy . (324 files), ruff, trivy clean. Additive implementation (new otel package not yet imported by app, consumed by 71.3/71.4).\n</info added on 2026-07-21T02:21:55.482Z>",
+            "status": "done",
             "dependencies": [
               "71.1"
             ],
             "parentTaskId": 71,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T02:22:14.007Z"
           },
           {
             "id": 3,
@@ -3602,7 +3603,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-21T02:17:37.312Z"
+        "updatedAt": "2026-07-21T02:22:14.007Z"
       },
       {
         "id": "72",
@@ -3715,7 +3716,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T02:17:37.313Z",
+      "lastModified": "2026-07-21T02:22:14.008Z",
       "taskCount": 78,
       "completedCount": 73,
       "tags": [
