@@ -20,6 +20,7 @@ import {
   timeAgo,
 } from '@/lib/format';
 import { attemptSummary, latencyValues, percentile } from '@/lib/trace';
+import { agentTreeRows, type AgentTreeRow } from '@/lib/agentTree';
 import { clampRangeDays, presetRange } from '@/lib/filters';
 import type { AttemptSummary } from '@/lib/trace';
 import type { AttemptV2, ProviderV2, SessionV2 } from '@/api/types-v2';
@@ -118,6 +119,7 @@ const detail = ref<{
   summary: AttemptSummary;
   p50: number | null;
   p95: number | null;
+  agents: AgentTreeRow[];
 } | null>(null);
 const detailLoading = ref(false);
 
@@ -142,10 +144,21 @@ async function toggleDetail(session: SessionV2): Promise<void> {
       })
     ).attempts;
     const values = latencyValues(attempts);
+    // The agent hierarchy is best-effort so an older server (without the
+    // endpoint) still shows the rest of the drilldown (Task 75).
+    let agents: AgentTreeRow[] = [];
+    try {
+      agents = agentTreeRows(
+        (await useClient().sessionAgents(session.scoped_id)).agents
+      );
+    } catch {
+      agents = [];
+    }
     detail.value = {
       summary: attemptSummary(attempts),
       p50: percentile(values, 50),
       p95: percentile(values, 95),
+      agents,
     };
   } finally {
     detailLoading.value = false;
@@ -294,6 +307,19 @@ onMounted(() => {
                     {{ detail.summary.logicalRequests }} logical request(s)
                   </span>
                 </div>
+                <ul v-if="detail && detail.agents.length" class="agent-tree">
+                  <li
+                    v-for="agent in detail.agents"
+                    :key="agent.agentId"
+                    :style="{ paddingLeft: `${agent.depth * 16}px` }"
+                  >
+                    <span aria-hidden="true">{{
+                      agent.depth > 0 ? '└ ' : ''
+                    }}</span>
+                    {{ agent.agentId }}
+                    <span class="muted small">({{ agent.attemptCount }})</span>
+                  </li>
+                </ul>
               </td>
             </tr>
           </template>

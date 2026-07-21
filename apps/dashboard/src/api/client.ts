@@ -147,6 +147,19 @@ export interface CacheSavingsResponse {
   date_to: string;
 }
 
+// Agent hierarchy for a session (Task 75).
+export interface AgentNode {
+  agent_id: string;
+  parent_agent_id: string | null;
+  depth: number;
+  attempt_count: number;
+}
+
+export interface SessionAgentsResponse {
+  scoped_id: string;
+  agents: AgentNode[];
+}
+
 // Range + dimension filters for the v2 heatmap and cache-savings endpoints.
 export interface HeatmapV2Filters {
   from?: string;
@@ -365,6 +378,12 @@ export class ApiClient {
     const query = this.v2FilterParams(filters);
     return this.request<CacheSavingsResponse>(
       `/api/v2/summary/cache-savings${query ? `?${query}` : ''}`
+    );
+  }
+
+  sessionAgents(scopedId: string): Promise<SessionAgentsResponse> {
+    return this.request<SessionAgentsResponse>(
+      `/api/v2/sessions/${encodeURIComponent(scopedId)}/agents`
     );
   }
 
