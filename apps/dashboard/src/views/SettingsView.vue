@@ -14,10 +14,16 @@ import {
   browserTimezone,
   useSettings,
 } from '@/composables/useSettings';
-import type { CreatedToken, PriceRowInput, TokenInfo } from '@/api/client';
+import type {
+  CreatedToken,
+  PriceRowInput,
+  RetentionStatusResponse,
+  TokenInfo,
+} from '@/api/client';
 import type { PricingRow } from '@/api/types';
 import { formatCost, formatDateTime, modelLabel } from '@/lib/format';
 import { pricedCoverage } from '@/lib/coverage';
+import { retentionPolicyLabel, summarizeRetention } from '@/lib/retention';
 
 const theme = ref(storedTheme());
 const themes = ['system', 'light', 'dark'];
@@ -27,6 +33,10 @@ const timezones = availableTimezones();
 const nowPreview = ref(new Date().toISOString());
 const tokens = ref<TokenInfo[]>([]);
 const pricing = ref<PricingRow[]>([]);
+const retention = ref<RetentionStatusResponse | null>(null);
+const retentionSummary = computed(() =>
+  retention.value ? summarizeRetention(retention.value) : null
+);
 const unpricedModels = ref<string[]>([]);
 const newLabel = ref('');
 const minted = ref<CreatedToken | null>(null);
@@ -100,6 +110,13 @@ async function load(): Promise<void> {
     const byModel = (await client.usage({ groupBy: 'model' })).buckets;
     unpricedModels.value = pricedCoverage(byModel).unpricedKeys;
   });
+  // Retention status is admin-scoped; load it best-effort so a token without
+  // admin:retention still shows the rest of the page.
+  try {
+    retention.value = await useClient().retentionStatus();
+  } catch {
+    retention.value = null;
+  }
 }
 
 function prefill(model: string): void {
@@ -362,6 +379,45 @@ onBeforeUnmount(() => {
         </button>
       </li>
     </ul>
+  </section>
+
+  <section v-if="retention && retentionSummary" class="card">
+    <h2>Retention status</h2>
+    <p v-if="retentionSummary.legalHold" class="warn">
+      Legal hold active — all deletion is suspended.
+    </p>
+    <p>
+      {{ retentionSummary.totalDeleted }} rows deleted total,
+      {{ retentionSummary.totalBacklog }} pending.
+      <span v-if="retentionSummary.neverRun.length">
+        Never run: {{ retentionSummary.neverRun.join(', ') }} (worker may be
+        disabled).
+      </span>
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Policy</th>
+          <th>Last run</th>
+          <th>Deleted</th>
+          <th>Backlog</th>
+          <th>Oldest retained</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="c in retention.categories" :key="c.category">
+          <td>{{ c.category }}</td>
+          <td>{{ retentionPolicyLabel(c) }}</td>
+          <td>{{ c.last_run_at ? formatDateTime(c.last_run_at) : '—' }}</td>
+          <td>{{ c.total_deleted }}</td>
+          <td>{{ c.pending_backlog }}</td>
+          <td>
+            {{ c.oldest_retained ? formatDateTime(c.oldest_retained) : '—' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 
   <section class="card">

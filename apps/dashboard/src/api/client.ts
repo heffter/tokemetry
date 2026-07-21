@@ -66,6 +66,23 @@ export interface UsageQuery {
   project?: string;
 }
 
+// One retention category's policy and last worker outcome (Task 70.2/70.7).
+export interface RetentionCategoryStatus {
+  category: string;
+  retention_days: number | null;
+  enabled: boolean;
+  last_run_at: string | null;
+  last_deleted: number;
+  total_deleted: number;
+  pending_backlog: number;
+  oldest_retained: string | null;
+}
+
+export interface RetentionStatusResponse {
+  legal_hold: boolean;
+  categories: RetentionCategoryStatus[];
+}
+
 export class ApiClient {
   constructor(
     private readonly token: string,
@@ -232,6 +249,12 @@ export class ApiClient {
       '/api/v1/admin/rebuild-rollups',
       'POST',
       {}
+    );
+  }
+
+  retentionStatus(): Promise<RetentionStatusResponse> {
+    return this.request<RetentionStatusResponse>(
+      '/api/v2/admin/retention/status'
     );
   }
 

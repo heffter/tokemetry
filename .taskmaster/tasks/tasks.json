@@ -3478,14 +3478,15 @@
             "id": 7,
             "title": "Operational runbooks and retention visibility",
             "description": "Migration, rollback, rotation, and upgrade runbooks; retention status surfaced.",
-            "details": "Write docs/operations/ runbooks: migration runbook (pre-flight backup, maintenance window, Alembic upgrade, verification queries, the 62.8 verifier, go and no-go criteria), rollback runbook (Alembic downgrade boundaries, which migrations are irreversible and what restore-from-backup covers, AC-018), token rotation runbook (scoped replacement flow from 63.5, FR-SEC-009), and upgrade runbook (server, collector, and proxy version compatibility matrix with schema_version negotiation, NFR-REL-005). Surface retention and operational status in the dashboard Settings or Fleet area (last retention run, backup age, migration head) using existing view conventions. Failure modes and operational metrics documented per the Definition of Done. Test strategy: runbooks walked through end to end against a staging copy (documented evidence in the task log); retention status API and UI tests; docs review for completeness against AC-013/014/018.",
-            "status": "pending",
+            "details": "Write docs/operations/ runbooks: migration runbook (pre-flight backup, maintenance window, Alembic upgrade, verification queries, the 62.8 verifier, go and no-go criteria), rollback runbook (Alembic downgrade boundaries, which migrations are irreversible and what restore-from-backup covers, AC-018), token rotation runbook (scoped replacement flow from 63.5, FR-SEC-009), and upgrade runbook (server, collector, and proxy version compatibility matrix with schema_version negotiation, NFR-REL-005). Surface retention and operational status in the dashboard Settings or Fleet area (last retention run, backup age, migration head) using existing view conventions. Failure modes and operational metrics documented per the Definition of Done. Test strategy: runbooks walked through end to end against a staging copy (documented evidence in the task log); retention status API and UI tests; docs review for completeness against AC-013/014/018.\n<info added on 2026-07-21T01:05:36.923Z>\nCompleted: Operational runbooks written in docs/operations/: migration.md covers pre-flight mandatory backup, maintenance window, Alembic upgrade sequence, restore_verify + drift verification queries, go/no-go criteria, and failure modes; rollback.md distinguishes reversible Alembic downgrades from restore-from-backup scenarios for irreversible/lossy migrations (e.g., 0010 view swap), documents what a restore covers, includes RPO note, satisfies AC-018; token-rotation.md documents zero-downtime scoped-replacement flow and suspected-leak fast path per FR-SEC-009; upgrade.md specifies server-first ordering with schema_version negotiation compatibility matrix ensuring clients may lag but never emit newer schema than server per NFR-REL-005; README.md provides index, at-a-glance operational-status section, and failure-modes/metrics table mapping signals to alert kinds/status surfaces and runbooks. Dashboard implementation: added RetentionCategoryStatus and RetentionStatusResponse types; ApiClient.retentionStatus() method calls GET /api/v2/admin/retention/status; new lib/retention.ts with summarizeRetention() and retentionPolicyLabel() functions (testable); lib/retention.test.ts added with 4 vitest cases covering sum of deleted+backlog, enabled-finite-never-run category flagging, legal hold pass-through, and policy labels. SettingsView updated to load retention status best-effort (non-admin tokens still render other settings) and displays Retention status card showing legal-hold warning, totals, never-run hint, and per-category table with policy, last run, deleted count, backlog count, and oldest retained timestamp. Quality gates: vue-tsc clean, eslint clean, prettier clean, dashboard vitest 170 passed across 23 files (+4 new tests), trivy clean. Backend unchanged as status API and tests shipped in 70.2. Outstanding: live end-to-end runbook walkthrough requires staging deployment; runbooks reference commands (restore_verify, backup/restore/verify-restore scripts) already covered by their respective tests.\n</info added on 2026-07-21T01:05:36.923Z>",
+            "status": "done",
             "dependencies": [
               "70.2",
               "70.6"
             ],
             "parentTaskId": 70,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-07-21T01:06:06.095Z"
           },
           {
             "id": 8,
@@ -3512,7 +3513,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-07-21T00:56:53.239Z"
+        "updatedAt": "2026-07-21T01:06:06.095Z"
       },
       {
         "id": "71",
@@ -3710,7 +3711,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-07-21T00:56:53.241Z",
+      "lastModified": "2026-07-21T01:06:06.097Z",
       "taskCount": 78,
       "completedCount": 72,
       "tags": [
