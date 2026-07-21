@@ -5,6 +5,29 @@ under `~/.claude`, polls the subscription limit windows, and uploads to the
 server over WireGuard. It runs as a **launchd agent** so it starts at login and
 restarts on crash.
 
+## Quick install (one command)
+
+From a clone of the repository, one command installs uv and the collector,
+writes the config, runs a dry-run check, and loads the launchd agent:
+
+```bash
+deploy/collector/install.sh \
+  --server-url http://10.10.0.1:8787 \
+  --token tkm_your_token \
+  --machine-name my-mac
+```
+
+- Omit `--token` to install and scaffold a placeholder config without starting
+  the agent; edit `~/.config/tokemetry/collector.toml`, then re-run to finish.
+  Re-running never overwrites an edited config, and it upgrades an existing
+  install.
+- Add `--no-service` to install and configure only (no launchd agent).
+- `install.sh --help` shows all options.
+
+If your transcripts live under a protected location, you may still need to grant
+Full Disk Access (see step 5). The rest of this page is the manual,
+step-by-step path.
+
 ## 1. Install uv and the collector
 
 ```bash

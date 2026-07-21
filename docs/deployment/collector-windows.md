@@ -8,6 +8,29 @@ Task** that starts at logon and restarts on crash.
 Run every step in a PowerShell session as the user who runs Claude Code (the
 collector reads that user's `%USERPROFILE%\.claude`).
 
+## Quick install (one command)
+
+From a clone of the repository, one command installs uv and the collector,
+writes the config, runs a dry-run check, and registers the Scheduled Task:
+
+```powershell
+deploy\collector\install.ps1 `
+  -ServerUrl http://10.10.0.1:8787 `
+  -Token tkm_your_token `
+  -MachineName my-desktop
+```
+
+- Omit `-Token` to install and scaffold a placeholder config without starting
+  the task; edit `%USERPROFILE%\.config\tokemetry\collector.toml`, then re-run
+  to finish. Re-running never overwrites an edited config, and it upgrades an
+  existing install.
+- Add `-NoService` to install and configure only (no Scheduled Task).
+- `install.ps1 -?` shows all options.
+
+The Scheduled Task runs only while the user is logged on; for a true background
+service, see the NSSM alternative in step 4 below. The rest of this page is the
+manual, step-by-step path.
+
 ## 1. Install uv and the collector
 
 ```powershell

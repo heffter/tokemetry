@@ -5,6 +5,30 @@ transcripts under `~/.claude`, polls the subscription limit windows, and
 uploads to the server over WireGuard. It runs as a **systemd user service** so
 it starts at login and survives crashes.
 
+## Quick install (one command)
+
+From a clone of the repository, one command installs uv and the collector,
+writes the config, runs a dry-run check, and registers the systemd user
+service:
+
+```bash
+deploy/collector/install.sh \
+  --server-url http://10.10.0.1:8787 \
+  --token tkm_your_token \
+  --machine-name my-laptop
+```
+
+- Omit `--token` to install and scaffold a placeholder config without starting
+  the service; edit `~/.config/tokemetry/collector.toml`, then re-run to finish.
+  Re-running never overwrites an edited config, and it upgrades an existing
+  install.
+- Add `--no-service` to install and configure only (no systemd unit).
+- `install.sh --help` shows all options.
+
+The installer also runs `loginctl enable-linger` so the service keeps running
+when you are logged out (it prints a `sudo` hint if that needs privileges). The
+rest of this page is the manual, step-by-step path.
+
 ## 1. Install uv and the collector
 
 ```bash
