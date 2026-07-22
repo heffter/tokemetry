@@ -57,8 +57,8 @@ re-importing the same cache is idempotent (replace, not accumulate).
 
 The v2 endpoints accept the provider-neutral usage event (see
 [usage-event-v2.md](../architecture/usage-event-v2.md)). They share the bearer
-auth above (an `ingest:events` scope is added in Task 63) and are rate limited
-in a class separate from query traffic (FR-INGEST-015). Request bodies may be
+auth above, require the `ingest:events` scope, and are rate limited in a class
+separate from query traffic (FR-INGEST-015). Request bodies may be
 gzip-compressed (`Content-Encoding: gzip`, FR-INGEST-010). Every response
 carries an `X-Request-ID` header (FR-INGEST-016).
 
@@ -72,8 +72,8 @@ server-generated `batch_id`, the `request_id`, and the five outcome counts
 (`accepted`, `updated`, `duplicate`, `rejected`, `corrected`); with
 `return_ids` it also echoes the accepted/updated ids, capped with an
 `ids_truncated` flag (FR-INGEST-009). `correction: true` authorizes a
-final-over-final correction (needs the `admin:corrections` scope once Task 63
-lands). Limits: `ingest_max_events` (default 1000) and `ingest_max_bytes`
+final-over-final correction and requires the `admin:corrections` scope. Limits:
+`ingest_max_events` (default 1000) and `ingest_max_bytes`
 (default 5 MiB), both settings-driven (FR-INGEST-005).
 
 ### `POST /api/v2/ingest/validate`

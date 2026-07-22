@@ -16,13 +16,19 @@ Related: [backup and restore](../deployment/backup-restore.md),
 
 ## Operational status at a glance
 
-The dashboard **Settings** view surfaces content-free operational status so an
-operator sees health without shell access:
+Content-free operational status is available without shell access:
 
-- **Retention** -- per-category last run, rows deleted, backlog, and oldest
-  retained (`GET /api/v2/admin/retention/status`).
-- **Schema head** -- the running Alembic revision (from the migration verifier).
-- **Backup age** -- age of the most recent verified dump.
+- **Retention** -- the dashboard **Settings** view shows per-category last run,
+  rows deleted, backlog, and oldest retained
+  (`GET /api/v2/admin/retention/status`, scope `admin:retention`).
+- **Schema head** -- the unauthenticated `GET /api/v2/ready` probe reports the
+  running Alembic revision (`migration`), the head this build expects
+  (`migration_head`), and `at_head`; it returns `503` when the schema is behind
+  head (see [migration](migration.md)).
+- **Backup age** -- read from the dump filenames in the backups volume
+  (`/backups/tokemetry-<UTC-stamp>.sql.gz`); `verify-restore.sh` exercises the
+  latest and exits non-zero if it is missing or unrestorable. There is no
+  dashboard surface for backup age yet.
 
 ## Failure modes and metrics
 
@@ -34,9 +40,9 @@ Watch these signals; each has an alert kind or a status surface:
 | Schema version drift | `schema_drift` alert; data-quality events | [Upgrade](upgrade.md) -- a client emits an unsupported version |
 | Retention worker not running | Retention status `last_run` stale | Check `TOKEMETRY_RETENTION_WORKER_ENABLED` and server logs |
 | Rollup mismatch blocking deletion | `retention_rollup_mismatch` data-quality event | Rebuild rollups for the day; the worker retries |
-| Backup stale or failing | Backup age; `verify-restore.sh` non-zero | [backup-restore](../deployment/backup-restore.md) |
+| Backup stale or failing | Backup file age in the volume; `verify-restore.sh` non-zero | [backup-restore](../deployment/backup-restore.md) |
 | Rate-limit saturation | `429` responses with `Retry-After` | Tune the rate-limit capacities ([server](../deployment/server.md)) |
-| Migration failed | Startup logs; `restore_verify` not-at-head | [Rollback](rollback.md) |
+| Migration behind head | `GET /api/v2/ready` returns `503` (`at_head:false`); startup logs | [Migration](migration.md) / [Rollback](rollback.md) |
 
 Key operational metrics to track over time: ingest throughput and reject rate,
 query latency, retention rows-deleted per run and backlog, backup age, and open

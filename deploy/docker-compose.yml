@@ -32,6 +32,8 @@ services:
       TOKEMETRY_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tokemetry}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tokemetry}
       TOKEMETRY_API_BOOTSTRAP_TOKEN: ${TOKEMETRY_API_BOOTSTRAP_TOKEN:?set a bootstrap token}
       TOKEMETRY_SUBSCRIPTION_MONTHLY_USD: ${TOKEMETRY_SUBSCRIPTION_MONTHLY_USD:-}
+      # Row retention is off by default; set true to run the deletion worker.
+      TOKEMETRY_RETENTION_WORKER_ENABLED: ${TOKEMETRY_RETENTION_WORKER_ENABLED:-false}
       TOKEMETRY_NTFY_TOPIC: ${TOKEMETRY_NTFY_TOPIC:-}
     # Publish only on the WireGuard interface address.
     ports:

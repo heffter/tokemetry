@@ -72,8 +72,8 @@ mypy strict, trivy (no HIGH/CRITICAL), shellcheck for shell scripts.
 - [API clients](docs/deployment/api-clients.md) — provision tokens for
   OpenClaw and other apps.
 
-More docs live under [`docs/`](docs/): architecture, API, collector, and
-alerting.
+More docs live under [`docs/`](docs/README.md): deployment, collectors,
+operations, API, integrations, and architecture.
 
 ## License
 

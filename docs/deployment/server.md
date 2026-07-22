@@ -31,8 +31,13 @@ from a machine on the VPN and enter the bootstrap token to connect.
 | `db` | Postgres 16 with a persistent volume |
 | `backup` | nightly `pg_dump` to the `backups` volume, 14-day file retention (`deploy/backup.sh`) |
 
-Usage rows themselves are never pruned — only backup files age out. See
-[data retention](../architecture/retention.md).
+By default the background retention worker is **disabled**
+(`TOKEMETRY_RETENTION_WORKER_ENABLED=false`), so usage rows are never pruned and
+only backup files age out. To enforce policy-based row retention (the PRD
+defaults are 180-day raw events, etc.), set
+`TOKEMETRY_RETENTION_WORKER_ENABLED=true` — the Compose file passes it through,
+so add it to `.env`. See [data retention](../architecture/retention.md) for the
+policy and per-category defaults.
 
 ## Configuration
 
