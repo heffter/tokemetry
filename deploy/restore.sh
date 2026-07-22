@@ -18,18 +18,29 @@ PGDATABASE="${PGDATABASE:-tokemetry}"
 
 dump="${1:-}"
 if [ -z "$dump" ]; then
-    dump="$(ls -1t "$BACKUP_DIR"/tokemetry-*.sql.gz 2>/dev/null | head -n 1 || true)"
+    # Newest dump. Filenames carry an ISO-ordered UTC stamp, so lexical order is
+    # chronological; a glob avoids parsing `ls` output (SC2012) and works under
+    # BusyBox find, which lacks `-printf`.
+    for candidate in "$BACKUP_DIR"/tokemetry-*.sql.gz; do
+        [ -f "$candidate" ] && dump="$candidate"
+    done
 fi
 if [ -z "$dump" ] || [ ! -f "$dump" ]; then
     echo "[restore] no dump found (looked for: ${1:-latest in $BACKUP_DIR})" >&2
     exit 1
 fi
 
+# A restore must never run on an unverifiable dump. Require the checksum sidecar
+# and a passing check; ALLOW_NO_CHECKSUM=1 is the explicit, loudly-warned escape
+# hatch for legacy dumps taken before sidecars existed.
 if [ -f "${dump}.sha256" ]; then
     echo "[restore] checking dump checksum"
     ( cd "$(dirname "$dump")" && sha256sum -c "$(basename "$dump").sha256" )
+elif [ "${ALLOW_NO_CHECKSUM:-0}" = "1" ]; then
+    echo "[restore] WARNING: no checksum sidecar for $dump; proceeding because ALLOW_NO_CHECKSUM=1" >&2
 else
-    echo "[restore] WARNING: no checksum sidecar for $dump" >&2
+    echo "[restore] refusing: no checksum sidecar for $dump (set ALLOW_NO_CHECKSUM=1 to override)" >&2
+    exit 1
 fi
 
 if [ "${FORCE:-0}" != "1" ]; then
@@ -38,6 +49,19 @@ if [ "${FORCE:-0}" != "1" ]; then
     [ "$answer" = "yes" ] || { echo "[restore] aborted"; exit 1; }
 fi
 
+# Stage decompression to a temp file so a truncated archive is caught before
+# psql touches the live database, and run psql with ON_ERROR_STOP so a
+# mid-restore SQL error aborts non-zero instead of psql exiting 0 on a partial
+# restore.
+sql_tmp="$(mktemp)"
+trap 'rm -f "$sql_tmp"' EXIT
+
+echo "[restore] decompressing $dump"
+if ! gzip -dc "$dump" >"$sql_tmp"; then
+    echo "[restore] decompression failed; aborting before touching $PGDATABASE" >&2
+    exit 1
+fi
+
 echo "[restore] restoring $dump into $PGDATABASE"
-gzip -dc "$dump" | psql --quiet --dbname "$PGDATABASE" >/dev/null
+psql --quiet --set ON_ERROR_STOP=1 --dbname "$PGDATABASE" -f "$sql_tmp" >/dev/null
 echo "[restore] done -- run verify-restore.sh to confirm integrity"

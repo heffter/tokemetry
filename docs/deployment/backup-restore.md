@@ -8,10 +8,13 @@ drill (Task 70.6, NFR-REL-004, AC-014).
 The `backup` service in `deploy/docker-compose.yml` runs `deploy/backup.sh`
 nightly against Postgres:
 
-- `pg_dump --no-owner --no-privileges | gzip` to
-  `/backups/tokemetry-<UTC-stamp>.sql.gz`.
-- A `.sha256` sidecar is written next to each dump so a truncated or tampered
-  dump is caught before a restore.
+- `pg_dump --no-owner --no-privileges`, streamed through `gzip` to
+  `/backups/tokemetry-<UTC-stamp>.sql.gz`. A failed `pg_dump` aborts the run
+  (its exit status is captured despite the pipe, which POSIX `sh` has no
+  `pipefail` for), the archive is gzip-integrity-checked, and it is published
+  atomically -- so a partial or empty dump is never left in place.
+- A `.sha256` sidecar is written next to each completed dump so a later
+  truncation or tamper is caught before a restore.
 - Dumps (and their sidecars) older than `RETENTION_DAYS` (default 14) are
   pruned. This is file rotation, separate from database-row retention
   ([retention](../architecture/retention.md)).
@@ -19,8 +22,11 @@ nightly against Postgres:
 For a **SQLite** deployment, back up with the online-safe snapshot:
 
 ```sh
-sqlite3 /var/lib/tokemetry/tokemetry.db ".backup '/backups/tokemetry-$(date -u +%Y%m%dT%H%M%SZ).db'"
+sqlite3 /var/lib/tokemetry/tokemetry.sqlite3 ".backup '/backups/tokemetry-$(date -u +%Y%m%dT%H%M%SZ).sqlite3'"
 ```
+
+The database path matches `TOKEMETRY_DATABASE_URL` in the native environment
+file (`deploy/server/tokemetry-server.env.example`).
 
 **Back up before every migration.** The upgrade procedure
 ([upgrades](server.md#upgrades)) is: take a fresh backup, then apply the new
