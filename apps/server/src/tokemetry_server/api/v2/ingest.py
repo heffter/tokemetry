@@ -46,6 +46,7 @@ from tokemetry_server.api.v2.schemas import (
     ValidationErrorItem,
 )
 from tokemetry_server.config import Settings
+from tokemetry_server.db.migrate import head_revision
 from tokemetry_server.scopes import (
     ADMIN_CORRECTIONS,
     INGEST_AGGREGATES,
@@ -338,7 +339,15 @@ async def validate_events(
 
 @router.get("/ready", tags=["meta"])
 async def readiness(request: Request) -> JSONResponse:
-    """Unauthenticated readiness probe: database and migration status."""
+    """Unauthenticated readiness probe: database and migration status.
+
+    Returns ``503`` when the database is unreachable *or* its schema is not at
+    the Alembic head this code expects. Reporting the stamped revision alone is
+    misleading for deployments that do not auto-migrate
+    (``TOKEMETRY_AUTO_MIGRATE=false``): a probe that stays green on a
+    behind-head schema hides the very drift an operator needs to see, so the
+    body carries ``migration_head`` and ``at_head`` and the status reflects them.
+    """
     factory = request.app.state.session_factory
     database_ok = True
     revision: str | None = None
@@ -353,12 +362,23 @@ async def readiness(request: Request) -> JSONResponse:
         # Readiness reports failure in its body; it must never raise.
         database_ok = False
 
+    head = head_revision()
+    at_head = database_ok and revision is not None and revision == head
+    if not database_ok:
+        state = "unavailable"
+    elif not at_head:
+        state = "migrations_pending"
+    else:
+        state = "ready"
+
     payload = {
-        "status": "ready" if database_ok else "unavailable",
+        "status": state,
         "database": "ok" if database_ok else "error",
         "migration": revision,
+        "migration_head": head,
+        "at_head": at_head,
     }
-    code = status.HTTP_200_OK if database_ok else status.HTTP_503_SERVICE_UNAVAILABLE
+    code = status.HTTP_200_OK if at_head else status.HTTP_503_SERVICE_UNAVAILABLE
     return JSONResponse(payload, status_code=code)
 
 

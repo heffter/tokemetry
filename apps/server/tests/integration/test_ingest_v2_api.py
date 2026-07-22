@@ -155,6 +155,26 @@ def test_readiness_unauthenticated(client: TestClient) -> None:
     assert body["database"] == "ok"
     # Reports the current head revision (a non-empty string), not a fixed value.
     assert isinstance(body["migration"], str) and body["migration"]
+    # The test database is migrated to head, so it is at head and reports it.
+    assert body["at_head"] is True
+    assert body["migration_head"] == body["migration"]
+
+
+def test_readiness_reports_schema_drift(
+    client: TestClient, monkeypatch: Any
+) -> None:
+    # A database behind the code's expected head must read as not-ready (503)
+    # even though the connection itself is healthy.
+    import tokemetry_server.api.v2.ingest as ingest_module
+
+    monkeypatch.setattr(ingest_module, "head_revision", lambda: "9999_not_the_head")
+    response = client.get("/api/v2/ready")
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "migrations_pending"
+    assert body["database"] == "ok"
+    assert body["at_head"] is False
+    assert body["migration_head"] == "9999_not_the_head"
 
 
 def test_oversized_batch_rejected(tmp_path: Path) -> None:

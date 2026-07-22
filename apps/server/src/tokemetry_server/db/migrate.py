@@ -7,10 +7,12 @@ fixtures) control the target without environment juggling.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 #: apps/server root (parents: db -> tokemetry_server -> src -> server root).
 _SERVER_ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +28,20 @@ def alembic_config(sync_url: str) -> Config:
     config = Config(str(_ALEMBIC_INI))
     config.set_main_option("sqlalchemy.url", sync_url)
     return config
+
+
+@lru_cache(maxsize=1)
+def head_revision() -> str | None:
+    """The Alembic head revision the packaged migration scripts define.
+
+    Derived from the migration files on disk, not from any database, so a caller
+    can compare a database's stamped revision against the revision this code
+    expects (for example a readiness probe detecting schema drift). Cached
+    because the packaged scripts never change at runtime. The URL is irrelevant
+    here -- ``ScriptDirectory`` only reads ``script_location`` -- so a throwaway
+    one is used and never connected.
+    """
+    return ScriptDirectory.from_config(alembic_config("sqlite://")).get_current_head()
 
 
 def upgrade_to_head(sync_url: str) -> None:
