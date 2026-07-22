@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "tokemetry",
+    "tokemetry-client",
     "tokemetry-collector",
     "tokemetry-core",
     "tokemetry-server",
@@ -1006,6 +1007,7 @@ name = "tokemetry"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "tokemetry-client" },
     { name = "tokemetry-collector" },
     { name = "tokemetry-core" },
     { name = "tokemetry-server" },
@@ -1022,6 +1024,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "tokemetry-client", editable = "packages/clients/python" },
     { name = "tokemetry-collector", editable = "apps/collector" },
     { name = "tokemetry-core", editable = "packages/core" },
     { name = "tokemetry-server", editable = "apps/server" },
@@ -1034,6 +1037,21 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.25" },
     { name = "pytest-cov", specifier = ">=6.0" },
     { name = "ruff", specifier = ">=0.9" },
+]
+
+[[package]]
+name = "tokemetry-client"
+version = "0.1.0"
+source = { editable = "packages/clients/python" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pydantic", specifier = ">=2.10" },
 ]
 
 [[package]]

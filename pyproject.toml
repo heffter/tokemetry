@@ -11,15 +11,17 @@ dependencies = [
   "tokemetry-core",
   "tokemetry-server",
   "tokemetry-collector",
+  "tokemetry-client",
 ]
 
 [tool.uv.workspace]
-members = ["apps/server", "apps/collector", "packages/core"]
+members = ["apps/server", "apps/collector", "packages/core", "packages/clients/python"]
 
 [tool.uv.sources]
 tokemetry-core = { workspace = true }
 tokemetry-server = { workspace = true }
 tokemetry-collector = { workspace = true }
+tokemetry-client = { workspace = true }
 
 [dependency-groups]
 dev = [
