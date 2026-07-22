@@ -30,6 +30,9 @@ dev = [
   "pytest>=8.3",
   "pytest-cov>=6.0",
   "pytest-asyncio>=0.25",
+  # Cross-platform machine-load probe for the load-gated perf smoke test.
+  "psutil>=6.0",
+  "types-psutil>=6.0",
 ]
 
 [tool.ruff]
@@ -91,10 +94,13 @@ ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["apps/server/tests", "apps/collector/tests", "packages/core/tests"]
-addopts = "-ra"
+# Wall-clock perf tests are excluded from the default gate so it never flakes on
+# loaded/shared machines; run them explicitly with `-m perf` (a CLI `-m` wins over
+# this default). See apps/server/tests/perf/README.md.
+addopts = '-ra -m "not perf"'
 asyncio_mode = "auto"
 markers = [
-  "perf: performance and throughput smoke tests (select with -m perf)",
+  "perf: wall-clock performance and throughput tests (opt in with -m perf)",
 ]
 filterwarnings = [
   # Third-party deprecation from Starlette's TestClient httpx integration.

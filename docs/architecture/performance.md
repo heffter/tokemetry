@@ -18,12 +18,19 @@ that produces it. The harness is reused for the Task 70 sustained-ingest gate.
 
 `test_ingest_throughput.py` drives events through the full v2 ingest path
 (privacy validation, source resolution, the revision engine, and the upsert) in
-bounded 200-event batches and reports the sustained rate. The CI test asserts
-only a loose floor (100 events/s) so it never flakes across hardware; the
-acceptance figure is measured on the reference hardware.
+bounded 200-event batches and reports the sustained rate. It is marked `perf`
+and excluded from the default gate; run it with `-m perf`. It always asserts
+correctness (every event lands exactly once) and enforces the 100 events/s floor
+only when the machine is idle enough to time reliably -- under load it skips the
+timing assertion with a clear reason rather than failing. See
+`apps/server/tests/perf/README.md` for the load-gating policy and the 2026-07-22
+flakiness that motivated it. The acceptance figure is measured on the reference
+hardware.
 
-- **Measured (dev box, SQLite):** ~500 events/s single-process -- a lower bound,
-  since SQLite serializes writes and this is not the reference platform.
+- **Measured (dev box, SQLite):** ~500 events/s single-process idle -- a lower
+  bound, since SQLite serializes writes and this is not the reference platform.
+  Under heavy machine load the same path measured 81-89 events/s (2026-07-22),
+  which is why the floor is load-gated rather than asserted unconditionally.
 - **Reference target (Postgres, reference hardware):** >= 1000 events/s
   sustained. Postgres' concurrent writes plus batching clear the target with
   headroom; record the measured figure and the hardware profile when the
@@ -46,6 +53,8 @@ acceptance figure is measured on the reference hardware.
   full-day rollup refresh), reporting the best of a few runs.
 - `test_benchmark_smoke.py` runs the harness against a small dataset in CI so it
   stays correct; wall-clock is asserted only on reference hardware.
+- `throughput_guard.py` load-gates the ingest floor and `test_throughput_guard.py`
+  unit-tests that gate (regression caught, skipped under load) deterministically.
 
 To produce the reference figures, run the harness against a Postgres instance
 with the full dataset (default 1M attempts over 90 days) and record the numbers
